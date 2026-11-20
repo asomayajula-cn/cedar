@@ -1,8 +1,8 @@
-# DDD + 12-factor — matches examples/Spring Boot package layout (first match wins).
+# Layered layout — matches examples/Spring Boot package layout (first match wins).
 
 components:
   - id: domain
-    name: Domain layer · DDD
+    name: Domain layer
     paths:
       - "**/src/main/java/**/domain/**"
       - "internal/domain/**"
@@ -10,7 +10,7 @@ components:
     depends_on: []
 
   - id: application
-    name: Application layer · DDD
+    name: Application layer
     paths:
       - "**/src/main/java/**/application/**"
       - "**/src/main/java/**/port/**"
@@ -19,14 +19,14 @@ components:
     depends_on: [domain]
 
   - id: infrastructure
-    name: Infrastructure · DDD
+    name: Infrastructure layer
     paths:
       - "**/src/main/java/**/infrastructure/**"
       - "internal/store/**"
     depends_on: [domain, application]
 
   - id: api
-    name: API adapters · DDD
+    name: API adapters
     paths:
       - "**/src/main/java/**/api/**"
       - "api/**"

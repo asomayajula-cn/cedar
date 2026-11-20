@@ -423,7 +423,7 @@ function describeArchitectureFlow(layers) {
     paragraphs.push(
       layers.length === 1
         ? `Single-layer change (${layers[0].name}) — scope is confined but verify callers outside this slice.`
-        : "Multi-layer change — validate dependencies: domain → application → infrastructure/api (DDD + DIP)."
+        : "Multi-layer change — validate dependencies: domain → application → infrastructure/api (DIP)."
     );
   }
 

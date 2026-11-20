@@ -16,22 +16,22 @@ const LAYER_HINTS = [
   { id: "migrations", name: "Schema & migrations", match: /(^|\/)migrations?\//i },
   {
     id: "domain",
-    name: "Domain layer · DDD",
+    name: "Domain layer",
     match: /src\/main\/java\/.*\/domain\/|(^|\/)(domain)\//i,
   },
   {
     id: "application",
-    name: "Application layer · DDD",
+    name: "Application layer",
     match: /src\/main\/java\/.*\/application\/|(^|\/)(application|usecase)\//i,
   },
   {
     id: "infrastructure",
-    name: "Infrastructure · DDD",
+    name: "Infrastructure layer",
     match: /src\/main\/java\/.*\/infrastructure\/|(^|\/)(infrastructure)\//i,
   },
   {
     id: "api",
-    name: "API adapters · DDD",
+    name: "API adapters",
     match: /src\/main\/java\/.*\/api\/|(^|\/)(api|handlers|routes)\//i,
   },
   {

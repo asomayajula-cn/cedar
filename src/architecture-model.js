@@ -1,5 +1,5 @@
 /**
- * Cedar PR architecture matches Spring Boot examples: DDD layers, SOLID boundaries, 12-factor ops.
+ * Cedar PR architecture matches Spring Boot examples: layered packages, SOLID boundaries, 12-factor ops.
  */
 
 /** @type {readonly string[]} Review order: inner domain first, then config/deploy surfaces. */
@@ -20,10 +20,10 @@ export const DDD_12FACTOR_REVIEW_ORDER = [
 
 /** @type {Record<string, string>} */
 export const SLICE_DISPLAY_NAMES = {
-  domain: "Domain layer · DDD",
-  application: "Application layer · DDD",
-  infrastructure: "Infrastructure · DDD",
-  api: "API adapters · DDD",
+  domain: "Domain layer",
+  application: "Application layer",
+  infrastructure: "Infrastructure layer",
+  api: "API adapters",
   config: "Runtime config · 12-factor (III)",
   build_deploy: "Build & release · 12-factor (V)",
   persistence: "Persistence",
@@ -34,7 +34,7 @@ export const SLICE_DISPLAY_NAMES = {
   tests: "Tests",
 };
 
-export const ARCHITECTURE_MODEL_LABEL = "DDD · SOLID · 12-factor";
+export const ARCHITECTURE_MODEL_LABEL = "Layered · SOLID · 12-factor";
 
 /** Human-facing checklist for slice / composite review. */
 export const SOLID_REVIEW_CHECKLIST = [
@@ -47,7 +47,7 @@ export const SOLID_REVIEW_CHECKLIST = [
 
 export const AI_PARTITION_SYSTEM_EXTRA = `Slice pull requests like a Spring Boot bounded context:
 
-DDD layers (prefer these ids when paths match):
+Layers (prefer these ids when paths match):
 - domain — entities, value objects, domain services (no framework)
 - application — use cases, application services, inbound/outbound ports
 - infrastructure — adapters implementing ports, Spring @Configuration
@@ -85,5 +85,5 @@ export function displayNameForSlice(sliceId, fallbackName) {
 }
 
 export function heuristicSummaryLead() {
-  return `${ARCHITECTURE_MODEL_LABEL} micro-slices`;
+  return "Architectural micro-slices";
 }

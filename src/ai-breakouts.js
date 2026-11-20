@@ -112,7 +112,7 @@ async function requestAiBreakouts(digest, pullCtx, hint) {
 Goals:
 - 2–8 slices (not one per file; not one giant slice unless the PR is tiny)
 - Each changed file appears exactly once in file_assignments
-- architecture_summary must mention the model: DDD + SOLID + 12-factor
+- architecture_summary: one short paragraph on how layers and deploy surfaces change (do not lecture on methodology labels)
 
 ${AI_PARTITION_SYSTEM_EXTRA}
 

@@ -54,7 +54,7 @@ export async function resolveArchitectureVisual(baseGraph, microPrs, breakouts, 
 
   const system = `You determine how a pull request architecture diagram should look in a review UI (Cytoscape + Dagre).
 
-Context: ${ARCHITECTURE_MODEL_LABEL} — DDD layers, SOLID boundaries, 12-factor config/deploy.
+Context: ${ARCHITECTURE_MODEL_LABEL} — layer boundaries and 12-factor config/deploy surfaces.
 
 Return JSON only:
 {
@@ -69,7 +69,7 @@ Return JSON only:
 Rules:
 - Only relabel nodes whose ids already exist in the input graph (pr, slice_*, file nodes).
 - Do not add new node ids; edges are already derived from the partition.
-- Prefer labels that name DDD role (domain, application, api, config) when paths support it.
+- Prefer labels that name layer role (domain, application, api, config) when paths support it.
 - layout LR for wide multi-slice PRs; TB for vertical stack stories.`;
 
   const user = JSON.stringify({
