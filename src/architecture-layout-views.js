@@ -6,11 +6,7 @@
  */
 
 import { normalizeSliceId } from "./architecture-model.js";
-import {
-  formatPrHubLabel,
-  formatSliceTagMermaid,
-  mermaidFlowNodeLabel,
-} from "./diagram-labels.js";
+import { formatPrHubLabel, primaryClassNames } from "./diagram-labels.js";
 import { buildPrArchitectureLayers } from "./pr-architecture-layers.js";
 import { mermaidClassId, mermaidParticipantAlias, mermaidSafeText } from "./mermaid-sanitize.js";
 
@@ -50,16 +46,15 @@ export function buildCompleteLayoutViews(microPrs, breakouts, pull, target) {
 /**
  * @param {PrArchitectureLayer[]} layers
  */
-function buildComponentsClassDiagram(layers) {
-  if (!layers.length) {
-    return 'classDiagram\n  class EmptyPR["No changed layers"]';
-  }
-
-  const lines = ["classDiagram", layers.length <= 4 ? "  direction LR" : "  direction TB"];
-  /** @type {Map<string, string>} */
+/**
+ * @param {PrArchitectureLayer[]} layers
+ */
+function buildClassAnchorMaps(layers) {
+  /** @type {Map<string, string>} typeName → mermaid class id */
   const mermaidIdByType = new Map();
-  /** @type {Map<string, string>} */
+  /** @type {Map<string, string>} layer id → primary class id */
   const anchorByLayer = new Map();
+  const classLines = [];
 
   for (const layer of layers) {
     const layerTypes = layer.types ?? [];
@@ -67,27 +62,36 @@ function buildComponentsClassDiagram(layers) {
       const className = `${safeIdent(layer.id)}_layer`;
       mermaidIdByType.set(className, className);
       anchorByLayer.set(layer.id, className);
-      lines.push(`  class ${className}["${mermaidSafeText(layer.name)}"]`);
-      if (layer.summary) lines.push(`  ${className} : ${mermaidSafeText(layer.summary)}`);
-      lines.push(`  ${className} : ${mermaidSafeText(formatSliceTagMermaid(layer.micro))}`);
+      classLines.push(`  class ${className}["${mermaidSafeText(layer.name)}"]`);
       continue;
     }
 
     const layerAnchors = [];
-    for (let i = 0; i < layerTypes.length; i++) {
-      const typeName = layerTypes[i];
+    for (const typeName of layerTypes) {
       const className = mermaidClassId(typeName, mermaidIdByType);
       if (!mermaidIdByType.has(typeName)) {
         mermaidIdByType.set(typeName, className);
-        lines.push(`  class ${className}["${mermaidSafeText(typeName)}"]`);
-        if (layer.summary && i === 0) lines.push(`  ${className} : ${mermaidSafeText(layer.summary)}`);
-        lines.push(`  ${className} : ${mermaidSafeText(layer.name)}`);
-        lines.push(`  ${className} : ${mermaidSafeText(formatSliceTagMermaid(layer.micro))}`);
+        classLines.push(`  class ${className}["${mermaidSafeText(typeName)}"]`);
       }
       layerAnchors.push(className);
     }
     if (layerAnchors[0]) anchorByLayer.set(layer.id, layerAnchors[0]);
   }
+
+  return { mermaidIdByType, anchorByLayer, classLines };
+}
+
+/**
+ * @param {PrArchitectureLayer[]} layers
+ */
+function buildComponentsClassDiagram(layers) {
+  if (!layers.length) {
+    return 'classDiagram\n  class EmptyPR["No changed layers"]';
+  }
+
+  const lines = ["classDiagram", layers.length <= 4 ? "  direction LR" : "  direction TB"];
+  const { anchorByLayer, classLines } = buildClassAnchorMaps(layers);
+  lines.push(...classLines);
 
   const deps = new Set();
   for (const layer of layers) {
@@ -141,7 +145,8 @@ function buildRequestFlowDiagram(layers, active, pull, target) {
   };
 
   for (const layer of layers) {
-    const label = mermaidFlowNodeLabel(layer);
+    const names = primaryClassNames(layer, 4);
+    const label = names.length ? names.join(", ") : layer.name;
     register(layer.id, label);
   }
 
@@ -195,77 +200,70 @@ function buildEventsSequenceDiagram(layers, active) {
     return "sequenceDiagram\n  participant PR as Pull request\n  PR->>PR: No layer changes";
   }
 
+  const { mermaidIdByType, anchorByLayer } = buildClassAnchorMaps(layers);
   const lines = ["sequenceDiagram", "  autonumber"];
-  /** @type {Map<string, string>} */
-  const alias = new Map();
+  const declared = new Set();
 
-  const ensure = (layer) => {
-    const key = layer.id;
-    if (alias.has(key)) return alias.get(key);
-    const a = safeIdent(key).slice(0, 24) || "layer";
-    alias.set(key, a);
-    const names = (layer.types ?? []).slice(0, 2).join(", ");
-    const display = names
-      ? `${names} · ${layer.name} · ${formatSliceTagMermaid(layer.micro)}`
-      : `${layer.name} · ${formatSliceTagMermaid(layer.micro)}`;
-    lines.push(`  participant ${a} as ${mermaidParticipantAlias(display)}`);
-    return a;
+  const declareClass = (classId, displayName) => {
+    if (!classId || declared.has(classId)) return;
+    declared.add(classId);
+    lines.push(`  participant ${classId} as ${mermaidParticipantAlias(displayName)}`);
   };
 
-  const layerById = new Map(layers.map((l) => [l.id, l]));
-
-  if (active.has("web")) {
-    const webLayer = layerById.get("web");
-    if (webLayer) ensure(webLayer);
-    else {
-      alias.set("web", "web");
-      lines.push("  participant web as Client / Web");
+  for (const layer of layers) {
+    for (const typeName of layer.types ?? []) {
+      const classId = mermaidIdByType.get(typeName);
+      if (classId) declareClass(classId, typeName);
     }
-  } else {
-    lines.push("  actor Client as Client");
+    if (!(layer.types?.length)) {
+      const classId = anchorByLayer.get(layer.id);
+      if (classId) declareClass(classId, layer.name);
+    }
   }
 
-  const order = ["api", "application", "domain", "repository", "infrastructure"];
-  for (const id of order) {
-    if (!active.has(id)) continue;
-    const layer = layerById.get(id);
-    if (layer) ensure(layer);
+  const messageKeys = new Set();
+
+  const message = (from, to, label = "call") => {
+    if (!from || !to || from === to) return;
+    const key = `${from}->>${to}:${label}`;
+    if (messageKeys.has(key)) return;
+    messageKeys.add(key);
+    lines.push(`  ${from}->>${to}: ${mermaidSafeText(label)}`);
+  };
+
+  const chain = REQUEST_CHAIN.filter((id) => active.has(id) && anchorByLayer.has(id));
+  for (let i = 0; i < chain.length - 1; i++) {
+    message(anchorByLayer.get(chain[i]), anchorByLayer.get(chain[i + 1]));
   }
 
-  for (const id of ["config", "build_deploy", "integration", "infra", "migrations", "persistence", "tests", "misc"]) {
-    if (!active.has(id)) continue;
-    const layer = layerById.get(id);
-    if (layer) ensure(layer);
+  for (const layer of layers) {
+    const from = anchorByLayer.get(layer.id);
+    if (!from) continue;
+    for (const depId of layer.dependsOn) {
+      message(from, anchorByLayer.get(normalizeSliceId(depId)), "uses");
+    }
   }
 
-  const client = active.has("web") ? alias.get("web") : "Client";
-  const api = alias.get("api");
-  const app = alias.get("application");
-  const domain = alias.get("domain");
-  const repo = alias.get("repository");
-  const infra = alias.get("infrastructure");
-
-  if (api) {
-    lines.push(active.has("web") ? `  ${client}->>${api}: HTTP request` : `  Client->>${api}: HTTP request`);
+  for (const link of OPS_LINKS) {
+    if (!active.has(link.from) || !active.has(link.to)) continue;
+    message(anchorByLayer.get(link.from), anchorByLayer.get(link.to), link.label);
   }
-  if (api && app) lines.push(`  ${api}->>${app}: invoke use case`);
-  else if (api && domain) lines.push(`  ${api}->>${domain}: domain call`);
-  if (app && domain) lines.push(`  ${app}->>${domain}: command`);
-  if (domain && app) lines.push(`  ${domain}-->>${app}: domain event / result`);
-  if (app && repo) lines.push(`  ${app}->>${repo}: persist`);
-  else if (domain && repo) lines.push(`  ${domain}->>${repo}: persist`);
-  if (repo && app) lines.push(`  ${repo}-->>${app}: stored`);
-  if (infra && app) lines.push(`  ${infra}-->>${app}: adapter (ports)`);
 
-  const config = alias.get("config");
-  if (config && api) lines.push(`  ${config}-->>${api}: runtime config (III)`);
-  const build = alias.get("build_deploy");
-  if (build && api) lines.push(`  ${build}-->>${api}: build & release (V)`);
+  for (const layer of layers) {
+    const types = layer.types ?? [];
+    for (let i = 0; i < types.length - 1; i++) {
+      const a = mermaidIdByType.get(types[i]);
+      const b = mermaidIdByType.get(types[i + 1]);
+      message(a, b, "collaborates");
+    }
+  }
 
   if (lines.length <= 2) {
-    const first = layers[0];
-    const a = ensure(first);
-    lines.push(`  Client->>${a}: ${mermaidSafeText(formatSliceTagMermaid(first.micro))}`);
+    const first = anchorByLayer.get(layers[0].id);
+    if (first) {
+      lines.push("  actor Caller as Caller");
+      message("Caller", first, "invoke");
+    }
   }
 
   return lines.join("\n");

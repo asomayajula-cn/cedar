@@ -261,13 +261,34 @@ function cyToolbar(targetId, badge = "") {
   </div>`;
 }
 
-function mermaidToolbar(badge = "") {
+function mermaidToolbar() {
   return `<div class="diagram-toolbar flex flex-wrap items-center gap-1.5" data-diagram-toolbar>
-    <span class="cedar-label mb-0">View</span>
-    <button type="button" class="diagram-tool-btn" data-diagram-action="in" title="Zoom in">+</button>
-    <button type="button" class="diagram-tool-btn" data-diagram-action="out" title="Zoom out">−</button>
-    <button type="button" class="diagram-tool-btn" data-diagram-action="reset" title="Fit">Fit</button>
-    ${badge}
+    <button type="button" class="diagram-tool-btn" data-diagram-action="in" title="Zoom in" aria-label="Zoom in">+</button>
+    <button type="button" class="diagram-tool-btn" data-diagram-action="out" title="Zoom out" aria-label="Zoom out">−</button>
+    <button type="button" class="diagram-tool-btn" data-diagram-action="reset" title="Fit" aria-label="Fit diagram">◇</button>
+    <button type="button" class="diagram-tool-btn" data-layout-action="collapse" title="Minimize" aria-label="Minimize diagram">▾</button>
+    <button type="button" class="diagram-tool-btn" data-layout-action="maximize" title="Maximize" aria-label="Maximize diagram">⤢</button>
+  </div>`;
+}
+
+/**
+ * @param {{ componentId: string, status: string }[]} slices
+ * @param {{ componentId: string, componentName?: string }[]} microPrs
+ */
+function layoutSliceBadges(slices, microPrs) {
+  if (!slices.length) return "";
+  return `<div class="cedar-layout-slice-badges" role="list" aria-label="Micro slices">
+    ${slices
+      .map((r, i) => {
+        const micro = microPrs.find((m) => m.componentId === r.componentId);
+        const title = escapeHtml(micro?.componentName ?? r.componentId);
+        return `<button type="button" role="listitem" class="cedar-slice-badge" data-scroll-slice="${escapeHtml(
+          r.componentId
+        )}" title="${title}" aria-label="Slice ${i + 1}: ${title}">
+          <span class="h-2 w-2 shrink-0 rounded-full ${statusDot[r.status] ?? statusDot.skipped}"></span>
+        </button>`;
+      })
+      .join("")}
   </div>`;
 }
 
@@ -680,6 +701,35 @@ function wireCompleteLayoutViews(root, views) {
   requestAnimationFrame(() => requestAnimationFrame(draw));
 }
 
+function wireLayoutViewControls(root) {
+  const host = root.querySelector("#architecture-read-mermaid");
+  if (!(host instanceof HTMLElement)) return;
+
+  host.querySelectorAll("[data-layout-view]").forEach((article) => {
+    if (!(article instanceof HTMLElement) || article.dataset.wiredLayoutView) return;
+    article.dataset.wiredLayoutView = "1";
+
+    article.querySelectorAll("[data-layout-action]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const action = btn.getAttribute("data-layout-action");
+        if (action === "collapse") {
+          article.classList.toggle("cedar-layout-view-collapsed");
+          refitPanZoomDiagrams(host);
+          return;
+        }
+        if (action === "maximize") {
+          const focused = article.classList.contains("is-layout-focused");
+          host.classList.toggle("cedar-layout-views-focused", !focused);
+          host.querySelectorAll("[data-layout-view]").forEach((el) => {
+            el.classList.toggle("is-layout-focused", !focused && el === article);
+          });
+          refitPanZoomDiagrams(host);
+        }
+      });
+    });
+  });
+}
+
 function wireReviewTabs(root, defaultMainTab) {
   root.querySelectorAll("[data-review-tab]").forEach((btn) => {
     if (btn.dataset.wiredReviewTab) return;
@@ -815,6 +865,7 @@ function renderResults(container, data) {
     Boolean(composite);
 
   const activeSlices = microResults.filter((r) => r.status !== "skipped");
+  const layoutBadges = layoutSliceBadges(activeSlices, microPrs);
   const firstSliceId = activeSlices[0]?.componentId ?? "";
   const hasArchitectureContent = Boolean(breakouts?.architectureSummary) || showArchitectureRead;
   const defaultMainTab = hasArchitectureContent ? "architecture" : "slices";
@@ -1044,8 +1095,11 @@ function renderResults(container, data) {
             <div class="cedar-complete-layout-views w-full min-w-0" id="architecture-read-mermaid">
             <article class="cedar-layout-view cedar-layout-view-uml w-full" data-layout-view="uml" data-diagram-wrap>
               <div class="architecture-read-mermaid-head mb-2 flex flex-wrap items-center justify-between gap-2">
-                <p class="cedar-label mb-0">UML · components</p>
-                ${mermaidToolbar(`<span class="cedar-badge cedar-badge-muted">Class</span>`)}
+                <div class="flex min-w-0 flex-wrap items-center gap-2">
+                  <p class="cedar-label mb-0">UML · components</p>
+                  ${layoutBadges}
+                </div>
+                ${mermaidToolbar()}
               </div>
               <div class="diagram-complete-layout diagram-stage-canvas cedar-mermaid-scroll">
                 <div id="cedar-mermaid-components" class="cedar-mermaid-source m-0" role="img" aria-label="UML components class diagram"></div>
@@ -1053,8 +1107,11 @@ function renderResults(container, data) {
             </article>
             <article class="cedar-layout-view mt-8 w-full" data-layout-view="flow" data-diagram-wrap>
               <div class="architecture-read-mermaid-head mb-2 flex flex-wrap items-center justify-between gap-2">
-                <p class="cedar-label mb-0">Flow</p>
-                ${mermaidToolbar(`<span class="cedar-badge cedar-badge-muted">Request path</span>`)}
+                <div class="flex min-w-0 flex-wrap items-center gap-2">
+                  <p class="cedar-label mb-0">Flow</p>
+                  ${layoutBadges}
+                </div>
+                ${mermaidToolbar()}
               </div>
               <div class="diagram-complete-layout diagram-stage-canvas cedar-mermaid-scroll">
                 <div id="cedar-mermaid-flow" class="cedar-mermaid-source m-0" role="img" aria-label="Request flow diagram"></div>
@@ -1062,8 +1119,11 @@ function renderResults(container, data) {
             </article>
             <article class="cedar-layout-view mt-8 w-full" data-layout-view="events" data-diagram-wrap>
               <div class="architecture-read-mermaid-head mb-2 flex flex-wrap items-center justify-between gap-2">
-                <p class="cedar-label mb-0">Events</p>
-                ${mermaidToolbar(`<span class="cedar-badge cedar-badge-muted">Sequence</span>`)}
+                <div class="flex min-w-0 flex-wrap items-center gap-2">
+                  <p class="cedar-label mb-0">Events</p>
+                  ${layoutBadges}
+                </div>
+                ${mermaidToolbar()}
               </div>
               <div class="diagram-complete-layout diagram-stage-canvas cedar-mermaid-scroll">
                 <div id="cedar-mermaid-events" class="cedar-mermaid-source m-0" role="img" aria-label="Domain events sequence diagram"></div>
@@ -1139,6 +1199,7 @@ function renderResults(container, data) {
 
   if (hasLayoutViews && layoutViews) {
     wireCompleteLayoutViews(container, layoutViews);
+    wireLayoutViewControls(container);
     wireDiagramResizeListeners(container);
   }
 
