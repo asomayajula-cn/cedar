@@ -1,4 +1,5 @@
 import { splitPatchIntoHunks } from "./partition.js";
+import { ARCHITECTURE_MODEL_LABEL, SOLID_REVIEW_CHECKLIST } from "./architecture-model.js";
 
 const SECRET_PATTERNS = [
   /AKIA[0-9A-Z]{16}/,
@@ -122,6 +123,29 @@ export function reviewMicroPr(micro, ctx = {}) {
         message: "Schema/migration change outside persistence component.",
         filename: name,
       });
+    }
+
+    if (micro.componentId === "domain" && /\.java$/i.test(name)) {
+      if (/^\+.*\bimport\s+org\.springframework\./m.test(patch) || /^\+.*@(Service|Component|Repository)\b/m.test(patch)) {
+        findings.push({
+          ruleId: "solid/dip-domain-framework",
+          severity: "warning",
+          message: "DIP/SRP: domain adds framework annotations or Spring imports — prefer pure domain + infrastructure wiring.",
+          filename: name,
+        });
+      }
+    }
+
+    if (micro.componentId === "api" && /Controller\.java$/i.test(name)) {
+      const added = patch.split("\n").filter((l) => l.startsWith("+") && !l.startsWith("+++")).length;
+      if (added > 35) {
+        findings.push({
+          ruleId: "solid/srp-fat-controller",
+          severity: "info",
+          message: "SRP: large controller diff — delegate business rules to the application layer.",
+          filename: name,
+        });
+      }
     }
 
     const hunks = splitPatchIntoHunks(patch);
@@ -335,7 +359,7 @@ export function buildWholePicture(microPrs, microResults, pull) {
   const risk = aggregateRiskProfile(microResults);
 
   return [
-    "## Whole picture",
+    "## Architecture read",
     "",
     `This PR changes **${touched.length}** architectural layer(s) on branch \`${pull.head.ref}\` (${pull.changed_files ?? touched.length} files in partition).`,
     "",
@@ -347,6 +371,9 @@ export function buildWholePicture(microPrs, microResults, pull) {
     "",
     "### How the change reads architecturally",
     flow,
+    "",
+    `### ${ARCHITECTURE_MODEL_LABEL} · SOLID reminders`,
+    ...SOLID_REVIEW_CHECKLIST.map((line) => `- ${line}`),
     "",
     "### Risk profile (from micro-reviews)",
     `- Blockers: ${risk.blockers}`,
@@ -369,8 +396,19 @@ function describeArchitectureFlow(layers) {
       "Data model and storage moved together — treat as a vertical persistence story: schema first, domain rules second."
     );
   }
+  if (ids.has("domain") && ids.has("application")) {
+    paragraphs.push(
+      "Domain + application moved together — review use cases (SRP) and ensure infrastructure only implements ports (DIP)."
+    );
+  }
   if (ids.has("domain") && !ids.has("api") && !ids.has("web")) {
     paragraphs.push("Internal domain-only change with no public surface diff — lower integration risk if contracts unchanged.");
+  }
+  if (ids.has("application") && ids.has("infrastructure")) {
+    paragraphs.push("Application and infrastructure slices paired — verify adapters implement application ports without leaking into domain.");
+  }
+  if (ids.has("config") || ids.has("build_deploy")) {
+    paragraphs.push("12-factor config or build surface changed — confirm secrets stay in environment, not source.");
   }
   if (ids.has("api") && ids.has("web")) {
     paragraphs.push("Full stack slice: confirm request/response contracts before UI behavior.");
@@ -385,7 +423,7 @@ function describeArchitectureFlow(layers) {
     paragraphs.push(
       layers.length === 1
         ? `Single-layer change (${layers[0].name}) — scope is confined but verify callers outside this slice.`
-        : "Multi-layer change — validate dependencies in the order persistence → domain → api → web."
+        : "Multi-layer change — validate dependencies: domain → application → infrastructure/api (DDD + DIP)."
     );
   }
 
@@ -418,7 +456,7 @@ export function buildPendingCompositeNotice(microResults, gate) {
   return [
     "## Complete architectural review — pending",
     "",
-    `Whole-picture synthesis is **not** posted yet for \`${gate.headSha.slice(0, 7)}\`.`,
+    `Architecture read composite is **not** posted yet for \`${gate.headSha.slice(0, 7)}\`.`,
     "",
     gate.blockedReason ? `**Reason:** ${gate.blockedReason}` : "",
     "",
@@ -435,7 +473,7 @@ export function buildPendingCompositeNotice(microResults, gate) {
       ? `_Still reviewing: ${open.map((o) => o.componentId).join(", ")}_`
       : "",
     "",
-    "Resolve blockers and re-run; the composite **Whole picture** section appears when every touched component micro-review passes.",
+    "Resolve blockers and re-run; the **Architecture read** composite appears when every touched component micro-review passes.",
   ]
     .filter(Boolean)
     .join("\n");

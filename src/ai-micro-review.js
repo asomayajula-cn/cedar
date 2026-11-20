@@ -1,4 +1,4 @@
-import { openRouterChat, parseJsonFromModel } from "./openrouter.js";
+import { aiChat, parseJsonFromModel } from "./ai-chat.js";
 import { splitPatchIntoHunks } from "./partition.js";
 
 /**
@@ -41,7 +41,7 @@ Max 8 findings. Focus on bugs, security, missing tests, and boundary violations.
     hunk_count: micro.files.reduce((n, f) => n + splitPatchIntoHunks(f.patch ?? "").length, 0),
   });
 
-  const raw = await openRouterChat({
+  const raw = await aiChat({
     messages: [
       { role: "system", content: system },
       { role: "user", content: user },

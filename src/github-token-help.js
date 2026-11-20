@@ -8,8 +8,16 @@ const REVIEW_DOCS =
 export function explainGithubError(err, opts = {}) {
   const action = opts.action ?? "complete this GitHub API request";
   const status = /** @type {{ status?: number }} */ (err)?.status;
-  const data = /** @type {{ response?: { data?: { message?: string } } }} */ (err)?.response?.data;
-  const apiMsg = data?.message ?? (err instanceof Error ? err.message : String(err));
+  const data = /** @type {{ response?: { data?: { message?: string, errors?: { message?: string, code?: string }[] } } } } */ (
+    err
+  )?.response?.data;
+  const apiMsg =
+    data?.message ??
+    (err instanceof Error ? err.message : String(err));
+  const errorDetails = Array.isArray(data?.errors)
+    ? data.errors.map((e) => e?.message ?? e?.code).filter(Boolean).join("; ")
+    : "";
+  const fullMsg = errorDetails && !apiMsg.includes(errorDetails) ? `${apiMsg} (${errorDetails})` : apiMsg;
 
   if (
     status === 403 ||
@@ -37,6 +45,22 @@ export function explainGithubError(err, opts = {}) {
         "Then update GITHUB_TOKEN in .env (or the token field in the UI) and restart npm run dev:api.",
       ].join("\n"),
       githubMessage: apiMsg,
+      docsUrl: REVIEW_DOCS,
+    };
+  }
+
+  if (status === 422) {
+    return {
+      code: "GITHUB_REVIEW_UNPROCESSABLE",
+      error: `GitHub rejected the review (${fullMsg}).`,
+      hint: [
+        "Common fixes:",
+        "  • Re-run the Cedar review so headSha matches the latest commit",
+        "  • Finish or delete any pending review you started on this PR in GitHub",
+        "  • You cannot approve your own PR with some account types — use COMMENT instead",
+        "  • APPROVE requires an approving review permission on the repo",
+      ].join("\n"),
+      githubMessage: fullMsg,
       docsUrl: REVIEW_DOCS,
     };
   }

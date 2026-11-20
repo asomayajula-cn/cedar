@@ -28,15 +28,15 @@ export async function submitGithubApproval(opts) {
     pull_number: target.pr,
   });
 
-  const headSha = opts.headSha ?? pull.head.sha;
+  const headSha = pull.head.sha;
   const event = opts.event ?? (opts.scope === "pr" ? "APPROVE" : "COMMENT");
 
   const defaultBody =
     opts.scope === "slice"
       ? `**Cedar · micro-PR approved**\n\nSlice \`${opts.componentId}\` (${opts.componentName ?? opts.componentId}) reviewed and approved in Cedar.`
-      : `**Cedar · complete PR approval**\n\nAll architectural micro-PR slices reviewed. Whole-picture composite is green @ \`${headSha.slice(0, 7)}\`.`;
+      : `**Cedar · complete PR approval**\n\nAll architectural micro-PR slices reviewed. Architecture read is green @ \`${headSha.slice(0, 7)}\`.`;
 
-  const review = await submitPullRequestReview(octokit, {
+  const { review, meta } = await submitPullRequestReview(octokit, {
     owner: target.owner,
     repo: target.repo,
     pull_number: target.pr,
@@ -45,13 +45,26 @@ export async function submitGithubApproval(opts) {
     body: opts.body ?? defaultBody,
   });
 
+  /** @type {string | undefined} */
+  let hint;
+  if (meta.authorCommentFallback) {
+    hint =
+      "You are the PR author — GitHub only allows a review comment, not a green Approve button, from the author.";
+  } else if (meta.approveFallbackComment) {
+    hint = "This repo rejected an Approve review; Cedar posted a review comment with your sign-off instead.";
+  } else if (meta.idempotent) {
+    hint = "You already approved this pull request on GitHub.";
+  }
+
   return {
     target,
     review: {
       id: review.id,
       state: review.state,
       html_url: review.html_url,
-      commit_id: review.commit_id,
+      commit_id: review.commit_id ?? headSha,
     },
+    hint,
+    meta,
   };
 }

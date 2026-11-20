@@ -5,6 +5,8 @@
  */
 
 import { slicesForArchitectureDiagram } from "./diagram-layout.js";
+import { ARCHITECTURE_MODEL_LABEL } from "./architecture-model.js";
+import { formatPrHubLabel, formatSliceLabel } from "./diagram-labels.js";
 
 const MAX_FILES_PER_SLICE = 12;
 const MAX_SLICES = 24;
@@ -23,23 +25,28 @@ const MAX_SLICES = 24;
 export function buildDiagramGraph(microPrs, breakouts, pull, target) {
   const allTouched = slicesForArchitectureDiagram(microPrs);
   const touched = allTouched.slice(0, MAX_SLICES);
-  const repo =
-    target?.owner && target?.repo ? `${target.owner}/${target.repo}` : "repository";
-  const prLabel = pull?.number ? `${repo} #${pull.number}` : repo;
+  const prLabel = formatPrHubLabel(pull, target);
+  const prSubtitle =
+    target?.owner && target?.repo && pull?.number
+      ? `${target.owner}/${target.repo}`
+      : pull?.title?.trim()
+        ? String(pull.title).slice(0, 64)
+        : "";
+  const prNodeLabel = prSubtitle ? `${prLabel}\n${prSubtitle}` : prLabel;
 
   /** @type {DiagramNode[]} */
-  const overviewNodes = [{ id: "pr", label: prLabel, type: "pr" }];
+  const overviewNodes = [{ id: "pr", label: prNodeLabel, type: "pr" }];
   /** @type {DiagramEdge[]} */
   const overviewEdges = [];
 
   /** @type {DiagramNode[]} */
-  const detailNodes = [{ id: "pr", label: prLabel, type: "pr" }];
+  const detailNodes = [{ id: "pr", label: prNodeLabel, type: "pr" }];
   /** @type {DiagramEdge[]} */
   const detailEdges = [];
 
   for (const m of touched) {
     const sliceId = `slice_${safeId(m.componentId)}`;
-    const sliceLabel = `${m.componentName}\n${m.componentId} · ${m.files.length} files · +${m.additions}/−${m.deletions}`;
+    const sliceLabel = formatSliceLabel(m.componentName, m.files.length, m.additions, m.deletions);
 
     overviewNodes.push({ id: sliceId, label: sliceLabel, type: "slice" });
     overviewEdges.push({
@@ -133,12 +140,18 @@ export function buildDiagramGraph(microPrs, breakouts, pull, target) {
     detailEdges.push({ id: "e_pr_omitted", source: "pr", target: moreId, kind: "contains" });
   }
 
+  const sliceNodes = overviewNodes.filter((n) => n.type === "slice" && n.id !== "slices_omitted");
+  const layout =
+    sliceNodes.length >= 3 ? "LR" : sliceNodes.length === 2 ? "LR" : "TB";
+
   return {
     meta: {
       prLabel,
       sliceCount: allTouched.length,
       slicesShown: touched.length,
-      version: 1,
+      architectureModel: ARCHITECTURE_MODEL_LABEL,
+      layout,
+      version: 3,
     },
     overview: { nodes: overviewNodes, edges: overviewEdges },
     detail: { nodes: detailNodes, edges: detailEdges },

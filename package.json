@@ -11,6 +11,7 @@
     "dev": "node --watch src/server.js & vite",
     "dev:web": "vite",
     "dev:api": "node --watch src/server.js",
+    "dev:cursor-bridge": "node cursor-bridge/server.mjs",
     "build:web": "vite build",
     "preview": "vite preview",
     "review": "node src/cli.js review",
@@ -20,6 +21,7 @@
     "node": ">=20"
   },
   "dependencies": {
+    "@cursor/sdk": "^1.4.2",
     "@octokit/rest": "^21.1.1",
     "@viz-js/viz": "^3.31.0",
     "commander": "^13.1.0",

@@ -96,15 +96,27 @@
   }
 
   .cedar-cy-host {
-    @apply overflow-hidden rounded-xl border border-white/[0.06] bg-[#050505];
+    @apply relative w-full min-w-0 overflow-hidden rounded-2xl border border-white/[0.08];
+    background: radial-gradient(120% 80% at 50% 0%, #171717 0%, #050505 55%);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.06),
+      0 24px 48px -24px rgb(0 0 0 / 0.85);
   }
 
-  .diagram-overview {
-    height: 20rem;
+  .cedar-cy-host canvas {
+    display: block;
+    outline: none;
   }
 
-  .diagram-detail {
-    height: min(72vh, 680px);
+  .diagram-slices {
+    height: min(26rem, 48vh);
+    min-height: 18rem;
+  }
+
+  .diagram-mermaid-sleek {
+    @apply border-white/[0.06] bg-gradient-to-b from-black/30 to-black/60;
+    min-height: 14rem;
+    max-height: min(50vh, 480px);
   }
 
   .diagram-overview .diagram-host {
@@ -136,6 +148,10 @@
 
   .cedar-mermaid-fallback {
     @apply whitespace-pre-wrap text-left font-mono text-[11px] leading-relaxed text-zinc-500;
+  }
+
+  .review-progress-log .review-progress-line {
+    @apply border-l border-white/10 pl-2 font-mono leading-relaxed;
   }
 
   .diagram-host svg {

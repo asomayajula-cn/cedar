@@ -4,9 +4,9 @@
  */
 
 import { slicesForArchitectureDiagram } from "./diagram-layout.js";
+import { formatPrHubLabel, formatSliceLabel } from "./diagram-labels.js";
 
-const MAX_FILES_PER_SLICE = 12;
-const MAX_SLICES_IN_DIAGRAM = 24;
+const MAX_SLICES_IN_DIAGRAM = 16;
 
 /**
  * @param {MicroPr[]} microPrs
@@ -21,59 +21,33 @@ export function buildArchitectureDiagramMermaid(microPrs, breakouts, pull, targe
     return "flowchart TB\n  empty[No files in PR]";
   }
 
-  const repo =
-    target?.owner && target?.repo ? `${target.owner}/${target.repo}` : "repository";
-  const prLabel = pull?.number ? `${repo} #${pull.number}` : repo;
+  const prLabel = formatPrHubLabel(pull, target);
   const omittedSlices = allTouched.length - touched.length;
+  const direction = touched.length >= 2 ? "LR" : "TB";
 
   const lines = [
-    "flowchart TB",
-    "  classDef pr fill:#fafafa,stroke:#52525b,color:#09090b",
-    "  classDef slice fill:#18181b,stroke:#71717a,color:#e4e4e7",
-    "  classDef file fill:#09090b,stroke:#3f3f46,color:#a1a1aa",
-    "  classDef more fill:#0c0c0c,stroke:#27272a,color:#71717a",
-    `  pr["${mermaidLabel(prLabel)}"]:::pr`,
+    `flowchart ${direction}`,
+    "  classDef pr fill:#fafafa,stroke:#171717,stroke-width:2px,color:#0a0a0a",
+    "  classDef slice fill:#141414,stroke:#737373,stroke-width:1px,color:#f5f5f5",
+    "  classDef more fill:#0a0a0a,stroke:#404040,color:#737373",
+    `  pr(("${mermaidLabel(prLabel)}")):::pr`,
   ];
 
   const idByComponent = new Map();
 
   for (const m of touched) {
-    const sgId = `vpr_${safeNodeId(m.componentId)}`;
-    const headId = `${sgId}_head`;
-    idByComponent.set(m.componentId, headId);
-
-    lines.push(`  subgraph ${sgId}["${mermaidLabel(m.componentName)}"]`);
-    lines.push("    direction TB");
-    lines.push(
-      `    ${headId}["${mermaidLabel(`${m.componentId} · ${m.files.length} files · +${m.additions}/-${m.deletions}`)}"]:::slice`
+    const nodeId = `slice_${safeNodeId(m.componentId)}`;
+    idByComponent.set(m.componentId, nodeId);
+    const label = formatSliceLabel(m.componentName, m.files.length, m.additions, m.deletions).replace(
+      "\n",
+      "<br/>"
     );
-
-    const show = [...m.files]
-      .sort((a, b) => a.filename.localeCompare(b.filename))
-      .slice(0, MAX_FILES_PER_SLICE);
-
-    for (let j = 0; j < show.length; j++) {
-      const file = show[j];
-      const fid = `${sgId}_f${j}`;
-      const short = shortenPath(file.filename);
-      const delta = `+${file.additions ?? 0}/-${file.deletions ?? 0}`;
-      lines.push(`    ${fid}["${mermaidLabel(`${short} (${delta})`)}"]:::file`);
-      lines.push(`    ${headId} --> ${fid}`);
-    }
-
-    if (m.files.length > MAX_FILES_PER_SLICE) {
-      const moreId = `${sgId}_more`;
-      const rest = m.files.length - MAX_FILES_PER_SLICE;
-      lines.push(`    ${moreId}["+${rest} more files in this slice"]:::more`);
-      lines.push(`    ${headId} --> ${moreId}`);
-    }
-
-    lines.push("  end");
-    lines.push(`  pr --> ${headId}`);
+    lines.push(`  ${nodeId}["${mermaidLabel(label)}"]:::slice`);
+    lines.push(`  pr --> ${nodeId}`);
   }
 
   if (omittedSlices > 0) {
-    lines.push(`  pr_more["+${omittedSlices} more slices not shown"]:::more`);
+    lines.push(`  pr_more["+${omittedSlices} more slices"]:::more`);
     lines.push("  pr --> pr_more");
   }
 
@@ -103,17 +77,6 @@ export function buildArchitectureDiagramMermaid(microPrs, breakouts, pull, targe
  */
 export function buildArchitectureDiagramMarkdown(mermaid) {
   return ["### Complete layout", "", "```mermaid", mermaid, "```"].join("\n");
-}
-
-/**
- * @param {string} path
- */
-function shortenPath(path) {
-  const p = String(path);
-  if (p.length <= 48) return p;
-  const parts = p.split("/");
-  if (parts.length <= 2) return `…${p.slice(-45)}`;
-  return `${parts[0]}/…/${parts[parts.length - 1]}`;
 }
 
 /**

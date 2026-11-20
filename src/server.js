@@ -7,7 +7,17 @@ import { runPrReviewPipeline } from "./orchestrator.js";
 import { resolvePrTarget } from "./parse-pr-url.js";
 import { submitGithubApproval } from "./approve.js";
 import { explainGithubError } from "./github-token-help.js";
-import { DEFAULT_OPENROUTER_MODEL, resolveOpenRouterModel } from "./default-model.js";
+import {
+  DEFAULT_CURSOR_MODEL,
+  DEFAULT_OPENROUTER_MODEL,
+  resolveAiModel,
+  resolveCursorModel,
+} from "./default-model.js";
+import { activeAiProvider } from "./ai-chat.js";
+import { cedarAiDiagramMode } from "./diagram-visual-mode.js";
+import { ensureCursorBridge, bridgeBaseUrl, isBridgeManaged } from "./cursor-bridge-spawn.js";
+import { warmCursorBridgeSession } from "./cursor-bridge-client.js";
+import { runWithReviewProgress } from "./review-progress.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, "..");
@@ -21,59 +31,136 @@ app.get("/api/health", (_req, res) => {
   res.json({
     ok: true,
     hasToken: Boolean(process.env.GITHUB_TOKEN),
+    hasCursor: Boolean(process.env.CURSOR_API_KEY),
     hasOpenRouter: Boolean(process.env.OPENROUTER_API_KEY),
+    aiProvider: activeAiProvider(),
+    cursorBridge:
+      process.env.CEDAR_CURSOR_BRIDGE === "false"
+        ? "off"
+        : process.env.CEDAR_CURSOR_BRIDGE_URL ?? bridgeBaseUrl(),
+    cursorBridgeManaged: isBridgeManaged(),
+    cursorMode: process.env.CEDAR_CURSOR_MODE ?? "plan",
     partitionMode: process.env.CEDAR_PARTITION_MODE ?? "auto",
-    openRouterModel: resolveOpenRouterModel(),
+    aiDiagram: cedarAiDiagramMode(),
+    breakoutCache: process.env.CEDAR_BREAKOUT_CACHE !== "false",
+    aiModel: resolveAiModel(),
+    cursorModel: resolveCursorModel(),
+    defaultCursorModel: DEFAULT_CURSOR_MODEL,
     defaultOpenRouterModel: DEFAULT_OPENROUTER_MODEL,
     githubTokenHint:
       "Reviews/approvals need Pull requests: Read and write (fine-grained) or repo scope (classic).",
   });
 });
 
-app.post("/api/review", async (req, res) => {
+/**
+ * @param {Awaited<ReturnType<typeof runPrReviewPipeline>>} report
+ */
+function reviewPayload(report) {
+  return {
+    target: report.target,
+    pull: report.pull,
+    process: report.process,
+    gate: report.gate,
+    partition: report.partition,
+    breakouts: report.breakouts,
+    microPrs: report.microPrs,
+    microResults: report.microResults,
+    composite: report.composite,
+    outputMarkdown: report.outputMarkdown,
+  };
+}
+
+/**
+ * @param {import("express").Request} req
+ * @returns {{ target: { owner: string, repo: string, pr: number }, token: string, post: boolean, postMicro: boolean } | { error: string, status: number }}
+ */
+function parseReviewRequest(req) {
   const { post, postMicro } = req.body ?? {};
   const token = req.body?.token ?? process.env.GITHUB_TOKEN;
-
-  let target;
   try {
-    target = resolvePrTarget(req.body);
+    const target = resolvePrTarget(req.body);
+    if (!token) {
+      return {
+        error: "Set GITHUB_TOKEN on the server or pass token in the request",
+        status: 400,
+      };
+    }
+    return {
+      target,
+      token,
+      post: Boolean(post),
+      postMicro: Boolean(postMicro),
+    };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    res.status(400).json({ error: message });
-    return;
+    return { error: message, status: 400 };
   }
+}
 
-  if (!token) {
-    res.status(400).json({ error: "Set GITHUB_TOKEN on the server or pass token in the request" });
+app.post("/api/review", async (req, res) => {
+  const parsed = parseReviewRequest(req);
+  if ("error" in parsed) {
+    res.status(parsed.status).json({ error: parsed.error });
     return;
   }
 
   try {
     const report = await runPrReviewPipeline({
-      owner: target.owner,
-      repo: target.repo,
-      pr: target.pr,
-      token,
+      owner: parsed.target.owner,
+      repo: parsed.target.repo,
+      pr: parsed.target.pr,
+      token: parsed.token,
       configPath: path.join(root, "components.yaml"),
-      post: Boolean(post),
-      postMicro: Boolean(postMicro),
+      post: parsed.post,
+      postMicro: parsed.postMicro,
     });
-
-    res.json({
-      target: report.target,
-      pull: report.pull,
-      process: report.process,
-      gate: report.gate,
-      partition: report.partition,
-      breakouts: report.breakouts,
-      microPrs: report.microPrs,
-      microResults: report.microResults,
-      composite: report.composite,
-      outputMarkdown: report.outputMarkdown,
-    });
+    res.json(reviewPayload(report));
   } catch (err) {
     const explained = explainGithubError(err, { action: "read this pull request" });
     res.status(/** @type {{ status?: number }} */ (err)?.status ?? 500).json(explained);
+  }
+});
+
+app.post("/api/review/stream", async (req, res) => {
+  const parsed = parseReviewRequest(req);
+  if ("error" in parsed) {
+    res.status(parsed.status).json({ error: parsed.error });
+    return;
+  }
+
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream; charset=utf-8",
+    "Cache-Control": "no-cache, no-transform",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no",
+  });
+  if (typeof res.flushHeaders === "function") res.flushHeaders();
+  res.write(": cedar review stream\n\n");
+
+  const send = (event) => {
+    res.write(`data: ${JSON.stringify(event)}\n\n`);
+    if (typeof res.flush === "function") res.flush();
+  };
+
+  try {
+    send({ type: "activity", text: "Starting review…", phase: "start" });
+    const report = await runWithReviewProgress(send, () =>
+      runPrReviewPipeline({
+        owner: parsed.target.owner,
+        repo: parsed.target.repo,
+        pr: parsed.target.pr,
+        token: parsed.token,
+        configPath: path.join(root, "components.yaml"),
+        post: parsed.post,
+        postMicro: parsed.postMicro,
+      })
+    );
+    send({ type: "done", report: reviewPayload(report) });
+  } catch (err) {
+    const explained = explainGithubError(err, { action: "read this pull request" });
+    send({ type: "error", error: explained.error ?? String(err) });
+  } finally {
+    res.end();
   }
 });
 
@@ -111,7 +198,8 @@ app.post("/api/approve", async (req, res) => {
     res.json(result);
   } catch (err) {
     const explained = explainGithubError(err, { action: "create a pull request review" });
-    const status = /** @type {{ status?: number }} */ (err)?.status === 403 ? 403 : 500;
+    const errStatus = /** @type {{ status?: number }} */ (err)?.status;
+    const status = errStatus === 403 ? 403 : errStatus === 422 ? 422 : 500;
     res.status(status).json(explained);
   }
 });
@@ -128,4 +216,18 @@ app.use((req, res, next) => {
 
 app.listen(port, () => {
   console.log(`cedar API http://127.0.0.1:${port}`);
+  if (process.env.CURSOR_API_KEY && process.env.CEDAR_CURSOR_BRIDGE !== "false") {
+    void (async () => {
+      try {
+        await ensureCursorBridge();
+        const warmed = await warmCursorBridgeSession();
+        if (warmed) {
+          console.log("cedar Cursor bridge warmed (Reaper-style session)");
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.warn(`cedar Cursor bridge warmup skipped: ${message}`);
+      }
+    })();
+  }
 });

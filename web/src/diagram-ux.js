@@ -13,17 +13,18 @@ async function ensureMermaid() {
   mermaidApi.initialize({
     startOnLoad: false,
     theme: "base",
-    flowchart: { htmlLabels: false, useMaxWidth: true, padding: 16, curve: "basis" },
+    flowchart: { htmlLabels: true, useMaxWidth: true, padding: 20, curve: "basis", nodeSpacing: 42, rankSpacing: 56 },
     themeVariables: {
       darkMode: true,
       background: "transparent",
-      primaryColor: "#27272a",
-      primaryTextColor: "#fafafa",
-      primaryBorderColor: "#52525b",
-      lineColor: "#71717a",
-      secondaryColor: "#18181b",
-      tertiaryColor: "#09090b",
-      fontFamily: "Inter, system-ui, sans-serif",
+      primaryColor: "#141414",
+      primaryTextColor: "#f5f5f5",
+      primaryBorderColor: "#737373",
+      lineColor: "#525252",
+      secondaryColor: "#0a0a0a",
+      tertiaryColor: "#fafafa",
+      fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
+      fontSize: "13px",
     },
     securityLevel: "loose",
   });
@@ -82,6 +83,23 @@ export function mountServerSvg(wrap, svgMarkup) {
  */
 export function activateDiagramUx(root) {
   wireDiagramToolbars(root);
+}
+
+/**
+ * @param {ParentNode} root
+ * @param {string} source
+ */
+export async function mountLayoutMermaid(root, source) {
+  const pre = root.querySelector("#cedar-mermaid-layout");
+  if (!pre || !source?.trim()) return false;
+  const ok = await renderArchitectureMermaid(source, pre);
+  const wrap = pre.closest("[data-diagram-wrap]");
+  const svg = pre.querySelector("svg");
+  if (ok && wrap instanceof HTMLElement && svg instanceof SVGSVGElement) {
+    queuePanFit(wrap, svg);
+    activateDiagramUx(wrap);
+  }
+  return ok;
 }
 
 /**
