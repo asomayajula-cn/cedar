@@ -22,6 +22,7 @@ import {
   buildCompleteLayoutViews,
   buildCompleteLayoutMarkdown,
 } from "./architecture-layout-views.js";
+import { normalizeSliceId } from "./architecture-model.js";
 import { renderReviewDiagrams } from "./diagram-graphviz.js";
 import { orderMicroPrsForLayout } from "./diagram-layout.js";
 import { buildDiagramGraph } from "./diagram-graph.js";
@@ -178,11 +179,18 @@ export async function runPrReviewPipeline(opts) {
     target
   );
 
+  const sliceNumberById = Object.fromEntries(
+    ordered
+      .filter((m) => (m.files?.length ?? 0) > 0)
+      .map((m, i) => [normalizeSliceId(m.componentId), i + 1])
+  );
+
   const diagramLayoutViews = buildCompleteLayoutViews(
     ordered,
     breakoutPlan ?? undefined,
     pullMeta,
-    target
+    target,
+    sliceNumberById
   );
   const diagramMermaid = buildArchitectureDiagramMermaid(
     ordered,

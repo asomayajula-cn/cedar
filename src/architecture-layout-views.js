@@ -97,14 +97,16 @@ function buildClassRegistry(layers) {
  * @param {{ components?: AiComponentDef[] }} [breakouts]
  * @param {{ title?: string, number?: number }} [pull]
  * @param {{ owner?: string, repo?: string }} [target]
+ * @param {Record<string, number> | Map<string, number>} [sliceNumberById]
  */
-export function buildCompleteLayoutViews(microPrs, breakouts, pull, target) {
+export function buildCompleteLayoutViews(microPrs, breakouts, pull, target, sliceNumberById) {
   const layers = buildPrArchitectureLayers(microPrs, breakouts).slice(0, MAX_LAYERS);
   const active = new Set(layers.map((l) => l.id));
   const registry = buildClassRegistry(layers);
+  const sliceNums = sliceNumberById instanceof Map ? sliceNumberById : new Map(Object.entries(sliceNumberById ?? {}));
 
   return {
-    components: buildComponentsClassDiagram(layers, registry),
+    components: buildComponentsClassDiagram(layers, registry, sliceNums),
     flow: buildRequestFlowDiagram(layers, active, pull, target),
     events: buildEventsSequenceDiagram(layers, active, registry),
   };
@@ -113,21 +115,28 @@ export function buildCompleteLayoutViews(microPrs, breakouts, pull, target) {
 /**
  * @param {PrArchitectureLayer[]} layers
  * @param {ReturnType<typeof buildClassRegistry>} registry
+ * @param {Map<string, number>} sliceNums
  */
-function buildComponentsClassDiagram(layers, registry) {
+function buildComponentsClassDiagram(layers, registry, sliceNums) {
   if (!layers.length) {
     return 'classDiagram\n  class EmptyPR["No changed layers"]';
   }
 
   const lines = ["classDiagram", layers.length <= 4 ? "  direction LR" : "  direction TB"];
 
-  for (const layer of layers) {
+  const sliceNum = (layerId, fallback) =>
+    sliceNums.get(normalizeSliceId(layerId)) ?? fallback;
+
+  for (let li = 0; li < layers.length; li++) {
+    const layer = layers[li];
+    const num = sliceNum(layer.id, li + 1);
     const layerTypes = layer.types ?? [];
     if (!layerTypes.length) {
       const className = registry.layerToAnchor.get(layer.id);
       if (!className) continue;
       lines.push(`  class ${className}["${mermaidSafeText(layer.name)}"]`);
       if (layer.summary) lines.push(`  ${className} : ${mermaidSafeText(layer.summary)}`);
+      lines.push(`  ${className} : ${mermaidSafeText(`slice #${num}`)}`);
       continue;
     }
 
@@ -137,7 +146,7 @@ function buildComponentsClassDiagram(layers, registry) {
       if (!className) continue;
       lines.push(`  class ${className}["${mermaidSafeText(typeName)}"]`);
       if (layer.summary && i === 0) lines.push(`  ${className} : ${mermaidSafeText(layer.summary)}`);
-      lines.push(`  ${className} : ${mermaidSafeText(layer.name)}`);
+      lines.push(`  ${className} : ${mermaidSafeText(`slice #${num}`)}`);
     }
   }
 

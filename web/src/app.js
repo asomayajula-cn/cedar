@@ -4,7 +4,12 @@ import { mountArchitectureGraphs } from "./architecture-canvas.js";
 import { buildDiagramGraph } from "../../src/diagram-graph.js";
 import { buildArchitectureDiagramMermaid } from "../../src/architecture-diagram.js";
 import { buildCompleteLayoutViews } from "../../src/architecture-layout-views.js";
-import { ARCHITECTURE_LAYER_STACK, ARCHITECTURE_MODEL_LABEL } from "../../src/architecture-model.js";
+import {
+  ARCHITECTURE_LAYER_STACK,
+  ARCHITECTURE_MODEL_LABEL,
+  normalizeSliceId,
+} from "../../src/architecture-model.js";
+import { buildPrArchitectureLayers } from "../../src/pr-architecture-layers.js";
 import { renderSliceFileReviews, wireFileReviewToggles } from "./diff-view.js";
 import { setCommentToast } from "./diff-comments.js";
 import { initDiffFontFromServer } from "./diff-font.js";
@@ -263,18 +268,23 @@ function cyToolbar(targetId, badge = "") {
 }
 
 /**
- * @param {Array<{ componentId: string, componentName: string, status: string }>} slices
+ * @param {Array<{ componentId: string, componentName: string, status: string, sliceNumber: number, classNames?: string[] }>} slices
  */
 function renderDiagramSliceBadges(slices) {
   if (!slices.length) return "";
   const dots = slices
     .map((r) => {
       const dot = statusDot[r.status] ?? statusDot.pending;
-      const name = String(r.componentName ?? r.componentId ?? "slice").trim();
-      return `<button type="button" class="cedar-diagram-slice-dot h-2.5 w-2.5 rounded-full ${dot}"
-        data-jump-slice="${escapeHtml(r.componentId)}"
-        title="${escapeHtml(name)}"
-        aria-label="${escapeHtml(name)}"></button>`;
+      const n = r.sliceNumber ?? 0;
+      const classes = (r.classNames ?? []).filter(Boolean);
+      const classHint = classes.length ? classes.join(", ") : String(r.componentName ?? r.componentId ?? "").trim();
+      const title = classHint ? `${classHint} · slice #${n}` : `slice #${n}`;
+      return `<button type="button" class="cedar-diagram-slice-badge" data-jump-slice="${escapeHtml(r.componentId)}"
+        title="${escapeHtml(title)}"
+        aria-label="Slice ${n}: ${escapeHtml(classHint || r.componentId)}">
+        <span class="cedar-diagram-slice-dot h-2.5 w-2.5 rounded-full ${dot}" aria-hidden="true"></span>
+        <span class="cedar-diagram-slice-num tabular-nums">#${n}</span>
+      </button>`;
     })
     .join("");
   return `<div class="cedar-diagram-slice-badges flex flex-wrap items-center gap-1.5" role="list" aria-label="Micro slices in this PR">${dots}</div>`;
@@ -802,13 +812,23 @@ function renderResults(container, data) {
       { owner: target?.owner, repo: target?.repo }
     );
   }
+  const activeSlicesForDiagram = microResults.filter((r) => r.status !== "skipped");
+  const sliceNumberById = Object.fromEntries(
+    activeSlicesForDiagram.map((r, i) => [normalizeSliceId(r.componentId), i + 1])
+  );
+  const archLayersForBadges = diagramMicroPrs.length
+    ? buildPrArchitectureLayers(diagramMicroPrs, breakouts)
+    : [];
+  const classNamesBySlice = new Map(archLayersForBadges.map((l) => [l.id, l.types ?? []]));
+
   let layoutViews = breakouts?.diagramLayoutViews ?? null;
   if (!layoutViews && diagramMicroPrs.length) {
     layoutViews = buildCompleteLayoutViews(
       diagramMicroPrs,
       breakouts,
       { number: pull.number, title: pull.title },
-      { owner: target?.owner, repo: target?.repo }
+      { owner: target?.owner, repo: target?.repo },
+      sliceNumberById
     );
   }
   const hasLayoutViews = Boolean(
@@ -834,18 +854,21 @@ function renderResults(container, data) {
     architectureReadNotes.length ||
     Boolean(composite);
 
-  const activeSlices = microResults.filter((r) => r.status !== "skipped");
+  const activeSlices = activeSlicesForDiagram;
   const firstSliceId = activeSlices[0]?.componentId ?? "";
   const hasArchitectureContent = Boolean(breakouts?.architectureSummary) || showArchitectureRead;
   const defaultMainTab = hasArchitectureContent ? "architecture" : "slices";
   const diagramSliceBadges = renderDiagramSliceBadges(
-    microResults
-      .filter((r) => r.status !== "skipped")
-      .map((r) => ({
+    activeSlices.map((r, i) => {
+      const id = normalizeSliceId(r.componentId);
+      return {
         componentId: r.componentId,
         componentName: microPrs.find((m) => m.componentId === r.componentId)?.componentName ?? r.componentName,
         status: r.status,
-      }))
+        sliceNumber: sliceNumberById[id] ?? i + 1,
+        classNames: classNamesBySlice.get(id) ?? [],
+      };
+    })
   );
 
   const sliceTabBar = activeSlices

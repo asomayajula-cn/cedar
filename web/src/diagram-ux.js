@@ -7,6 +7,8 @@ let mermaidBooted = false;
 const panZoomByWrap = new WeakMap();
 /** @type {WeakMap<HTMLElement, () => void>} */
 const umlFitByWrap = new WeakMap();
+/** @type {WeakMap<HTMLElement, number>} */
+const umlZoomByWrap = new WeakMap();
 
 async function ensureMermaid() {
   if (mermaidBooted && mermaidApi) return mermaidApi;
@@ -341,9 +343,12 @@ function mountDiagramStageFullWidth(wrap, pre) {
     panZoomByWrap.delete(wrap);
   }
 
+  if (!umlZoomByWrap.has(wrap)) umlZoomByWrap.set(wrap, 1);
+
   const fit = () => {
     const pad = 12;
-    const stageW = Math.max(stage.clientWidth - pad * 2, 280);
+    const zoom = umlZoomByWrap.get(wrap) ?? 1;
+    const stageW = Math.max(stage.clientWidth - pad * 2, 280) * zoom;
     if (stageW < 50) return;
 
     const vb = svg.viewBox?.baseVal;
@@ -451,7 +456,18 @@ function wireDiagramToolbars(root) {
         }
 
         if (umlFit) {
-          if (action === "reset") umlFit();
+          if (action === "in") {
+            const next = Math.min((umlZoomByWrap.get(wrap) ?? 1) * 1.22, 4);
+            umlZoomByWrap.set(wrap, next);
+            umlFit();
+          } else if (action === "out") {
+            const next = Math.max((umlZoomByWrap.get(wrap) ?? 1) / 1.22, 0.45);
+            umlZoomByWrap.set(wrap, next);
+            umlFit();
+          } else if (action === "reset") {
+            umlZoomByWrap.set(wrap, 1);
+            umlFit();
+          }
           return;
         }
         if (!pz) {

@@ -295,7 +295,7 @@
     min-height: min(32rem, 62vh);
     height: min(42rem, 58vh);
     max-height: min(88vh, 960px);
-    @apply overflow-x-hidden overflow-y-auto rounded-2xl border border-white/[0.08] bg-black/45 p-3 sm:p-4;
+    @apply overflow-auto rounded-2xl border border-white/[0.08] bg-black/45 p-3 sm:p-4;
     background: radial-gradient(120% 80% at 50% 0%, rgb(23 23 23 / 0.9) 0%, rgb(5 5 5 / 0.95) 55%);
   }
 
@@ -419,8 +419,20 @@
     @apply mr-1 max-w-[14rem];
   }
 
+  .cedar-diagram-slice-badge {
+    @apply inline-flex cursor-pointer items-center gap-1 rounded-md border border-transparent px-0.5 py-0.5 transition hover:border-white/15 hover:bg-white/[0.04] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/30;
+  }
+
   .cedar-diagram-slice-dot {
-    @apply shrink-0 cursor-pointer border border-white/20 transition hover:scale-125 hover:border-white/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/30;
+    @apply shrink-0 border border-white/20;
+  }
+
+  .cedar-diagram-slice-num {
+    @apply text-[10px] font-medium text-zinc-500;
+  }
+
+  .cedar-diagram-slice-badge:hover .cedar-diagram-slice-num {
+    @apply text-zinc-300;
   }
 
   .cedar-layout-view.is-diagram-collapsed .diagram-stage-canvas {
