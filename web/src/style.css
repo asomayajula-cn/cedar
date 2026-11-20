@@ -1,0 +1,212 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+@layer base {
+  html {
+    @apply scroll-smooth;
+  }
+
+  body {
+    @apply bg-[#050505] font-sans text-zinc-100 antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  ::selection {
+    @apply bg-white/20 text-white;
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-white/15;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+}
+
+@layer components {
+  .cedar-shell {
+    @apply relative min-h-screen overflow-x-hidden;
+    background:
+      radial-gradient(1200px 600px at 50% -20%, rgba(120, 119, 198, 0.12), transparent 50%),
+      radial-gradient(900px 400px at 100% 0%, rgba(52, 211, 153, 0.06), transparent 45%),
+      #050505;
+  }
+
+  .cedar-shell::before {
+    content: "";
+    pointer-events: none;
+    position: fixed;
+    inset: 0;
+    opacity: 0.04;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .cedar-glass {
+    @apply rounded-2xl border border-white/[0.08] bg-white/[0.03] shadow-[0_8px_40px_rgba(0,0,0,0.45)] backdrop-blur-xl;
+  }
+
+  .cedar-glass-subtle {
+    @apply rounded-xl border border-white/[0.06] bg-white/[0.02];
+  }
+
+  .cedar-btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-white px-6 py-3 text-sm font-semibold tracking-tight text-black shadow-[0_1px_0_rgba(255,255,255,0.08)_inset,0_8px_24px_rgba(0,0,0,0.35)] transition duration-200 hover:bg-zinc-100 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45;
+  }
+
+  .cedar-btn-secondary {
+    @apply inline-flex items-center justify-center rounded-xl border border-white/12 bg-white/[0.04] px-4 py-2 text-sm font-medium text-zinc-200 transition hover:border-white/25 hover:bg-white/[0.07] disabled:opacity-40;
+  }
+
+  .cedar-input {
+    @apply w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3.5 text-sm text-white shadow-inner shadow-black/20 placeholder:text-zinc-600 transition focus:border-white/25 focus:bg-black/60 focus:outline-none focus:ring-2 focus:ring-white/10;
+  }
+
+  .cedar-label {
+    @apply text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500;
+  }
+
+  .cedar-badge {
+    @apply inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium;
+  }
+
+  .cedar-badge-ok {
+    @apply border-emerald-500/25 bg-emerald-500/10 text-emerald-300;
+  }
+  .cedar-badge-warn {
+    @apply border-amber-500/25 bg-amber-500/10 text-amber-200;
+  }
+  .cedar-badge-muted {
+    @apply border-white/10 bg-white/5 text-zinc-400;
+  }
+
+  .cedar-fade-in {
+    animation: cedar-fade 0.45s ease-out both;
+  }
+
+  .cedar-spinner {
+    @apply inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white;
+  }
+
+  .cedar-cy-host {
+    @apply overflow-hidden rounded-xl border border-white/[0.06] bg-[#050505];
+  }
+
+  .diagram-overview {
+    height: 20rem;
+  }
+
+  .diagram-detail {
+    height: min(72vh, 680px);
+  }
+
+  .diagram-overview .diagram-host {
+    @apply h-full w-full overflow-hidden p-2;
+    cursor: grab;
+  }
+
+  .diagram-overview:active .diagram-host {
+    cursor: grabbing;
+  }
+
+  .diagram-complete-layout {
+    min-height: 22rem;
+    max-height: min(75vh, 720px);
+    @apply overflow-auto rounded-xl border border-white/[0.06] bg-black/45 p-4 sm:p-6;
+  }
+
+  .cedar-mermaid-scroll .mermaid,
+  .cedar-mermaid-scroll .cedar-mermaid-source {
+    @apply w-full min-w-[min(100%,40rem)] text-center;
+  }
+
+  .cedar-mermaid-scroll .mermaid svg {
+    display: block;
+    margin-inline: auto;
+    max-width: 100%;
+    height: auto;
+  }
+
+  .cedar-mermaid-fallback {
+    @apply whitespace-pre-wrap text-left font-mono text-[11px] leading-relaxed text-zinc-500;
+  }
+
+  .diagram-host svg {
+    display: block;
+    margin-inline: auto;
+    max-width: 100%;
+    height: auto;
+  }
+
+  .diagram-tool-btn {
+    @apply inline-flex h-7 min-w-7 items-center justify-center rounded-lg border border-white/10 bg-white/5 px-2 text-xs font-medium text-zinc-300 transition hover:bg-white/10 hover:text-white;
+  }
+
+  .diagram-stage-wrap {
+    @apply flex flex-col gap-2;
+  }
+
+  .cedar-gh-file-header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
+
+  .cedar-gh-file-toggle {
+    @apply inline-flex h-6 w-6 items-center justify-center rounded-md border border-transparent text-xs transition hover:border-white/10 hover:bg-white/5;
+  }
+
+  .cedar-diff2html .d2h-wrapper {
+    @apply text-[12px];
+  }
+
+  .cedar-diff2html .d2h-file-header {
+    display: none;
+  }
+
+  .cedar-diff2html .d2h-code-line-ctn {
+    word-break: break-word;
+  }
+
+  .cedar-diff2html .d2h-code-line,
+  .cedar-diff2html .d2h-code-side-line {
+    @apply font-mono;
+  }
+
+  .severity-blocker {
+    @apply inline-flex items-center rounded-full border border-rose-500/30 bg-rose-500/10 px-2.5 py-0.5 text-[11px] font-medium text-rose-200;
+  }
+  .severity-warning {
+    @apply inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-[11px] font-medium text-amber-100;
+  }
+  .severity-info {
+    @apply inline-flex items-center rounded-full border border-zinc-600 bg-zinc-800/50 px-2.5 py-0.5 text-[11px] font-medium text-zinc-400;
+  }
+
+  #toast-host {
+    @apply pointer-events-none fixed bottom-6 right-6 z-50 flex max-w-sm flex-col gap-2;
+  }
+
+  .cedar-toast {
+    @apply pointer-events-auto rounded-xl border border-white/10 bg-zinc-900/95 px-4 py-3 text-sm text-zinc-200 shadow-2xl backdrop-blur-md;
+    animation: cedar-fade 0.45s ease-out both;
+  }
+}
+
+@keyframes cedar-fade {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

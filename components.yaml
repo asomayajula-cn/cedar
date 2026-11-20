@@ -1,0 +1,58 @@
+# Map architectural components to path globs (first match wins).
+# Add integration for contract / API surfaces that span layers.
+
+components:
+  - id: api
+    name: API & handlers
+    paths:
+      - "api/**"
+      - "internal/handlers/**"
+      - "src/routes/**"
+      - "openapi/**"
+    depends_on: [domain]
+
+  - id: domain
+    name: Domain & use cases
+    paths:
+      - "internal/domain/**"
+      - "internal/usecase/**"
+      - "src/domain/**"
+      - "pkg/**"
+    depends_on: []
+
+  - id: persistence
+    name: Persistence & migrations
+    paths:
+      - "internal/store/**"
+      - "migrations/**"
+      - "db/**"
+    depends_on: [domain]
+
+  - id: web
+    name: Web & UI
+    paths:
+      - "web/**"
+      - "apps/web/**"
+      - "src/components/**"
+    depends_on: [api]
+
+  - id: infra
+    name: Infra & ops
+    paths:
+      - ".github/**"
+      - "terraform/**"
+      - "k8s/**"
+      - "docker/**"
+      - "Dockerfile*"
+    depends_on: []
+
+  - id: integration
+    name: Contracts & integration
+    paths:
+      - "contracts/**"
+      - "proto/**"
+      - "**/*.openapi.yaml"
+      - "**/openapi.yaml"
+    depends_on: [api, domain]
+
+default_component: misc

@@ -1,0 +1,442 @@
+import { splitPatchIntoHunks } from "./partition.js";
+
+const SECRET_PATTERNS = [
+  /AKIA[0-9A-Z]{16}/,
+  /-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----/,
+  /ghp_[a-zA-Z0-9]{20,}/,
+  /xox[baprs]-[a-zA-Z0-9-]+/,
+];
+
+const SKIP_PATH_FRAGMENTS = [
+  "package-lock.json",
+  "yarn.lock",
+  "pnpm-lock.yaml",
+  "go.sum",
+  ".min.js",
+  ".map",
+];
+
+/**
+ * @typedef {'info'|'warning'|'blocker'} Severity
+ */
+
+/**
+ * @typedef {object} Finding
+ * @property {string} ruleId
+ * @property {Severity} severity
+ * @property {string} message
+ * @property {string} [filename]
+ * @property {number} [line]
+ */
+
+/**
+ * @typedef {object} MicroReviewResult
+ * @property {string} componentId
+ * @property {string} componentName
+ * @property {'passed'|'failed'|'skipped'} status
+ * @property {Finding[]} findings
+ * @property {string} summaryMarkdown
+ * @property {number} filesReviewed
+ * @property {number} hunksReviewed
+ */
+
+/**
+ * @param {import('./partition.js').MicroPr} micro
+ * @param {{ multiBoundaryFiles?: string[] }} ctx
+ * @returns {MicroReviewResult}
+ */
+export function reviewMicroPr(micro, ctx = {}) {
+  if (micro.files.length === 0) {
+    return {
+      componentId: micro.componentId,
+      componentName: micro.componentName,
+      status: "skipped",
+      findings: [],
+      summaryMarkdown: "_No files in this architectural slice._",
+      filesReviewed: 0,
+      hunksReviewed: 0,
+    };
+  }
+
+  /** @type {Finding[]} */
+  const findings = [];
+  let hunksReviewed = 0;
+
+  for (const file of micro.files) {
+    const name = file.filename;
+
+    if (SKIP_PATH_FRAGMENTS.some((s) => name.includes(s))) {
+      findings.push({
+        ruleId: "skip-generated",
+        severity: "info",
+        message: `Skipped heavy/generated path: \`${name}\``,
+        filename: name,
+      });
+      continue;
+    }
+
+    if (file.additions + file.deletions > 500) {
+      findings.push({
+        ruleId: "large-file-delta",
+        severity: "warning",
+        message: `Large change (+${file.additions}/-${file.deletions}); consider splitting this slice.`,
+        filename: name,
+      });
+    }
+
+    if (ctx.multiBoundaryFiles?.includes(name)) {
+      findings.push({
+        ruleId: "multi-component-file",
+        severity: "warning",
+        message: "File matches multiple components; review cross-boundary impact in composite review.",
+        filename: name,
+      });
+    }
+
+    const patch = file.patch ?? "";
+    for (const re of SECRET_PATTERNS) {
+      if (re.test(patch)) {
+        findings.push({
+          ruleId: "possible-secret",
+          severity: "blocker",
+          message: "Patch may contain secrets or private key material.",
+          filename: name,
+        });
+        break;
+      }
+    }
+
+    if (/\.env(\.|$)/.test(name) && file.status !== "removed") {
+      findings.push({
+        ruleId: "env-file",
+        severity: "blocker",
+        message: "Changes to env files are high risk.",
+        filename: name,
+      });
+    }
+
+    if (/migrations?\//.test(name) && micro.componentId !== "persistence") {
+      findings.push({
+        ruleId: "migration-outside-persistence",
+        severity: "warning",
+        message: "Schema/migration change outside persistence component.",
+        filename: name,
+      });
+    }
+
+    const hunks = splitPatchIntoHunks(patch);
+    hunksReviewed += hunks.length;
+
+    for (const hunk of hunks) {
+      if (/TODO|FIXME|HACK/.test(hunk)) {
+        findings.push({
+          ruleId: "todo-in-hunk",
+          severity: "info",
+          message: "Hunk introduces TODO/FIXME/HACK marker.",
+          filename: name,
+        });
+      }
+      if (/console\.(log|debug)\(/.test(hunk)) {
+        findings.push({
+          ruleId: "debug-log",
+          severity: "info",
+          message: "Console logging in changed hunk.",
+          filename: name,
+        });
+      }
+    }
+  }
+
+  return finalizeMicroReview(micro, findings, hunksReviewed);
+}
+
+/**
+ * @param {import('./partition.js').MicroPr} micro
+ * @param {Finding[]} findings
+ * @param {number} hunksReviewed
+ * @returns {MicroReviewResult}
+ */
+export function finalizeMicroReview(micro, findings, hunksReviewed) {
+  const hasBlocker = findings.some((f) => f.severity === "blocker");
+  const status = hasBlocker ? "failed" : "passed";
+
+  const counts = summarizeFindings(findings);
+  const rationaleBlock = micro.rationale
+    ? `\n\n_${micro.rationale}_`
+    : micro.description
+      ? `\n\n_${micro.description}_`
+      : "";
+
+  const summaryMarkdown = [
+    `**${micro.componentName}** (\`${micro.componentId}\`)`,
+    "",
+    `- Files: ${micro.files.length} (+${micro.additions}/-${micro.deletions})`,
+    `- Hunks analyzed: ${hunksReviewed}`,
+    `- Findings: ${counts.blocker} blocker, ${counts.warning} warning, ${counts.info} info`,
+    rationaleBlock,
+    "",
+    findings.length
+      ? findings
+          .filter((f) => f.severity !== "info")
+          .slice(0, 12)
+          .map((f) => `- **${f.severity}** \`${f.ruleId}\`${f.filename ? ` (${f.filename})` : ""}: ${f.message}`)
+          .join("\n")
+      : "_No warnings or blockers in this slice._",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  return {
+    componentId: micro.componentId,
+    componentName: micro.componentName,
+    status,
+    findings,
+    summaryMarkdown,
+    filesReviewed: micro.files.length,
+    hunksReviewed,
+  };
+}
+
+/**
+ * @param {MicroReviewResult} result
+ * @param {import('./partition.js').MicroPr} micro
+ * @param {Finding[]} extraFindings
+ */
+export function mergeMicroReviewFindings(result, micro, extraFindings) {
+  if (!extraFindings.length) return result;
+  return finalizeMicroReview(micro, [...result.findings, ...extraFindings], result.hunksReviewed);
+}
+
+/**
+ * @param {Finding[]} findings
+ */
+function summarizeFindings(findings) {
+  return findings.reduce(
+    (acc, f) => {
+      acc[f.severity] += 1;
+      return acc;
+    },
+    { blocker: 0, warning: 0, info: 0 }
+  );
+}
+
+/**
+ * @param {MicroReviewResult[]} microResults
+ * @param {import('./partition.js').MicroPr[]} microPrs
+ * @param {*} pull
+ */
+export function buildCompositeReview(microResults, microPrs, pull) {
+  const touched = microResults.filter((r) => r.status !== "skipped");
+  const allPassed = touched.every((r) => r.status === "passed");
+  const blockers = microResults.flatMap((r) =>
+    r.findings.filter((f) => f.severity === "blocker").map((f) => ({ ...f, componentId: r.componentId }))
+  );
+  const crossCutting = buildCrossCuttingNotes(microPrs, microResults);
+
+  const table = [
+    "| Component | Bot | Files | Blockers | Warnings |",
+    "|-----------|-----|-------|----------|----------|",
+    ...microResults.map((r) => {
+      const w = r.findings.filter((f) => f.severity === "warning").length;
+      const b = r.findings.filter((f) => f.severity === "blocker").length;
+      const bot = r.status === "skipped" ? "—" : r.status === "passed" ? "✅" : "❌";
+      return `| ${r.componentName} | ${bot} | ${r.filesReviewed} | ${b} | ${w} |`;
+    }),
+  ].join("\n");
+
+  const verdict = allPassed && blockers.length === 0 ? "COMMENT" : "REQUEST_CHANGES";
+  const verdictLabel =
+    verdict === "COMMENT"
+      ? "No blocking issues in component slices; human composite approval still recommended."
+      : "Blocking issues in one or more component slices.";
+
+  const body = [
+    `## Complete architectural PR review`,
+    "",
+    `**${pull.title}** · head \`${pull.head.sha.slice(0, 7)}\` → base \`${pull.base.sha.slice(0, 7)}\``,
+    "",
+    "### Component board",
+    table,
+    "",
+    "### Cross-cutting",
+    crossCutting.length ? crossCutting.map((n) => `- ${n}`).join("\n") : "_No cross-cutting notes._",
+    "",
+    blockers.length
+      ? "### Blockers\n" + blockers.map((b) => `- **${b.componentId}** ${b.filename ?? ""}: ${b.message}`).join("\n")
+      : "",
+    "",
+    `### Verdict`,
+    `**${verdictLabel}**`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  return {
+    event: verdict,
+    body,
+    allPassed,
+    microResults,
+  };
+}
+
+/**
+ * @param {import('./partition.js').MicroPr[]} microPrs
+ * @param {MicroReviewResult[]} results
+ * @returns {string[]}
+ */
+function buildCrossCuttingNotes(microPrs, results) {
+  const notes = [];
+  const ids = new Set(microPrs.map((m) => m.componentId));
+
+  if (ids.has("api") && ids.has("domain") && !ids.has("integration")) {
+    notes.push("Both API and domain changed without contract/integration slice — verify public API ↔ domain alignment.");
+  }
+  if (ids.has("persistence") && ids.has("domain")) {
+    notes.push("Persistence and domain changed — confirm migrations match domain model updates.");
+  }
+  if (ids.has("web") && ids.has("api")) {
+    notes.push("Web and API changed — confirm client calls match server routes.");
+  }
+  if (ids.size >= 4) {
+    notes.push("Many architectural slices touched; consider smaller follow-up PRs if review latency is high.");
+  }
+
+  const failed = results.filter((r) => r.status === "failed");
+  if (failed.length) {
+    notes.push(`Slices with blockers: ${failed.map((f) => f.componentId).join(", ")}.`);
+  }
+
+  return notes;
+}
+
+/**
+ * Narrative synthesis once every touched slice is reviewed — the "whole picture".
+ * @param {import('./partition.js').MicroPr[]} microPrs
+ * @param {MicroReviewResult[]} microResults
+ * @param {*} pull
+ */
+export function buildWholePicture(microPrs, microResults, pull) {
+  const touched = microPrs.filter((m) => m.files.length > 0);
+  const layers = touched
+    .map((m) => {
+      const r = microResults.find((x) => x.componentId === m.componentId);
+      return {
+        id: m.componentId,
+        name: m.componentName,
+        files: m.files.length,
+        delta: `+${m.additions}/-${m.deletions}`,
+        dependsOn: m.dependsOn ?? [],
+        status: r?.status ?? "unknown",
+      };
+    })
+    .sort((a, b) => a.id.localeCompare(b.id));
+
+  const flow = describeArchitectureFlow(layers);
+  const risk = aggregateRiskProfile(microResults);
+
+  return [
+    "## Whole picture",
+    "",
+    `This PR changes **${touched.length}** architectural layer(s) on branch \`${pull.head.ref}\` (${pull.changed_files ?? touched.length} files in partition).`,
+    "",
+    "### Layer stack (reviewed bottom → top)",
+    ...layers.map(
+      (l) =>
+        `- **${l.name}** (\`${l.id}\`): ${l.files} files, ${l.delta}${l.dependsOn.length ? ` · depends on ${l.dependsOn.join(", ")}` : ""}`
+    ),
+    "",
+    "### How the change reads architecturally",
+    flow,
+    "",
+    "### Risk profile (from micro-reviews)",
+    `- Blockers: ${risk.blockers}`,
+    `- Warnings: ${risk.warnings}`,
+    `- Cross-boundary files: ${risk.crossBoundary}`,
+    "",
+    "_Composite review emitted after all component micro-reviews completed successfully._",
+  ].join("\n");
+}
+
+/**
+ * @param {{ id: string, name: string, dependsOn: string[] }[]} layers
+ */
+function describeArchitectureFlow(layers) {
+  const ids = new Set(layers.map((l) => l.id));
+  const paragraphs = [];
+
+  if (ids.has("persistence") && ids.has("domain")) {
+    paragraphs.push(
+      "Data model and storage moved together — treat as a vertical persistence story: schema first, domain rules second."
+    );
+  }
+  if (ids.has("domain") && !ids.has("api") && !ids.has("web")) {
+    paragraphs.push("Internal domain-only change with no public surface diff — lower integration risk if contracts unchanged.");
+  }
+  if (ids.has("api") && ids.has("web")) {
+    paragraphs.push("Full stack slice: confirm request/response contracts before UI behavior.");
+  }
+  if (ids.has("infra") && ids.size === 1) {
+    paragraphs.push("Operational change isolated to infra; application layers untouched in this PR.");
+  }
+  if (ids.has("integration")) {
+    paragraphs.push("Explicit contract layer changed — consumers should be checked even if api/domain micro-reviews are clean.");
+  }
+  if (!paragraphs.length) {
+    paragraphs.push(
+      layers.length === 1
+        ? `Single-layer change (${layers[0].name}) — scope is confined but verify callers outside this slice.`
+        : "Multi-layer change — validate dependencies in the order persistence → domain → api → web."
+    );
+  }
+
+  return paragraphs.map((p) => `- ${p}`).join("\n");
+}
+
+/**
+ * @param {MicroReviewResult[]} microResults
+ */
+function aggregateRiskProfile(microResults) {
+  let blockers = 0;
+  let warnings = 0;
+  let crossBoundary = 0;
+  for (const r of microResults) {
+    blockers += r.findings.filter((f) => f.severity === "blocker").length;
+    warnings += r.findings.filter((f) => f.severity === "warning").length;
+    crossBoundary += r.findings.filter((f) => f.ruleId === "multi-component-file").length;
+  }
+  return { blockers, warnings, crossBoundary };
+}
+
+/**
+ * @param {MicroReviewResult[]} microResults
+ * @param {{ headSha: string, blockedReason?: string }} gate
+ */
+export function buildPendingCompositeNotice(microResults, gate) {
+  const failed = microResults.filter((r) => r.status === "failed");
+  const open = microResults.filter((r) => r.status !== "skipped" && r.status !== "passed");
+
+  return [
+    "## Complete architectural review — pending",
+    "",
+    `Whole-picture synthesis is **not** posted yet for \`${gate.headSha.slice(0, 7)}\`.`,
+    "",
+    gate.blockedReason ? `**Reason:** ${gate.blockedReason}` : "",
+    "",
+    failed.length
+      ? "### Slices with blockers\n" +
+        failed
+          .map((f) => {
+            const blockers = f.findings.filter((x) => x.severity === "blocker");
+            return `- **${f.componentName}**: ${blockers.map((b) => b.message).join("; ")}`;
+          })
+          .join("\n")
+      : "",
+    open.length && !failed.length
+      ? `_Still reviewing: ${open.map((o) => o.componentId).join(", ")}_`
+      : "",
+    "",
+    "Resolve blockers and re-run; the composite **Whole picture** section appears when every touched component micro-review passes.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}

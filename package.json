@@ -1,0 +1,42 @@
+{
+  "name": "cedar-pr-review",
+  "version": "0.1.0",
+  "description": "Partition a GitHub PR into architectural micro-reviews, then emit a composite review",
+  "type": "module",
+  "bin": {
+    "cedar-review": "./src/cli.js"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js & vite",
+    "dev:web": "vite",
+    "dev:api": "node --watch src/server.js",
+    "build:web": "vite build",
+    "preview": "vite preview",
+    "review": "node src/cli.js review",
+    "lint": "node --check src/cli.js && node --check src/server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@octokit/rest": "^21.1.1",
+    "@viz-js/viz": "^3.31.0",
+    "commander": "^13.1.0",
+    "cors": "^2.8.6",
+    "cytoscape": "^3.35.0",
+    "cytoscape-dagre": "^4.1.0",
+    "diff2html": "^3.4.56",
+    "dotenv": "^16.4.7",
+    "express": "^5.3.0",
+    "mermaid": "^12.3.0",
+    "minimatch": "^10.0.1",
+    "svg-pan-zoom": "^3.6.2",
+    "yaml": "^2.7.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.5",
+    "tailwindcss": "^4.3.5",
+    "vite": "^8.3.8"
+  }
+}
