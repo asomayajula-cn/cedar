@@ -14,6 +14,8 @@ async function ensureMermaid() {
     startOnLoad: false,
     theme: "base",
     flowchart: { htmlLabels: false, useMaxWidth: true, padding: 20, curve: "basis", nodeSpacing: 42, rankSpacing: 56 },
+    class: { useMaxWidth: true },
+    sequence: { useMaxWidth: true, wrap: true },
     themeVariables: {
       darkMode: true,
       background: "transparent",
@@ -153,7 +155,7 @@ export async function mountCompleteLayoutViews(root, views) {
     const wrap = pre.closest("[data-diagram-wrap]");
     const svg = pre.querySelector("svg");
     if (ok && wrap instanceof HTMLElement && svg instanceof SVGSVGElement) {
-      queuePanFit(wrap, svg);
+      queuePanFit(wrap, svg, { fillViewport: key === "components" });
       activateDiagramUx(wrap);
       drawn += 1;
     }
@@ -165,13 +167,23 @@ export async function mountCompleteLayoutViews(root, views) {
  * @param {HTMLElement} wrap
  * @param {SVGSVGElement} svg
  */
-function queuePanFit(wrap, svg) {
+/**
+ * @param {HTMLElement} wrap
+ * @param {SVGSVGElement} svg
+ * @param {{ fillViewport?: boolean }} [opts]
+ */
+function queuePanFit(wrap, svg, opts) {
   requestAnimationFrame(() => {
-    requestAnimationFrame(() => bindPanZoom(wrap, svg));
+    requestAnimationFrame(() => bindPanZoom(wrap, svg, opts));
   });
 }
 
-function bindPanZoom(wrap, svg) {
+/**
+ * @param {HTMLElement} wrap
+ * @param {SVGSVGElement} svg
+ * @param {{ fillViewport?: boolean }} [opts]
+ */
+function bindPanZoom(wrap, svg, opts = {}) {
   const prev = panZoomByWrap.get(wrap);
   if (prev) {
     try {
@@ -190,9 +202,7 @@ function bindPanZoom(wrap, svg) {
       controlIconsEnabled: false,
     });
     panZoomByWrap.set(wrap, pz);
-    pz.resize();
-    pz.fit();
-    pz.center();
+    fitDiagramInStage(wrap, svg, pz, opts.fillViewport === true);
     return pz;
   } catch (err) {
     console.warn("[cedar] pan/zoom unavailable", err);
@@ -203,6 +213,43 @@ function bindPanZoom(wrap, svg) {
 /**
  * @param {ParentNode} root
  */
+/**
+ * @param {HTMLElement} wrap
+ * @param {SVGSVGElement} svg
+ * @param {ReturnType<typeof svgPanZoom>} pz
+ * @param {boolean} fillViewport
+ */
+function fitDiagramInStage(wrap, svg, pz, fillViewport) {
+  const stage = wrap.querySelector(".diagram-complete-layout");
+  if (!(stage instanceof HTMLElement)) {
+    pz.resize();
+    pz.fit();
+    pz.center();
+    return;
+  }
+
+  pz.resize();
+  pz.fit();
+  pz.center();
+
+  if (!fillViewport) return;
+
+  const pad = 24;
+  const stageW = Math.max(stage.clientWidth - pad, 280);
+  const stageH = Math.max(stage.clientHeight - pad, 280);
+  const rect = svg.getBoundingClientRect();
+  const svgW = rect.width || svg.width?.baseVal?.value || 0;
+  const svgH = rect.height || svg.height?.baseVal?.value || 0;
+  if (svgW < 8 || svgH < 8 || stageW < 8 || stageH < 8) return;
+
+  const grow = Math.min(stageW / svgW, stageH / svgH, 4);
+  if (grow > 1.08) {
+    const current = pz.getZoom();
+    pz.zoom(current * grow * 0.94);
+    pz.center();
+  }
+}
+
 function wireDiagramToolbars(root) {
   root.querySelectorAll("[data-diagram-wrap]").forEach((wrap) => {
     const bar = wrap.querySelector("[data-diagram-toolbar]");
@@ -218,9 +265,14 @@ function wireDiagramToolbars(root) {
         else if (action === "out") pz.zoomOut();
         else if (action === "reset") {
           pz.resetZoom();
-          pz.resize();
-          pz.fit();
-          pz.center();
+          const sv = wrap.querySelector("svg");
+          if (sv instanceof SVGSVGElement) {
+            fitDiagramInStage(wrap, sv, pz, wrap.getAttribute("data-layout-view") === "uml");
+          } else {
+            pz.resize();
+            pz.fit();
+            pz.center();
+          }
         }
       });
     });

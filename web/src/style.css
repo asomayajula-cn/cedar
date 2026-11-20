@@ -294,6 +294,24 @@
     max-height: min(72vh, 720px);
   }
 
+  .cedar-layout-view-uml .diagram-complete-layout {
+    min-height: min(38rem, 62vh);
+    max-height: min(80vh, 820px);
+    @apply flex min-h-[min(38rem,62vh)] w-full items-center justify-center overflow-hidden;
+  }
+
+  .cedar-layout-view-uml .mermaid-rendered,
+  .cedar-layout-view-uml .cedar-mermaid-source {
+    @apply flex h-full min-h-[inherit] w-full max-w-none items-center justify-center;
+  }
+
+  .cedar-layout-view-uml .mermaid-rendered svg {
+    max-width: none;
+    width: auto;
+    min-height: min(28rem, 50vh);
+    height: auto;
+  }
+
   #architecture-read-mermaid .diagram-complete-layout {
     min-height: min(32rem, 62vh);
     max-height: min(88vh, 960px);

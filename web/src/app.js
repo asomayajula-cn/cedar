@@ -1012,7 +1012,7 @@ function renderResults(container, data) {
               hasLayoutViews
                 ? `<div class="mt-6 cedar-complete-layout-views" id="architecture-read-mermaid">
             <p class="cedar-label mb-4">Complete layout</p>
-            <article class="cedar-layout-view" data-layout-view data-diagram-wrap data-diagram-panzoom>
+            <article class="cedar-layout-view cedar-layout-view-uml" data-layout-view="uml" data-diagram-wrap data-diagram-panzoom>
               <div class="architecture-read-mermaid-head mb-2 flex flex-wrap items-center justify-between gap-2">
                 <p class="cedar-label mb-0">UML · components</p>
                 ${mermaidToolbar(`<span class="cedar-badge cedar-badge-muted">Class</span>`)}

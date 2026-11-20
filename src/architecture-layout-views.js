@@ -51,7 +51,10 @@ function buildComponentsClassDiagram(touched, breakouts) {
     return "classDiagram\n  class PR {\n    <<empty>>\n    No changed layers\n  }";
   }
 
-  const lines = ["classDiagram", "  direction TB"];
+  const lines = [
+    "classDiagram",
+    touched.length <= 4 ? "  direction LR" : "  direction TB",
+  ];
   const classBySlice = new Map();
 
   for (const m of touched) {
