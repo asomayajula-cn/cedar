@@ -3,9 +3,10 @@
  * @typedef {import('./ai-breakouts.js').AiComponentDef} AiComponentDef
  */
 
-import { formatArchitectureLayerLabel, formatPrHubLabel, formatSliceTag } from "./diagram-labels.js";
+import { formatPrHubLabel, mermaidFlowNodeLabel } from "./diagram-labels.js";
 import { buildPrArchitectureLayers } from "./pr-architecture-layers.js";
 import { normalizeSliceId } from "./architecture-model.js";
+import { mermaidSafeText } from "./mermaid-sanitize.js";
 
 const MAX_LAYERS_IN_DIAGRAM = 16;
 
@@ -22,7 +23,7 @@ export function buildArchitectureDiagramMermaid(microPrs, breakouts, pull, targe
     return "flowchart TB\n  empty[No architecture layers in PR]";
   }
 
-  const prLabel = formatPrHubLabel(pull, target);
+  const prLabel = mermaidSafeText(formatPrHubLabel(pull, target));
   const omittedLayers = allLayers.length - layers.length;
   const direction = layers.length >= 2 ? "LR" : "TB";
 
@@ -31,7 +32,7 @@ export function buildArchitectureDiagramMermaid(microPrs, breakouts, pull, targe
     "  classDef pr fill:#fafafa,stroke:#171717,stroke-width:2px,color:#0a0a0a",
     "  classDef layer fill:#141414,stroke:#737373,stroke-width:1px,color:#f5f5f5",
     "  classDef more fill:#0a0a0a,stroke:#404040,color:#737373",
-    `  pr(("${mermaidLabel(prLabel)}")):::pr`,
+    `  pr(("${prLabel}")):::pr`,
   ];
 
   const idByLayer = new Map();
@@ -39,13 +40,13 @@ export function buildArchitectureDiagramMermaid(microPrs, breakouts, pull, targe
   for (const layer of layers) {
     const nodeId = `layer_${safeNodeId(layer.id)}`;
     idByLayer.set(layer.id, nodeId);
-    const label = formatArchitectureLayerLabel(layer.name, formatSliceTag(layer.micro)).replace(/\n/g, " · ");
-    lines.push(`  ${nodeId}["${mermaidLabel(label)}"]:::layer`);
+    const label = mermaidSafeText(mermaidFlowNodeLabel(layer));
+    lines.push(`  ${nodeId}["${label}"]:::layer`);
     lines.push(`  pr --> ${nodeId}`);
   }
 
   if (omittedLayers > 0) {
-    lines.push(`  pr_more["+${omittedLayers} more layers"]:::more`);
+    lines.push(`  pr_more["${omittedLayers} more layers"]:::more`);
     lines.push("  pr --> pr_more");
   }
 
@@ -56,10 +57,10 @@ export function buildArchitectureDiagramMermaid(microPrs, breakouts, pull, targe
       const depId = normalizeSliceId(dep);
       const to = idByLayer.get(depId);
       if (to && from && to !== from) {
-        const key = `${to}-->${from}`;
+        const key = `${from}-->${to}`;
         if (!deps.has(key)) {
           deps.add(key);
-          lines.push(`  ${to} -.-> ${from}`);
+          lines.push(`  ${from} -.-> ${to}`);
         }
       }
     }
@@ -80,20 +81,4 @@ export function buildArchitectureDiagramMarkdown(mermaid) {
  */
 function safeNodeId(id) {
   return String(id).replace(/[^a-zA-Z0-9_]/g, "_") || "layer";
-}
-
-/**
- * Safe node / subgraph labels for Mermaid flowchart quoted strings.
- * @param {string} s
- */
-function mermaidLabel(s) {
-  return String(s)
-    .replace(/\\/g, "\\\\")
-    .replace(/"/g, "'")
-    .replace(/\[/g, "(")
-    .replace(/\]/g, ")")
-    .replace(/#/g, "")
-    .replace(/;/g, ",")
-    .replace(/\n/g, " ")
-    .trim();
 }

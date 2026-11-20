@@ -6,8 +6,13 @@
  */
 
 import { normalizeSliceId } from "./architecture-model.js";
-import { formatArchitectureLayerLabel, formatPrHubLabel, formatSliceTag } from "./diagram-labels.js";
+import {
+  formatPrHubLabel,
+  formatSliceTagMermaid,
+  mermaidFlowNodeLabel,
+} from "./diagram-labels.js";
 import { buildPrArchitectureLayers } from "./pr-architecture-layers.js";
+import { mermaidClassId, mermaidParticipantAlias, mermaidSafeText } from "./mermaid-sanitize.js";
 
 const MAX_LAYERS = 16;
 
@@ -47,37 +52,55 @@ export function buildCompleteLayoutViews(microPrs, breakouts, pull, target) {
  */
 function buildComponentsClassDiagram(layers) {
   if (!layers.length) {
-    return "classDiagram\n  class PR {\n    <<empty>>\n    No changed layers\n  }";
+    return 'classDiagram\n  class EmptyPR["No changed layers"]';
   }
 
   const lines = ["classDiagram", layers.length <= 4 ? "  direction LR" : "  direction TB"];
-  const classByLayer = new Map();
+  /** @type {Map<string, string>} */
+  const mermaidIdByType = new Map();
+  /** @type {Map<string, string>} */
+  const anchorByLayer = new Map();
 
   for (const layer of layers) {
-    const className = `${safeIdent(layer.id)}_layer`;
-    classByLayer.set(layer.id, className);
-    const title = mermaidSafe(layer.name);
-    lines.push(`  class ${className}["${title}"]`);
-    if (layer.summary) {
-      lines.push(`  ${className} : ${mermaidSafe(layer.summary)}`);
+    const layerTypes = layer.types ?? [];
+    if (!layerTypes.length) {
+      const className = `${safeIdent(layer.id)}_layer`;
+      mermaidIdByType.set(className, className);
+      anchorByLayer.set(layer.id, className);
+      lines.push(`  class ${className}["${mermaidSafeText(layer.name)}"]`);
+      if (layer.summary) lines.push(`  ${className} : ${mermaidSafeText(layer.summary)}`);
+      lines.push(`  ${className} : ${mermaidSafeText(formatSliceTagMermaid(layer.micro))}`);
+      continue;
     }
-    for (const t of layer.types) {
-      lines.push(`  ${className} : ${mermaidSafe(t)}`);
+
+    const layerAnchors = [];
+    for (let i = 0; i < layerTypes.length; i++) {
+      const typeName = layerTypes[i];
+      const className = mermaidClassId(typeName, mermaidIdByType);
+      if (!mermaidIdByType.has(typeName)) {
+        mermaidIdByType.set(typeName, className);
+        lines.push(`  class ${className}["${mermaidSafeText(typeName)}"]`);
+        if (layer.summary && i === 0) lines.push(`  ${className} : ${mermaidSafeText(layer.summary)}`);
+        lines.push(`  ${className} : ${mermaidSafeText(layer.name)}`);
+        lines.push(`  ${className} : ${mermaidSafeText(formatSliceTagMermaid(layer.micro))}`);
+      }
+      layerAnchors.push(className);
     }
-    lines.push(`  ${className} : ${mermaidSafe(formatSliceTag(layer.micro))}`);
+    if (layerAnchors[0]) anchorByLayer.set(layer.id, layerAnchors[0]);
   }
 
   const deps = new Set();
   for (const layer of layers) {
-    const from = classByLayer.get(layer.id);
+    const from = anchorByLayer.get(layer.id);
+    if (!from) continue;
     for (const depId of layer.dependsOn) {
       const dep = normalizeSliceId(depId);
-      const to = classByLayer.get(dep);
-      if (from && to && from !== to) {
+      const to = anchorByLayer.get(dep);
+      if (to && from !== to) {
         const key = `${from}..>${to}`;
         if (!deps.has(key)) {
           deps.add(key);
-          lines.push(`  ${from} ..> ${to} : depends`);
+          lines.push(`  ${from} ..> ${to} : uses`);
         }
       }
     }
@@ -97,7 +120,7 @@ function buildRequestFlowDiagram(layers, active, pull, target) {
     return "flowchart LR\n  empty[No layers in PR]";
   }
 
-  const prLabel = mermaidSafe(formatPrHubLabel(pull, target));
+  const prLabel = mermaidSafeText(formatPrHubLabel(pull, target));
   const lines = [
     "flowchart LR",
     "  classDef pr fill:#fafafa,stroke:#171717,stroke-width:2px,color:#0a0a0a",
@@ -112,12 +135,13 @@ function buildRequestFlowDiagram(layers, active, pull, target) {
     if (!active.has(key) || nodeId.has(key)) return;
     const nid = `flow_${safeIdent(key)}`;
     nodeId.set(key, { nid, kind });
-    const shape = kind === "ops" ? `[${mermaidSafe(label)}]` : `["${mermaidSafe(label)}"]`;
+    const labelSafe = mermaidSafeText(label);
+    const shape = kind === "ops" ? `[${labelSafe}]` : `["${labelSafe}"]`;
     lines.push(`  ${nid}${shape}:::${kind}`);
   };
 
   for (const layer of layers) {
-    const label = flowNodeLabel(layer);
+    const label = mermaidFlowNodeLabel(layer);
     register(layer.id, label);
   }
 
@@ -144,7 +168,7 @@ function buildRequestFlowDiagram(layers, active, pull, target) {
     const from = nodeId.get(link.from);
     const to = nodeId.get(link.to);
     if (from && to) {
-      lines.push(`  ${from.nid} -.->|${mermaidSafe(link.label)}| ${to.nid}`);
+      lines.push(`  ${from.nid} -.->|${mermaidSafeText(link.label)}| ${to.nid}`);
     }
   }
 
@@ -180,8 +204,11 @@ function buildEventsSequenceDiagram(layers, active) {
     if (alias.has(key)) return alias.get(key);
     const a = safeIdent(key).slice(0, 24) || "layer";
     alias.set(key, a);
-    const display = mermaidSafe(`${layer.name} · ${formatSliceTag(layer.micro)}`);
-    lines.push(`  participant ${a} as ${display}`);
+    const names = (layer.types ?? []).slice(0, 2).join(", ");
+    const display = names
+      ? `${names} · ${layer.name} · ${formatSliceTagMermaid(layer.micro)}`
+      : `${layer.name} · ${formatSliceTagMermaid(layer.micro)}`;
+    lines.push(`  participant ${a} as ${mermaidParticipantAlias(display)}`);
     return a;
   };
 
@@ -238,7 +265,7 @@ function buildEventsSequenceDiagram(layers, active) {
   if (lines.length <= 2) {
     const first = layers[0];
     const a = ensure(first);
-    lines.push(`  Client->>${a}: ${mermaidSafe(formatSliceTag(first.micro))}`);
+    lines.push(`  Client->>${a}: ${mermaidSafeText(formatSliceTagMermaid(first.micro))}`);
   }
 
   return lines.join("\n");
@@ -247,9 +274,6 @@ function buildEventsSequenceDiagram(layers, active) {
 /**
  * @param {PrArchitectureLayer} layer
  */
-function flowNodeLabel(layer) {
-  return formatArchitectureLayerLabel(layer.name, formatSliceTag(layer.micro)).replace(/\n/g, " · ");
-}
 
 /**
  * @param {{ components: string, flow: string, events: string }} views
@@ -280,14 +304,4 @@ export function buildCompleteLayoutMarkdown(views) {
 
 function safeIdent(s) {
   return String(s).replace(/[^a-zA-Z0-9_]/g, "_") || "layer";
-}
-
-function mermaidSafe(s) {
-  return String(s)
-    .replace(/\\/g, "\\\\")
-    .replace(/"/g, "'")
-    .replace(/#/g, "")
-    .replace(/;/g, ",")
-    .replace(/[()]/g, " ")
-    .trim();
 }

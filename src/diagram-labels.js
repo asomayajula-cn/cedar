@@ -11,6 +11,48 @@ export function formatSliceTag(micro) {
 }
 
 /**
+ * Slice tag safe for Mermaid (no leading +/− — those break classDiagram members).
+ * @param {import('./partition.js').MicroPr} micro
+ */
+export function formatSliceTagMermaid(micro) {
+  const files = micro.files?.length ?? micro.fileCount ?? 0;
+  const add = micro.additions ?? 0;
+  const del = micro.deletions ?? 0;
+  const id = String(micro.componentId ?? "slice").trim();
+  return `slice ${id} · ${files} file${files === 1 ? "" : "s"} · ${add} added · ${del} removed`;
+}
+
+/**
+ * @param {{ types?: string[], name: string }} layer
+ * @param {number} [maxClasses]
+ */
+export function primaryClassNames(layer, maxClasses = 4) {
+  return (layer.types ?? []).filter(Boolean).slice(0, maxClasses);
+}
+
+/**
+ * Headline = changed class/type names when present; subline = layer + slice tag.
+ * @param {{ types?: string[], name: string, micro: import('./partition.js').MicroPr }} layer
+ * @param {number} [maxClasses]
+ */
+export function formatClassArchitectureLabel(layer, maxClasses = 3) {
+  const names = primaryClassNames(layer, maxClasses);
+  const headline = names.length ? names.join(", ") : layer.name;
+  const sub = names.length ? `${layer.name} · ${formatSliceTag(layer.micro)}` : formatSliceTag(layer.micro);
+  return formatArchitectureLayerLabel(headline, sub);
+}
+
+/**
+ * Single-line flow / flowchart node label (Mermaid-safe stats).
+ * @param {{ types?: string[], name: string, micro: import('./partition.js').MicroPr }} layer
+ */
+export function mermaidFlowNodeLabel(layer) {
+  const names = primaryClassNames(layer, 3);
+  const headline = names.length ? names.join(", ") : layer.name;
+  return `${headline} · ${layer.name} · ${formatSliceTagMermaid(layer.micro)}`;
+}
+
+/**
  * Architecture layer title with optional review-slice tag (second line).
  * @param {string} layerName
  * @param {string} [sliceTag]

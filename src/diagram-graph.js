@@ -5,7 +5,7 @@
  */
 
 import { ARCHITECTURE_MODEL_LABEL, normalizeSliceId } from "./architecture-model.js";
-import { formatArchitectureLayerLabel, formatPrHubLabel, formatSliceTag } from "./diagram-labels.js";
+import { formatClassArchitectureLabel, formatPrHubLabel } from "./diagram-labels.js";
 import { buildPrArchitectureLayers } from "./pr-architecture-layers.js";
 
 const MAX_FILES_PER_SLICE = 12;
@@ -47,7 +47,7 @@ export function buildDiagramGraph(microPrs, breakouts, pull, target) {
   for (const layer of layers) {
     const m = layer.micro;
     const sliceId = `slice_${safeId(layer.id)}`;
-    const sliceLabel = formatArchitectureLayerLabel(layer.name, formatSliceTag(m));
+    const sliceLabel = formatClassArchitectureLabel(layer);
 
     overviewNodes.push({ id: sliceId, label: sliceLabel, type: "slice", layerId: layer.id });
     overviewEdges.push({

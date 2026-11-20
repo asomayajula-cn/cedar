@@ -83,15 +83,16 @@ export async function renderArchitectureMermaid(source, pre) {
     if (svgEl instanceof SVGSVGElement) {
       svgEl.style.display = "block";
       svgEl.style.height = "auto";
-      if (isClassDiagram) {
-        svgEl.style.margin = "0";
-        svgEl.style.maxWidth = "none";
-        svgEl.setAttribute("preserveAspectRatio", "xMidYMid meet");
-      } else {
+      svgEl.style.minHeight = "120px";
+      svgEl.style.minWidth = "200px";
+      svgEl.style.margin = "0";
+      svgEl.style.maxWidth = "none";
+      svgEl.setAttribute("preserveAspectRatio", "xMidYMid meet");
+      if (!isClassDiagram) {
         svgEl.style.marginInline = "auto";
-        svgEl.style.maxWidth = "100%";
       }
     }
+    pre.style.minHeight = "12rem";
     return Boolean(svgEl);
   } catch (err) {
     console.warn("[cedar] mermaid render failed", err);
@@ -156,19 +157,24 @@ export async function mountCompleteLayoutViews(root, views) {
     { key: "events", sel: "#cedar-mermaid-events" },
   ];
   let drawn = 0;
-  for (const { key, sel } of panels) {
-    const source = views[key];
-    const pre = root.querySelector(sel);
-    if (!pre || !source?.trim()) continue;
-    const ok = await renderArchitectureMermaid(source, pre);
-    const wrap = pre.closest("[data-diagram-wrap]");
-    const svg = pre.querySelector("svg");
-    if (ok && wrap instanceof HTMLElement && svg instanceof SVGSVGElement) {
-      mountDiagramStageFullWidth(wrap, pre);
-      activateDiagramUx(wrap);
-      drawn += 1;
-    }
-  }
+  await Promise.all(
+    panels.map(async ({ key, sel }) => {
+      const source = views[key];
+      const pre = root.querySelector(sel);
+      if (!pre || !source?.trim()) return;
+      const ok = await renderArchitectureMermaid(source, pre);
+      const wrap = pre.closest("[data-diagram-wrap]");
+      const svg = pre.querySelector("svg");
+      if (ok && wrap instanceof HTMLElement && svg instanceof SVGSVGElement) {
+        mountDiagramStageFullWidth(wrap, pre);
+        activateDiagramUx(wrap);
+        drawn += 1;
+      } else if (!ok && pre instanceof HTMLElement) {
+        pre.classList.add("cedar-mermaid-fallback", "cedar-mermaid-fallback-visible");
+      }
+    })
+  );
+  requestAnimationFrame(() => refitPanZoomDiagrams(root));
   return drawn;
 }
 
@@ -345,20 +351,25 @@ function mountDiagramStageFullWidth(wrap, pre) {
     const naturalH = vb?.height > 0 ? vb.height : svg.height?.baseVal?.value || 0;
     if (naturalW > 0 && naturalH > 0) {
       const scale = stageW / naturalW;
+      const h = Math.max(Math.round(naturalH * scale), 120);
       svg.setAttribute("width", String(Math.round(stageW)));
-      svg.setAttribute("height", String(Math.round(naturalH * scale)));
+      svg.setAttribute("height", String(h));
     } else {
-      svg.setAttribute("width", "100%");
+      svg.removeAttribute("width");
       svg.removeAttribute("height");
     }
     svg.style.width = "100%";
     svg.style.maxWidth = "none";
+    svg.style.minHeight = "120px";
     svg.style.display = "block";
     svg.style.margin = "0";
+    svg.style.visibility = "visible";
   };
 
   umlFitByWrap.set(wrap, fit);
-  fit();
+  requestAnimationFrame(() => {
+    requestAnimationFrame(fit);
+  });
 
   if (!resizeObserverByWrap.has(wrap)) {
     const ro = new ResizeObserver(() => fit());

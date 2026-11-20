@@ -74,15 +74,45 @@ function collectChangedTypes(micro) {
     if (fromName) types.add(fromName);
 
     const patch = f.patch ?? "";
-    for (const m of patch.matchAll(/^\+\s*(?:public\s+|private\s+|protected\s+)?(?:abstract\s+)?(?:class|interface|enum|record)\s+(\w+)/gm)) {
-      types.add(m[1]);
-    }
-    for (const m of patch.matchAll(/^\+\s*export\s+(?:default\s+)?(?:class|interface|type|function)\s+(\w+)/gm)) {
-      types.add(m[1]);
+    for (const line of patch.split("\n")) {
+      if (line.startsWith("\\")) continue;
+      if (!line.startsWith("+") && !line.startsWith("-") && !line.startsWith(" ")) continue;
+      const body = line.slice(1).trim();
+      if (!body) continue;
+      extractTypeNamesFromSourceLine(body, types);
     }
   }
 
-  return [...types].slice(0, MAX_TYPES_PER_LAYER);
+  return [...types].sort((a, b) => a.localeCompare(b)).slice(0, MAX_TYPES_PER_LAYER);
+}
+
+/**
+ * @param {string} line
+ * @param {Set<string>} types
+ */
+function extractTypeNamesFromSourceLine(line, types) {
+  const rules = [
+    /^(?:public\s+|private\s+|protected\s+)?(?:abstract\s+|sealed\s+)?(?:class|interface|enum|record)\s+(\w+)/,
+    /^export\s+(?:default\s+)?(?:abstract\s+)?(?:class|interface|type)\s+(\w+)/,
+    /^export\s+(?:default\s+)?(?:async\s+)?function\s+(\w+)/,
+    /^type\s+(\w+)\s+struct\b/,
+    /^func\s+(?:\([^)]*\)\s+)?(\w+)\s*\(/,
+    /^class\s+(\w+)\s*[:(]/,
+    /^struct\s+(\w+)\s*\{/,
+  ];
+  for (const re of rules) {
+    const m = line.match(re);
+    if (m?.[1] && isLikelyTypeName(m[1])) types.add(m[1]);
+  }
+}
+
+/**
+ * @param {string} name
+ */
+function isLikelyTypeName(name) {
+  if (!name || name.length < 2) return false;
+  if (/^(if|for|while|switch|catch|return|import|from|const|let|var)$/.test(name)) return false;
+  return /^[A-Z][A-Za-z0-9_]*$/.test(name);
 }
 
 /**

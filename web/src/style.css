@@ -304,12 +304,20 @@
     @apply w-full min-w-0 max-w-none text-left;
   }
 
+  .cedar-complete-layout-views .cedar-mermaid-source,
+  .cedar-complete-layout-views .mermaid-rendered {
+    min-height: 12rem;
+  }
+
   .cedar-complete-layout-views .mermaid-rendered svg {
     display: block;
     width: 100% !important;
     max-width: none !important;
     height: auto !important;
+    min-height: 8rem;
     margin: 0 !important;
+    visibility: visible !important;
+    opacity: 1 !important;
   }
 
   .architecture-read-mermaid-head {
@@ -385,6 +393,11 @@
 
   .cedar-mermaid-fallback {
     @apply whitespace-pre-wrap text-left font-mono text-[11px] leading-relaxed text-zinc-500;
+  }
+
+  .cedar-mermaid-fallback-visible {
+    min-height: 12rem;
+    @apply overflow-auto rounded-lg border border-amber-500/20 bg-amber-500/5 p-4 text-amber-100/80;
   }
 
   .review-progress-log .review-progress-line {

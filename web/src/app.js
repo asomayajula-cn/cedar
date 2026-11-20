@@ -8,7 +8,12 @@ import { ARCHITECTURE_LAYER_STACK, ARCHITECTURE_MODEL_LABEL } from "../../src/ar
 import { renderSliceFileReviews, wireFileReviewToggles } from "./diff-view.js";
 import { setCommentToast } from "./diff-comments.js";
 import { initDiffFontFromServer } from "./diff-font.js";
-import { mountCompleteLayoutViews, activateDiagramUx, wireDiagramResizeListeners } from "./diagram-ux.js";
+import {
+  mountCompleteLayoutViews,
+  activateDiagramUx,
+  wireDiagramResizeListeners,
+  refitPanZoomDiagrams,
+} from "./diagram-ux.js";
 import { applyReviewStreamEvent, postReviewStream } from "./review-stream.js";
 
 const statusDot = {
@@ -655,8 +660,10 @@ function wireCompleteLayoutViews(root, views) {
     if (allMounted()) return;
     void mountCompleteLayoutViews(host, views).then((drew) => {
       if (!drew) showToast("Complete layout diagrams could not render.", "error");
-      else host.dataset.mermaidLayoutsMounted = "1";
+      if (allMounted()) host.dataset.mermaidLayoutsMounted = "1";
+      else delete host.dataset.mermaidLayoutsMounted;
       activateDiagramUx(host);
+      requestAnimationFrame(() => refitPanZoomDiagrams(host));
     });
   };
 
