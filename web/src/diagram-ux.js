@@ -13,7 +13,7 @@ async function ensureMermaid() {
   mermaidApi.initialize({
     startOnLoad: false,
     theme: "base",
-    flowchart: { htmlLabels: true, useMaxWidth: true, padding: 20, curve: "basis", nodeSpacing: 42, rankSpacing: 56 },
+    flowchart: { htmlLabels: false, useMaxWidth: true, padding: 20, curve: "basis", nodeSpacing: 42, rankSpacing: 56 },
     themeVariables: {
       darkMode: true,
       background: "transparent",
@@ -35,27 +35,56 @@ async function ensureMermaid() {
 
 /**
  * @param {string} source
+ */
+export function normalizeMermaidSource(source) {
+  let s = String(source ?? "").trim();
+  if (!s) return "";
+  const fence = /^```(?:mermaid)?\s*\n([\s\S]*?)```\s*$/im.exec(s);
+  if (fence) s = fence[1].trim();
+  const lines = s.split("\n");
+  while (lines[0]?.startsWith("#")) lines.shift();
+  return lines.join("\n").trim();
+}
+
+/**
+ * @param {string} source
  * @param {HTMLElement} pre
  */
 export async function renderArchitectureMermaid(source, pre) {
-  if (!source?.trim() || !pre) return false;
-  pre.textContent = source;
-  pre.classList.add("mermaid");
-  pre.removeAttribute("data-processed");
-  const mermaid = await ensureMermaid();
+  if (!pre) return false;
+  const graph = normalizeMermaidSource(source);
+  if (!graph) return false;
+
+  let mermaid;
   try {
-    pre.removeAttribute("data-processed");
-    await mermaid.run({ nodes: [pre] });
-    const svg = pre.querySelector("svg");
-    if (svg) {
-      svg.style.display = "block";
-      svg.style.marginInline = "auto";
-      svg.style.maxWidth = "100%";
-      svg.style.height = "auto";
+    mermaid = await ensureMermaid();
+  } catch (err) {
+    console.warn("[cedar] mermaid load failed", err);
+    pre.textContent = graph;
+    pre.classList.add("cedar-mermaid-fallback");
+    return false;
+  }
+
+  pre.classList.remove("cedar-mermaid-fallback");
+  pre.replaceChildren();
+
+  const renderId = `cedar-mermaid-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  try {
+    const { svg, bindFunctions } = await mermaid.render(renderId, graph);
+    pre.innerHTML = svg;
+    pre.classList.add("mermaid-rendered");
+    bindFunctions?.(pre);
+    const svgEl = pre.querySelector("svg");
+    if (svgEl instanceof SVGSVGElement) {
+      svgEl.style.display = "block";
+      svgEl.style.marginInline = "auto";
+      svgEl.style.maxWidth = "100%";
+      svgEl.style.height = "auto";
     }
-    return true;
+    return Boolean(svgEl);
   } catch (err) {
     console.warn("[cedar] mermaid render failed", err);
+    pre.textContent = graph;
     pre.classList.add("cedar-mermaid-fallback");
     return false;
   }

@@ -608,6 +608,42 @@ function wireSliceRailResize(root) {
  * @param {ParentNode} root
  * @param {"architecture" | "slices"} defaultMainTab
  */
+/**
+ * @param {ParentNode} root
+ * @param {string} source
+ * @param {() => void} [onRetry]
+ */
+function wireMermaidLayoutMount(root, source, onRetry) {
+  if (!(root instanceof HTMLElement) || !source?.trim()) return;
+  const host = root.querySelector("#architecture-read-mermaid");
+  if (!(host instanceof HTMLElement)) return;
+
+  const draw = () => {
+    const panel = root.querySelector("#cedar-review-panel-architecture");
+    if (panel instanceof HTMLElement && panel.hidden) return;
+    if (host.querySelector("svg")) return;
+    void mountLayoutMermaid(host, source).then((drew) => {
+      if (!drew) {
+        onRetry?.();
+        showToast("Mermaid layout could not render.", "error");
+      }
+      activateDiagramUx(host);
+    });
+  };
+
+  root.querySelectorAll("[data-review-tab]").forEach((btn) => {
+    if (!(btn instanceof HTMLElement) || btn.dataset.wiredMermaidTab) return;
+    btn.dataset.wiredMermaidTab = "1";
+    btn.addEventListener("click", () => {
+      if (btn.getAttribute("data-review-tab") === "architecture") {
+        requestAnimationFrame(draw);
+      }
+    });
+  });
+
+  requestAnimationFrame(() => requestAnimationFrame(draw));
+}
+
 function wireReviewTabs(root, defaultMainTab) {
   root.querySelectorAll("[data-review-tab]").forEach((btn) => {
     if (btn.dataset.wiredReviewTab) return;
@@ -1021,18 +1057,9 @@ function renderResults(container, data) {
     window.scrollTo({ top: 0, behavior: "smooth" });
   });
 
-  const renderMermaid = () => {
-    if (!diagramMermaid.trim()) return;
-    const host = container.querySelector("#architecture-read-mermaid");
-    void mountLayoutMermaid(host ?? container, diagramMermaid).then((drew) => {
-      if (!drew) showToast("Mermaid layout could not render.", "error");
-      const mermaidRoot = container.querySelector("#architecture-read-mermaid");
-      if (mermaidRoot) activateDiagramUx(mermaidRoot);
-    });
-  };
-  requestAnimationFrame(() => {
-    requestAnimationFrame(renderMermaid);
-  });
+  if (diagramMermaid.trim()) {
+    wireMermaidLayoutMount(container, diagramMermaid);
+  }
 
   if (archSliceCount > 0) {
     const graph =

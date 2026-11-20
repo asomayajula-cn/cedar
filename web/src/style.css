@@ -321,11 +321,13 @@
   }
 
   .cedar-mermaid-scroll .mermaid,
+  .cedar-mermaid-scroll .mermaid-rendered,
   .cedar-mermaid-scroll .cedar-mermaid-source {
     @apply w-full min-w-[min(100%,40rem)] text-center;
   }
 
-  .cedar-mermaid-scroll .mermaid svg {
+  .cedar-mermaid-scroll .mermaid svg,
+  .cedar-mermaid-scroll .mermaid-rendered svg {
     display: block;
     margin-inline: auto;
     max-width: 100%;
