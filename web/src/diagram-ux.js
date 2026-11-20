@@ -44,6 +44,7 @@ export async function renderArchitectureMermaid(source, pre) {
   pre.removeAttribute("data-processed");
   const mermaid = await ensureMermaid();
   try {
+    pre.removeAttribute("data-processed");
     await mermaid.run({ nodes: [pre] });
     const svg = pre.querySelector("svg");
     if (svg) {
@@ -90,8 +91,9 @@ export function activateDiagramUx(root) {
  * @param {string} source
  */
 export async function mountLayoutMermaid(root, source) {
+  if (!root || !source?.trim()) return false;
   const pre = root.querySelector("#cedar-mermaid-layout");
-  if (!pre || !source?.trim()) return false;
+  if (!pre) return false;
   const ok = await renderArchitectureMermaid(source, pre);
   const wrap = pre.closest("[data-diagram-wrap]");
   const svg = pre.querySelector("svg");

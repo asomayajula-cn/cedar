@@ -82,7 +82,7 @@ export async function runPrReviewPipeline(opts) {
       headSha: pull.head.sha,
     });
     const cached = readBreakoutCache(cacheId);
-    if (cached?.components?.length && cached?.fileAssignments) {
+    if (cached?.components?.length && cached?.fileAssignments && cached.strategy !== "heuristic") {
       phase("breakouts", "Architectural breakouts", "running", "cache hit — skipping Cursor");
       phase("breakouts", "Architectural breakouts", "done", "cache · headSha");
       breakoutPlan = {
@@ -98,14 +98,16 @@ export async function runPrReviewPipeline(opts) {
         baseRef: pull.base.ref,
         headRef: pull.head.ref,
       });
-      writeBreakoutCache(cacheId, {
-        architectureSummary: breakoutPlan.architectureSummary,
-        components: breakoutPlan.components,
-        fileAssignments: breakoutPlan.fileAssignments,
-        diagramVisual: breakoutPlan.diagramVisual ?? null,
-        model: breakoutPlan.model,
-        strategy: breakoutPlan.strategy,
-      });
+      if (breakoutPlan.strategy !== "heuristic") {
+        writeBreakoutCache(cacheId, {
+          architectureSummary: breakoutPlan.architectureSummary,
+          components: breakoutPlan.components,
+          fileAssignments: breakoutPlan.fileAssignments,
+          diagramVisual: breakoutPlan.diagramVisual ?? null,
+          model: breakoutPlan.model,
+          strategy: breakoutPlan.strategy,
+        });
+      }
       phase(
         "breakouts",
         "Architectural breakouts",
