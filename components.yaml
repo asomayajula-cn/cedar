@@ -1,31 +1,65 @@
-# Map architectural components to path globs (first match wins).
-# Add integration for contract / API surfaces that span layers.
+# DDD + 12-factor — matches examples/Spring Boot package layout (first match wins).
 
 components:
-  - id: api
-    name: API & handlers
+  - id: domain
+    name: Domain layer · DDD
     paths:
+      - "**/src/main/java/**/domain/**"
+      - "internal/domain/**"
+      - "src/domain/**"
+    depends_on: []
+
+  - id: application
+    name: Application layer · DDD
+    paths:
+      - "**/src/main/java/**/application/**"
+      - "**/src/main/java/**/port/**"
+      - "internal/application/**"
+      - "internal/usecase/**"
+    depends_on: [domain]
+
+  - id: infrastructure
+    name: Infrastructure · DDD
+    paths:
+      - "**/src/main/java/**/infrastructure/**"
+      - "internal/store/**"
+    depends_on: [domain, application]
+
+  - id: api
+    name: API adapters · DDD
+    paths:
+      - "**/src/main/java/**/api/**"
       - "api/**"
       - "internal/handlers/**"
       - "src/routes/**"
-      - "openapi/**"
-    depends_on: [domain]
+    depends_on: [application, domain]
 
-  - id: domain
-    name: Domain & use cases
+  - id: config
+    name: Runtime config · 12-factor
     paths:
-      - "internal/domain/**"
-      - "internal/usecase/**"
-      - "src/domain/**"
-      - "pkg/**"
+      - "**/src/main/resources/**"
+      - "**/application*.yml"
+      - "**/application*.yaml"
+      - "**/application*.properties"
+      - ".env.example"
+    depends_on: []
+
+  - id: build_deploy
+    name: Build & release · 12-factor
+    paths:
+      - "**/pom.xml"
+      - "**/build.gradle*"
+      - "Dockerfile*"
+      - "docker-compose*.yml"
+      - "Procfile"
     depends_on: []
 
   - id: persistence
     name: Persistence & migrations
     paths:
-      - "internal/store/**"
       - "migrations/**"
       - "db/**"
+      - "**/src/main/resources/db/**"
     depends_on: [domain]
 
   - id: web
@@ -37,13 +71,12 @@ components:
     depends_on: [api]
 
   - id: infra
-    name: Infra & ops
+    name: Platform & ops · 12-factor
     paths:
       - ".github/**"
       - "terraform/**"
       - "k8s/**"
       - "docker/**"
-      - "Dockerfile*"
     depends_on: []
 
   - id: integration
@@ -51,8 +84,8 @@ components:
     paths:
       - "contracts/**"
       - "proto/**"
+      - "openapi/**"
       - "**/*.openapi.yaml"
-      - "**/openapi.yaml"
     depends_on: [api, domain]
 
 default_component: misc

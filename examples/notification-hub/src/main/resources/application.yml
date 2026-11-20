@@ -1,5 +1,10 @@
 server:
-  port: 8082
+  port: ${PORT:8082}
+
 spring:
   application:
     name: notification-hub
+
+cedar:
+  notify:
+    default-from: ${NOTIFY_FROM:noreply@example.com}

@@ -10,6 +10,14 @@ export default defineConfig({
       "/api": {
         target: "http://127.0.0.1:3847",
         changeOrigin: true,
+        configure: (proxy) => {
+          proxy.on("proxyRes", (proxyRes, req) => {
+            if (req.url?.includes("/stream")) {
+              proxyRes.headers["cache-control"] = "no-cache, no-transform";
+              proxyRes.headers["x-accel-buffering"] = "no";
+            }
+          });
+        },
       },
     },
   },

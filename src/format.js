@@ -8,7 +8,7 @@
  */
 export function formatComponentBoard(microResults, gate) {
   const compositeStatus = gate.ready
-    ? "ready — whole picture painted below"
+    ? "ready — architecture read below"
     : gate.blockedReason ?? "waiting for component slices";
 
   const table = [

@@ -1,5 +1,6 @@
-import { openRouterChat, parseJsonFromModel } from "./openrouter.js";
-import { resolveOpenRouterModel } from "./default-model.js";
+import { aiChat, parseJsonFromModel, resolveAiModel } from "./ai-chat.js";
+import { AI_PARTITION_SYSTEM_EXTRA, ARCHITECTURE_MODEL_LABEL } from "./architecture-model.js";
+import { includeDiagramInBreakoutCall } from "./diagram-visual-mode.js";
 import { heuristicArchitecturalBreakouts } from "./heuristic-breakouts.js";
 
 const MAX_FILES_FULL = 80;
@@ -24,7 +25,8 @@ const PATCH_CHAR_LIMIT = 1200;
  * @property {AiComponentDef[]} components
  * @property {Record<string, string>} fileAssignments
  * @property {string} model
- * @property {'ai' | 'heuristic' | 'ai+heuristic'} strategy
+ * @property {'ai' | 'heuristic' | 'ai+heuristic' | 'cache'} strategy
+ * @property {Record<string, unknown> | null} [diagramVisual]
  */
 
 /**
@@ -41,7 +43,8 @@ export async function discoverArchitecturalBreakouts(files, pullCtx) {
     const merged = mergePlans(ai, heuristic, files);
     return {
       ...merged,
-      model: resolveOpenRouterModel(),
+      diagramVisual: merged.diagramVisual ?? null,
+      model: resolveAiModel(),
       strategy: merged.strategy,
     };
   } catch (err) {
@@ -50,7 +53,8 @@ export async function discoverArchitecturalBreakouts(files, pullCtx) {
       architectureSummary: `${heuristic.architectureSummary} (AI breakout skipped: ${message})`,
       components: heuristic.components,
       fileAssignments: heuristic.fileAssignments,
-      model: resolveOpenRouterModel(),
+      diagramVisual: null,
+      model: resolveAiModel(),
       strategy: "heuristic",
     };
   }
@@ -72,7 +76,28 @@ function mergePlans(ai, heuristic, files) {
     architectureSummary: ai.architectureSummary || heuristic.architectureSummary,
     components,
     fileAssignments: assignments,
+    diagramVisual: ai.diagramVisual ?? null,
     strategy,
+  };
+}
+
+/**
+ * @param {Record<string, unknown>} parsed
+ * @returns {Record<string, unknown> | null}
+ */
+function coalesceDiagramVisual(parsed) {
+  const raw = parsed.diagram_visual ?? parsed.diagramVisual;
+  if (!raw || typeof raw !== "object") return null;
+  const highlights = raw.highlight_slice_ids ?? raw.highlight_node_ids;
+  return {
+    ...raw,
+    highlight_node_ids: Array.isArray(highlights)
+      ? highlights.map((id) =>
+          String(id).startsWith("slice_") ? String(id) : `slice_${slugId(String(id))}`
+        )
+      : raw.highlight_node_ids,
+    slice_labels: raw.slice_labels ?? raw.component_labels,
+    node_labels: raw.node_labels ?? {},
   };
 }
 
@@ -86,12 +111,34 @@ async function requestAiBreakouts(digest, pullCtx, hint) {
 
 Goals:
 - 2–8 slices (not one per file; not one giant slice unless the PR is tiny)
-- Slice by architectural responsibility: data, domain, API, UI, infra, tests — inferred from paths and diffs
 - Each changed file appears exactly once in file_assignments
-- depends_on reflects review order (e.g. persistence before api)
+- architecture_summary must mention the model: DDD + SOLID + 12-factor
+
+${AI_PARTITION_SYSTEM_EXTRA}
+
+SOLID (use in component names/rationale, not as extra slice ids unless paths demand it):
+- SRP: one reason per slice/layer; controllers stay thin
+- OCP: extend via domain/application, not sprawling conditionals in api
+- LSP: substitutable port implementations in infrastructure
+- ISP: small application ports, not god interfaces
+- DIP: domain/application do not depend on infrastructure or Spring; depend on abstractions
 
 Return JSON only with keys: architecture_summary, components[], file_assignments{}.
-components[].id must be snake_case.`;
+components[].id must be snake_case.${
+    includeDiagramInBreakoutCall()
+      ? `
+
+Also return diagram_visual for a black-and-white slice overview (same response, one object):
+"diagram_visual": {
+  "visual_summary": "1-2 sentences",
+  "layout": "TB" | "LR",
+  "slice_labels": { "<component.id>": "short multiline label for slice node" },
+  "highlight_slice_ids": ["component ids to emphasize"],
+  "conceptual_notes": ["optional reviewer bullets"]
+}
+Context: ${ARCHITECTURE_MODEL_LABEL}. Labels only — no extra nodes.`
+      : ""
+  }`;
 
   const user = JSON.stringify({
     pull_request: {
@@ -111,7 +158,7 @@ components[].id must be snake_case.`;
   let lastError;
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const raw = await openRouterChat({
+      const raw = await aiChat({
         messages: [
           { role: "system", content: system },
           {
@@ -136,6 +183,7 @@ components[].id must be snake_case.`;
         ),
         components,
         fileAssignments,
+        diagramVisual: coalesceDiagramVisual(parsed),
       };
     } catch (err) {
       lastError = err;

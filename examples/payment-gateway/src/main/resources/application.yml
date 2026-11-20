@@ -1,5 +1,12 @@
+# 12-factor III / VII — config and port from environment
 server:
-  port: 8081
+  port: ${PORT:8081}
+
 spring:
   application:
     name: payment-gateway
+
+cedar:
+  payment:
+    stripe:
+      webhook-signing-secret: ${STRIPE_WEBHOOK_SECRET:}

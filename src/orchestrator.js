@@ -27,6 +27,10 @@ import {
 import { renderReviewDiagrams } from "./diagram-graphviz.js";
 import { orderMicroPrsForLayout } from "./diagram-layout.js";
 import { buildDiagramGraph } from "./diagram-graph.js";
+import { resolveArchitectureVisual } from "./ai-architecture-visual.js";
+import { breakoutCacheKey, readBreakoutCache, writeBreakoutCache } from "./breakout-cache.js";
+import { resolveAiModel } from "./default-model.js";
+import { emitPhase } from "./review-progress.js";
 
 /**
  * @param {{
@@ -42,9 +46,12 @@ import { buildDiagramGraph } from "./diagram-graph.js";
  * }} opts
  */
 export async function runPrReviewPipeline(opts) {
+  const phase = (id, label, status, detail) => emitPhase(id, label, status, detail);
+
   const configPath = opts.configPath ?? path.join(process.cwd(), "components.yaml");
   const yamlConfig = loadComponentsConfig(configPath);
 
+  phase("fetch", "Fetch PR from GitHub", "running");
   const octokit = createClient(opts.token);
   const pull = await fetchPullRequest(octokit, {
     owner: opts.owner,
@@ -56,9 +63,11 @@ export async function runPrReviewPipeline(opts) {
     repo: opts.repo,
     pull_number: opts.pr,
   });
+  phase("fetch", "Fetch PR from GitHub", "done", `${files.length} files`);
 
   const useAiBreakouts = resolvePartitionMode(opts.partitionMode) === "ai";
-  const useAiReview = opts.useAiReview ?? useAiBreakouts;
+  const useAiReview =
+    opts.useAiReview ?? (process.env.CEDAR_AI_SLICE_REVIEW === "true");
 
   /** @type {import('./ai-breakouts.js').AiBreakoutPlan | null} */
   let breakoutPlan = null;
@@ -66,64 +75,104 @@ export async function runPrReviewPipeline(opts) {
   let defaultComponent = yamlConfig.defaultComponent;
 
   if (useAiBreakouts) {
-    breakoutPlan = await discoverArchitecturalBreakouts(files, {
-      title: pull.title,
-      body: pull.body ?? "",
-      baseRef: pull.base.ref,
-      headRef: pull.head.ref,
+    const cacheId = breakoutCacheKey({
+      owner: opts.owner,
+      repo: opts.repo,
+      pr: opts.pr,
+      headSha: pull.head.sha,
     });
+    const cached = readBreakoutCache(cacheId);
+    if (cached?.components?.length && cached?.fileAssignments) {
+      phase("breakouts", "Architectural breakouts", "running", "cache hit — skipping Cursor");
+      phase("breakouts", "Architectural breakouts", "done", "cache · headSha");
+      breakoutPlan = {
+        ...cached,
+        strategy: "cache",
+        model: cached.model ?? resolveAiModel(),
+      };
+    } else {
+      phase("breakouts", "Architectural breakouts", "running", "Cursor · plan mode");
+      breakoutPlan = await discoverArchitecturalBreakouts(files, {
+        title: pull.title,
+        body: pull.body ?? "",
+        baseRef: pull.base.ref,
+        headRef: pull.head.ref,
+      });
+      writeBreakoutCache(cacheId, {
+        architectureSummary: breakoutPlan.architectureSummary,
+        components: breakoutPlan.components,
+        fileAssignments: breakoutPlan.fileAssignments,
+        diagramVisual: breakoutPlan.diagramVisual ?? null,
+        model: breakoutPlan.model,
+        strategy: breakoutPlan.strategy,
+      });
+      phase(
+        "breakouts",
+        "Architectural breakouts",
+        "done",
+        `${breakoutPlan.components.length} slices · ${breakoutPlan.strategy}`
+      );
+    }
     components = aiComponentsToDefs(breakoutPlan.components);
     defaultComponent = components[0]?.id ?? "general";
+  } else {
+    phase("breakouts", "Map components", "done", "components.yaml");
   }
 
+  phase("partition", "Partition micro slices", "running");
   const { microPrs, multiTagged } = useAiBreakouts
     ? partitionPrByAssignments(files, components, breakoutPlan.fileAssignments, defaultComponent)
     : partitionPrByComponents(files, components, defaultComponent);
 
   const multiBoundaryFiles = multiTagged.map((f) => f.filename);
   const ordered = orderMicroPrsForLayout(microPrs);
+  const sliceCount = ordered.filter((m) => m.files.length > 0).length;
+  phase("partition", "Partition micro slices", "done", `${sliceCount} slices`);
 
-  /** @type {import('./review-engine.js').MicroReviewResult[]} */
-  const microResults = [];
+  const pullMeta = { number: pull.number, title: pull.title };
+  const target = { owner: opts.owner, repo: opts.repo };
 
-  for (const micro of ordered) {
-    let result = reviewMicroPr(micro, { multiBoundaryFiles });
+  const baseDiagramGraph = buildDiagramGraph(
+    ordered,
+    breakoutPlan ?? undefined,
+    pullMeta,
+    target
+  );
 
-    if (useAiReview && process.env.OPENROUTER_API_KEY && micro.files.length) {
-      try {
-        const aiFindings = await aiReviewMicroSlice(micro, {
-          architectureSummary: breakoutPlan?.architectureSummary,
-        });
-        result = mergeMicroReviewFindings(result, micro, aiFindings);
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        result = mergeMicroReviewFindings(result, micro, [
-          {
-            ruleId: "ai/unavailable",
-            severity: "warning",
-            message: `OpenRouter slice review failed: ${message}`,
-          },
-        ]);
-      }
-    }
+  const diagramMermaid = buildArchitectureDiagramMermaid(
+    ordered,
+    breakoutPlan ?? undefined,
+    pullMeta,
+    target
+  );
+  const diagramMarkdown = buildArchitectureDiagramMarkdown(diagramMermaid);
 
-    microResults.push(result);
+  phase("review", "Micro reviews & diagrams", "running");
+  const [microResults, pipelineRendered, visualResolved] = await Promise.all([
+    runMicroReviewPass(ordered, {
+      multiBoundaryFiles,
+      useAiReview,
+      breakoutPlan,
+      postMicro: Boolean(opts.postMicro),
+      octokit,
+      pull,
+      owner: opts.owner,
+      repo: opts.repo,
+      pr: opts.pr,
+    }),
+    renderReviewDiagrams({
+      microPrs: ordered,
+      breakouts: breakoutPlan ?? undefined,
+      pull: pullMeta,
+      target,
+    }),
+    resolveArchitectureVisual(baseDiagramGraph, ordered, breakoutPlan ?? undefined, pullMeta),
+  ]);
 
-    if (opts.postMicro && result.status !== "skipped") {
-      await submitPullRequestReview(octokit, {
-        owner: opts.owner,
-        repo: opts.repo,
-        pull_number: opts.pr,
-        commit_id: pull.head.sha,
-        event: "COMMENT",
-        body: [
-          `### Micro-review · ${result.componentName}`,
-          "",
-          result.summaryMarkdown,
-        ].join("\n"),
-      });
-    }
-  }
+  const { graph: diagramGraph, visual: architectureVisual, source: diagramVisualSource } =
+    visualResolved;
+  const { pipelineDot, pipelineSvg } = pipelineRendered;
+  phase("review", "Micro reviews & diagrams", "done", diagramVisualSource ?? "heuristic");
 
   const touched = microResults.filter((r) => r.status !== "skipped");
   const allSlicesReviewed = touched.every((r) => r.status === "passed" || r.status === "failed");
@@ -139,28 +188,6 @@ export async function runPrReviewPipeline(opts) {
   };
 
   const boardMarkdown = formatComponentBoard(microResults, gate);
-
-  const diagramMermaid = buildArchitectureDiagramMermaid(
-    ordered,
-    breakoutPlan ?? undefined,
-    { number: pull.number, title: pull.title },
-    { owner: opts.owner, repo: opts.repo }
-  );
-  const diagramMarkdown = buildArchitectureDiagramMarkdown(diagramMermaid);
-
-  const diagramGraph = buildDiagramGraph(
-    ordered,
-    breakoutPlan ?? undefined,
-    { number: pull.number, title: pull.title },
-    { owner: opts.owner, repo: opts.repo }
-  );
-
-  const { pipelineDot, pipelineSvg } = await renderReviewDiagrams({
-    microPrs: ordered,
-    breakouts: breakoutPlan ?? undefined,
-    pull: { number: pull.number, title: pull.title },
-    target: { owner: opts.owner, repo: opts.repo },
-  });
 
   /** @type {object | null} */
   let composite = null;
@@ -217,6 +244,7 @@ export async function runPrReviewPipeline(opts) {
 
   const processSteps = buildProcessSteps({
     useAiBreakouts,
+    breakoutStrategy: breakoutPlan?.strategy,
     fileCount: files.length,
     sliceCount: microPrs.filter((m) => m.files.length > 0).length,
     microResults,
@@ -259,6 +287,8 @@ export async function runPrReviewPipeline(opts) {
       diagramPipelineDot: pipelineDot,
       diagramPipelineSvg: pipelineSvg,
       diagramGraph,
+      architectureVisual,
+      diagramVisualSource,
     },
     microPrs: ordered.map((m) => ({
       componentId: m.componentId,
@@ -298,13 +328,77 @@ export async function runPrReviewPipeline(opts) {
 }
 
 /**
+ * @param {import('./partition.js').MicroPr[]} ordered
+ * @param {{
+ *   multiBoundaryFiles: string[],
+ *   useAiReview: boolean,
+ *   breakoutPlan: import('./ai-breakouts.js').AiBreakoutPlan | null,
+ *   postMicro: boolean,
+ *   octokit: import('@octokit/rest').Octokit,
+ *   pull: import('@octokit/openapi-types').components['schemas']['pull-request'],
+ *   owner: string,
+ *   repo: string,
+ *   pr: number,
+ * }} ctx
+ */
+async function runMicroReviewPass(ordered, ctx) {
+  /** @type {import('./review-engine.js').MicroReviewResult[]} */
+  const microResults = [];
+
+  for (const micro of ordered) {
+    let result = reviewMicroPr(micro, { multiBoundaryFiles: ctx.multiBoundaryFiles });
+
+    if (
+      ctx.useAiReview &&
+      (process.env.CURSOR_API_KEY || process.env.OPENROUTER_API_KEY) &&
+      micro.files.length
+    ) {
+      try {
+        const aiFindings = await aiReviewMicroSlice(micro, {
+          architectureSummary: ctx.breakoutPlan?.architectureSummary,
+        });
+        result = mergeMicroReviewFindings(result, micro, aiFindings);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        result = mergeMicroReviewFindings(result, micro, [
+          {
+            ruleId: "ai/unavailable",
+            severity: "warning",
+            message: `AI slice review failed: ${message}`,
+          },
+        ]);
+      }
+    }
+
+    microResults.push(result);
+
+    if (ctx.postMicro && result.status !== "skipped") {
+      await submitPullRequestReview(ctx.octokit, {
+        owner: ctx.owner,
+        repo: ctx.repo,
+        pull_number: ctx.pr,
+        commit_id: ctx.pull.head.sha,
+        event: "COMMENT",
+        body: [
+          `### Micro-review · ${result.componentName}`,
+          "",
+          result.summaryMarkdown,
+        ].join("\n"),
+      });
+    }
+  }
+
+  return microResults;
+}
+
+/**
  * @param {'auto' | 'ai' | 'yaml' | undefined} explicit
  */
 function resolvePartitionMode(explicit) {
   const mode = explicit ?? process.env.CEDAR_PARTITION_MODE ?? "auto";
   if (mode === "yaml") return "yaml";
   if (mode === "ai") return "ai";
-  return process.env.OPENROUTER_API_KEY ? "ai" : "yaml";
+  return process.env.CURSOR_API_KEY || process.env.OPENROUTER_API_KEY ? "ai" : "yaml";
 }
 
 /**
@@ -326,6 +420,7 @@ function stripFindingsForJson(r) {
 /**
  * @param {{
  *   useAiBreakouts: boolean,
+ *   breakoutStrategy?: string,
  *   fileCount: number,
  *   sliceCount: number,
  *   microResults: import('./review-engine.js').MicroReviewResult[],
@@ -347,7 +442,10 @@ function buildProcessSteps(ctx) {
       id: "breakouts",
       label: ctx.useAiBreakouts ? "AI architectural breakouts" : "Map components (yaml)",
       status: "done",
-      detail: `${ctx.sliceCount} slices`,
+      detail:
+        ctx.breakoutStrategy === "cache"
+          ? `${ctx.sliceCount} slices · cache (headSha)`
+          : `${ctx.sliceCount} slices`,
     },
     {
       id: "micro",
@@ -363,7 +461,7 @@ function buildProcessSteps(ctx) {
     },
     {
       id: "composite",
-      label: "Whole-picture composite",
+      label: "Architecture read (composite)",
       status: ctx.compositeReady ? "done" : "blocked",
       detail: ctx.compositeReady ? "Ready" : "Waiting on clean slices",
     },

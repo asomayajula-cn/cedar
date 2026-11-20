@@ -6,14 +6,55 @@
  * @typedef {import('./ai-breakouts.js').AiComponentDef} AiComponentDef
  */
 
+import {
+  dependsOnSlice,
+  displayNameForSlice,
+  heuristicSummaryLead,
+} from "./architecture-model.js";
+
 const LAYER_HINTS = [
   { id: "migrations", name: "Schema & migrations", match: /(^|\/)migrations?\//i },
-  { id: "api", name: "API & HTTP", match: /(^|\/)(api|handlers|routes|openapi|proto)\b/i },
-  { id: "domain", name: "Domain logic", match: /(^|\/)(domain|usecase|core|lib|pkg)\b/i },
+  {
+    id: "domain",
+    name: "Domain layer · DDD",
+    match: /src\/main\/java\/.*\/domain\/|(^|\/)(domain)\//i,
+  },
+  {
+    id: "application",
+    name: "Application layer · DDD",
+    match: /src\/main\/java\/.*\/application\/|(^|\/)(application|usecase)\//i,
+  },
+  {
+    id: "infrastructure",
+    name: "Infrastructure · DDD",
+    match: /src\/main\/java\/.*\/infrastructure\/|(^|\/)(infrastructure)\//i,
+  },
+  {
+    id: "api",
+    name: "API adapters · DDD",
+    match: /src\/main\/java\/.*\/api\/|(^|\/)(api|handlers|routes)\//i,
+  },
+  {
+    id: "config",
+    name: "Runtime config · 12-factor",
+    match: /application(-.*)?\.(ya?ml|properties)$/i,
+  },
+  {
+    id: "config",
+    name: "Runtime config · 12-factor",
+    match: /src\/main\/resources\//i,
+  },
+  { id: "config", name: "Runtime config · 12-factor", match: /(^|\/)\.env(\.example)?$/i },
+  {
+    id: "build_deploy",
+    name: "Build & release · 12-factor",
+    match: /(^|\/)pom\.xml$|(^|\/)build\.gradle(\.kts)?$|Dockerfile|docker-compose|Procfile$/i,
+  },
   { id: "persistence", name: "Persistence", match: /(^|\/)(store|repo|db|prisma|drizzle)\b/i },
-  { id: "ui", name: "UI & frontend", match: /(^|\/)(web|app|components|pages|ui)\b/i },
-  { id: "infra", name: "Infra & CI", match: /(^|\/)(\.github|terraform|k8s|docker)\b/i },
+  { id: "ui", name: "UI & frontend", match: /(^|\/)(web|components|pages)\b/i },
+  { id: "infra", name: "Platform & ops", match: /(^|\/)(\.github|terraform|k8s|docker)\b/i },
   { id: "tests", name: "Tests", match: /(^|\/)(test|tests|__tests__|spec)\b|\.(test|spec)\.[a-z]+$/i },
+  { id: "integration", name: "Contracts", match: /(^|\/)(openapi|proto|contracts)\b/i },
 ];
 
 /**
@@ -40,10 +81,10 @@ export function heuristicArchitecturalBreakouts(files) {
     .sort((a, b) => b.lines - a.lines)
     .map((b) => ({
       id: b.id,
-      name: b.name,
+      name: displayNameForSlice(b.id, b.name),
       description: `${b.paths.length} files, ~${b.lines} line delta`,
       rationale: inferRationale(b.id, b.paths),
-      depends_on: inferDependsOn(b.id),
+      depends_on: dependsOnSlice(b.id),
     }));
 
   if (components.length === 0) {
@@ -64,7 +105,7 @@ export function heuristicArchitecturalBreakouts(files) {
     return {
       components,
       fileAssignments: assign,
-      architectureSummary: `Heuristic breakout: ${components.length} micro-slice(s) (merged from ${buckets.size} path groups).`,
+      architectureSummary: `${heuristicSummaryLead()}: ${components.length} slices (merged from ${buckets.size} groups).`,
     };
   }
 
@@ -77,7 +118,7 @@ export function heuristicArchitecturalBreakouts(files) {
     fileAssignments[file.filename] = mapped;
   }
 
-  const summary = `Heuristic breakout: ${components.length} micro-slice(s) from path structure and change size.`;
+  const summary = `${heuristicSummaryLead()}: ${components.length} slice(s) from path structure.`;
 
   return { components, fileAssignments, architectureSummary: summary };
 }
@@ -115,16 +156,6 @@ function inferRationale(id, paths) {
 }
 
 /**
- * @param {string} id
- */
-function inferDependsOn(id) {
-  const order = ["migrations", "persistence", "domain", "api", "ui"];
-  const idx = order.indexOf(id);
-  if (idx <= 0) return [];
-  return order.slice(0, idx);
-}
-
-/**
  * @param {Map<string, { id: string, name: string, paths: string[], lines: number }>} buckets
  * @param {number} maxSlices
  * @param {PrFile[]} files
@@ -138,10 +169,10 @@ function mergeSmallestBuckets(buckets, maxSlices, files) {
 
   const components = keep.map((b) => ({
     id: b.id,
-    name: b.name,
+    name: displayNameForSlice(b.id, b.name),
     description: `${b.paths.length} files`,
     rationale: inferRationale(b.id, b.paths),
-    depends_on: inferDependsOn(b.id),
+    depends_on: dependsOnSlice(b.id),
   }));
 
   if (mergedPaths.length) {

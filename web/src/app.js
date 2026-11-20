@@ -2,6 +2,8 @@ import { cedarMarkSvg } from "./cedar-logo.js";
 import { mountArchitectureGraphs } from "./architecture-canvas.js";
 import { buildDiagramGraph } from "../../src/diagram-graph.js";
 import { renderSliceFileReviews, wireFileReviewToggles } from "./diff-view.js";
+import { mountLayoutMermaid } from "./diagram-ux.js";
+import { applyReviewStreamEvent, postReviewStream } from "./review-stream.js";
 
 const statusDot = {
   passed: "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]",
@@ -20,7 +22,9 @@ function githubApiErrorMessage(body, fallback = "Request failed") {
   if (body.code === "GITHUB_TOKEN_FORBIDDEN") {
     return `${body.error} Fine-grained PAT: Pull requests → Read and write on this repo. Classic PAT: repo scope. Org: authorize SSO.`;
   }
-  return body.error ?? body.githubMessage ?? fallback;
+  const base = body.error ?? body.githubMessage ?? fallback;
+  if (body.hint) return `${base}\n\n${body.hint}`;
+  return base;
 }
 
 function showToast(message, tone = "neutral") {
@@ -123,7 +127,7 @@ async function refreshHealth() {
   try {
     const res = await fetch("/api/health");
     const data = await res.json();
-    if (data.hasToken && data.hasOpenRouter) {
+    if (data.hasToken && (data.hasCursor || data.hasOpenRouter)) {
       pill.textContent = "Ready";
       pill.className = "cedar-badge cedar-badge-ok";
     } else if (data.hasToken) {
@@ -158,18 +162,23 @@ async function onSubmit(e) {
 
   errorEl.classList.add("hidden");
   btn.disabled = true;
-  label.innerHTML = '<span class="cedar-spinner"></span><span class="ml-2">Analyzing architecture…</span>';
-  results.classList.add("hidden");
+  label.innerHTML = '<span class="cedar-spinner"></span><span class="ml-2">Connecting…</span>';
+  hero.classList.add("hidden");
+  results.classList.remove("hidden");
   results.innerHTML = loadingSkeleton();
 
   try {
-    const res = await fetch("/api/review", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error ?? res.statusText);
+    const statusEl = document.getElementById("review-progress-status");
+    const logEl = document.getElementById("review-progress-log");
+    const onStream = (event) => {
+      applyReviewStreamEvent(event, statusEl, logEl);
+      if (event?.type === "activity" && event.text) {
+        label.innerHTML = `<span class="cedar-spinner"></span><span class="ml-2">${escapeHtml(String(event.text))}</span>`;
+      } else if (event?.type === "phase" && event.status === "running") {
+        label.innerHTML = `<span class="cedar-spinner"></span><span class="ml-2">${escapeHtml(String(event.label ?? "Working…"))}</span>`;
+      }
+    };
+    const data = await postReviewStream(payload, onStream);
 
     const filePatches = new Map();
     for (const m of data.microPrs ?? []) {
@@ -186,8 +195,6 @@ async function onSubmit(e) {
       filePatches,
     };
 
-    hero.classList.add("hidden");
-    results.classList.remove("hidden");
     renderResults(results, data);
     bindApproveHandlers(results);
   } catch (err) {
@@ -204,18 +211,10 @@ async function onSubmit(e) {
 
 function loadingSkeleton() {
   return `
-    <div class="space-y-6 animate-pulse">
-      <div class="h-16 cedar-glass-subtle"></div>
-      <div class="grid gap-6 lg:grid-cols-[260px_1fr]">
-        <div class="space-y-4">
-          <div class="h-40 cedar-glass-subtle"></div>
-          <div class="h-32 cedar-glass-subtle"></div>
-        </div>
-        <div class="space-y-4">
-          <div class="h-48 cedar-glass-subtle"></div>
-          <div class="h-64 cedar-glass-subtle"></div>
-        </div>
-      </div>
+    <div id="review-progress-panel" class="cedar-glass p-6 sm:p-8">
+      <p class="cedar-label">Review in progress</p>
+      <p id="review-progress-status" class="mt-3 text-sm font-medium text-zinc-200">Connecting…</p>
+      <ul id="review-progress-log" class="review-progress-log mt-4 max-h-56 space-y-1 overflow-y-auto text-xs text-zinc-500" aria-live="polite"></ul>
     </div>`;
 }
 
@@ -305,6 +304,15 @@ function renderResults(container, data) {
     .join("");
 
   const archSliceCount = microPrs.filter((m) => (m.files?.length ?? m.fileCount ?? 0) > 0).length;
+  const diagramMermaid = breakouts?.diagramMermaid ?? "";
+  const showArchitectureSection = archSliceCount > 0 || Boolean(diagramMermaid.trim());
+  const architectureReadSummary = (
+    breakouts?.architectureVisual?.summary ??
+    breakouts?.diagramGraph?.meta?.visualSummary ??
+    ""
+  ).trim();
+  const architectureReadNotes =
+    breakouts?.architectureVisual?.conceptualNotes ?? breakouts?.diagramGraph?.meta?.conceptualNotes ?? [];
 
   const slicePanels = microResults
     .filter((r) => r.status !== "skipped")
@@ -403,31 +411,51 @@ function renderResults(container, data) {
     </div>
 
     ${
-      archSliceCount > 0
-        ? `<section class="cedar-glass mb-8 overflow-hidden p-4 sm:p-6" id="architecture-diagrams">
+      showArchitectureSection
+        ? `<section class="cedar-glass mb-8 p-4 sm:p-6" id="architecture-diagrams">
         <div class="flex flex-wrap items-end justify-between gap-2 border-b border-white/[0.06] pb-4">
           <div>
             <p class="cedar-label">Architecture</p>
-            <p class="mt-1 text-sm text-zinc-400">Cytoscape + Dagre — deterministic slice order, pan/zoom, fit controls.</p>
+            <p class="mt-1 text-sm text-zinc-400">
+              Architectural slices · black &amp; white ·
+              ${breakouts?.diagramVisualSource === "cursor" ? "labels &amp; layout by Cursor" : "partition slices"}
+            </p>
           </div>
           <span class="cedar-badge cedar-badge-muted">${archSliceCount} slices</span>
         </div>
-        <div class="mt-5 space-y-6">
-          <div>
-            <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
-              <p class="cedar-label mb-0">Overview · virtual micro-PRs</p>
-              ${cyToolbar("cedar-cy-overview", '<span class="cedar-badge cedar-badge-muted">cytoscape-dagre</span>')}
-            </div>
-            <div id="cedar-cy-overview" class="cedar-cy-host diagram-overview" role="img" aria-label="Architecture overview"></div>
+        ${
+          archSliceCount > 0
+            ? `<div class="mt-5">
+          <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <p class="cedar-label mb-0">Overview</p>
+            ${cyToolbar(
+              "cedar-cy-slices",
+              `<span class="cedar-badge cedar-badge-muted">${
+                breakouts?.diagramVisualSource === "cursor" ? "Cursor layout" : "Minimal"
+              }</span>`
+            )}
           </div>
-          <div>
-            <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
-              <p class="cedar-label mb-0">Complete layout · files per slice</p>
-              ${cyToolbar("cedar-cy-detail", '<span class="cedar-badge cedar-badge-muted">top → bottom</span>')}
+          <div id="cedar-cy-slices" class="cedar-cy-host diagram-slices" role="img" aria-label="Architecture slices"></div>
+        </div>`
+            : ""
+        }
+        ${
+          diagramMermaid.trim()
+            ? `<details class="mt-5 group">
+            <summary class="cursor-pointer list-none text-xs font-medium text-zinc-500 hover:text-zinc-300 [&::-webkit-details-marker]:hidden">
+              <span class="cedar-label">Export flow (Mermaid)</span>
+            </summary>
+            <div class="mt-3" data-diagram-wrap data-diagram-panzoom>
+              <div class="mb-2 flex justify-end gap-1.5" data-diagram-toolbar>
+                <button type="button" class="diagram-tool-btn" data-diagram-action="reset" title="Fit">Fit</button>
+              </div>
+              <div class="diagram-complete-layout cedar-mermaid-scroll diagram-mermaid-sleek">
+                <pre id="cedar-mermaid-layout" class="cedar-mermaid-source m-0"></pre>
+              </div>
             </div>
-            <div id="cedar-cy-detail" class="cedar-cy-host diagram-detail" role="img" aria-label="Complete architecture layout"></div>
-          </div>
-        </div>
+          </details>`
+            : ""
+        }
       </section>`
         : ""
     }
@@ -457,6 +485,35 @@ function renderResults(container, data) {
           </section>`
             : ""
         }
+        ${
+          architectureReadSummary || architectureReadNotes.length || composite
+            ? `<section class="cedar-glass p-6" id="architecture-read">
+            <h2 class="text-sm font-semibold text-white">Architecture read</h2>
+            ${
+              architectureReadSummary
+                ? `<p class="mt-4 max-w-3xl text-base leading-relaxed text-zinc-200">${escapeHtml(architectureReadSummary)}</p>`
+                : !composite
+                  ? `<p class="mt-4 text-sm text-zinc-500">Cursor can supply a one-paragraph visual read when <span class="font-mono text-zinc-600">CEDAR_AI_DIAGRAM</span> is on; the full narrative appears after every slice passes.</p>`
+                  : ""
+            }
+            ${
+              architectureReadNotes.length
+                ? `<ul class="mt-4 list-inside list-disc space-y-1 text-sm text-zinc-400">${architectureReadNotes
+                    .map((n) => `<li>${escapeHtml(n)}</li>`)
+                    .join("")}</ul>`
+                : ""
+            }
+            ${
+              composite
+                ? `<details class="mt-6 group"${architectureReadSummary ? "" : " open"}>
+                <summary class="cursor-pointer text-xs font-medium text-zinc-500 hover:text-zinc-300">Complete composite markdown</summary>
+                <pre class="mt-3 max-h-[28rem] overflow-auto whitespace-pre-wrap rounded-xl border border-white/[0.04] bg-black/40 p-5 font-mono text-xs leading-relaxed text-zinc-400">${escapeHtml(composite.body)}</pre>
+              </details>`
+                : ""
+            }
+          </section>`
+            : ""
+        }
         <section>
           <div class="mb-4 flex items-center justify-between">
             <h2 class="text-sm font-semibold text-white">Review by slice</h2>
@@ -464,14 +521,6 @@ function renderResults(container, data) {
           </div>
           <div class="space-y-5">${slicePanels}</div>
         </section>
-        ${
-          composite
-            ? `<section class="cedar-glass p-6">
-            <h2 class="text-sm font-semibold text-white">Whole picture</h2>
-            <pre class="mt-4 max-h-[28rem] overflow-auto whitespace-pre-wrap rounded-xl border border-white/[0.04] bg-black/40 p-5 font-mono text-xs leading-relaxed text-zinc-400">${escapeHtml(composite.body)}</pre>
-          </section>`
-            : ""
-        }
         <p id="approve-status" class="hidden text-sm font-medium text-emerald-400"></p>
       </div>
     </div>
@@ -488,6 +537,17 @@ function renderResults(container, data) {
     container.classList.add("hidden");
     container.innerHTML = "";
     window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+
+  const renderMermaid = () => {
+    if (!diagramMermaid.trim()) return;
+    void mountLayoutMermaid(container, diagramMermaid).then((drew) => {
+      if (!drew) showToast("Mermaid layout could not render.", "error");
+    });
+  };
+  requestAnimationFrame(renderMermaid);
+  container.querySelector("details summary")?.addEventListener("click", () => {
+    requestAnimationFrame(() => requestAnimationFrame(renderMermaid));
   });
 
   if (archSliceCount > 0) {
@@ -511,8 +571,12 @@ function renderResults(container, data) {
         { number: pull.number, title: pull.title },
         { owner: target?.owner, repo: target?.repo }
       );
-    const drew = mountArchitectureGraphs(container, graph);
-    if (!drew) showToast("Architecture diagram could not render.", "error");
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const drew = mountArchitectureGraphs(container, graph);
+        if (!drew) showToast("Architecture diagram could not render.", "error");
+      });
+    });
   }
 
   wireFileReviewToggles(container);
@@ -551,7 +615,9 @@ async function approveSlice(btn) {
     const body = await res.json();
     if (!res.ok) throw new Error(githubApiErrorMessage(body, res.statusText));
     session.sliceApprovals.add(btn.dataset.approveSlice);
-    showToast(`Slice approved · ${btn.dataset.componentName}`);
+    showToast(
+      body.hint ? `Slice noted on GitHub · ${body.hint}` : `Slice approved · ${btn.dataset.componentName}`
+    );
     const results = document.getElementById("results");
     renderResults(results, session.data);
     bindApproveHandlers(results);
@@ -593,8 +659,16 @@ async function approveFullPr() {
       status.textContent = `Approved on GitHub · review #${body.review?.id ?? ""}`;
       status.classList.remove("hidden");
     }
-    if (btn) btn.textContent = "Approved";
-    showToast("Pull request approved on GitHub");
+    if (btn) {
+      btn.textContent =
+        body.review?.state === "APPROVED" ? "Approved" : "Review posted";
+    }
+    showToast(
+      body.hint ??
+        (body.review?.state === "APPROVED"
+          ? "Pull request approved on GitHub"
+          : "Review posted on GitHub")
+    );
   } catch (err) {
     if (btn) {
       btn.disabled = false;
