@@ -18,8 +18,8 @@ import {
 } from "./review-engine.js";
 import { formatComponentBoard, formatJsonReport } from "./format.js";
 import {
-  buildArchitectureDiagramMermaid,
   buildArchitectureDiagramMarkdown,
+  buildCompleteLayoutDiagrams,
 } from "./architecture-diagram.js";
 import { renderReviewDiagrams } from "./diagram-graphviz.js";
 import { orderMicroPrsForLayout } from "./diagram-layout.js";
@@ -177,13 +177,14 @@ export async function runPrReviewPipeline(opts) {
     target
   );
 
-  const diagramMermaid = buildArchitectureDiagramMermaid(
+  const completeLayout = buildCompleteLayoutDiagrams(
     ordered,
     breakoutPlan ?? undefined,
     pullMeta,
     target
   );
-  const diagramMarkdown = buildArchitectureDiagramMarkdown(diagramMermaid);
+  const diagramMermaid = completeLayout.diagrams.map((d) => d.source).join("\n\n");
+  const diagramMarkdown = buildArchitectureDiagramMarkdown(completeLayout);
 
   phase("review", "Micro reviews & diagrams", "running");
   const [microResults, pipelineRendered, visualResolved] = await Promise.all([
@@ -321,6 +322,7 @@ export async function runPrReviewPipeline(opts) {
         depends_on: c.depends_on,
       })),
       diagramMermaid,
+      completeLayout,
       diagramMarkdown,
       diagramPipelineDot: pipelineDot,
       diagramPipelineSvg: pipelineSvg,

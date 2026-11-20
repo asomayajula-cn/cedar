@@ -134,6 +134,32 @@ export async function mountLayoutMermaid(root, source) {
 }
 
 /**
+ * @param {ParentNode} root
+ * @param {{ id: string, source: string }[]} diagrams
+ */
+export async function mountCompleteLayouts(root, diagrams) {
+  if (!root || !diagrams?.length) return false;
+  let rendered = 0;
+  for (const diagram of diagrams) {
+    const pre = root.querySelector(`[data-mermaid-layout="${diagram.id}"]`);
+    if (!(pre instanceof HTMLElement) || !diagram.source?.trim()) continue;
+    if (pre.querySelector("svg")) {
+      rendered += 1;
+      continue;
+    }
+    const ok = await renderArchitectureMermaid(diagram.source, pre);
+    const svg = pre.querySelector("svg");
+    if (ok && svg instanceof SVGSVGElement) {
+      svg.style.width = "100%";
+      svg.style.maxWidth = "100%";
+      svg.style.height = "auto";
+      rendered += 1;
+    }
+  }
+  return rendered === diagrams.length;
+}
+
+/**
  * @param {HTMLElement} wrap
  * @param {SVGSVGElement} svg
  */

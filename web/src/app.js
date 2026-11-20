@@ -1,12 +1,12 @@
 import { cedarMarkSvg } from "./cedar-logo.js";
 import { mountArchitectureGraphs } from "./architecture-canvas.js";
 import { buildDiagramGraph } from "../../src/diagram-graph.js";
-import { buildArchitectureDiagramMermaid } from "../../src/architecture-diagram.js";
+import { buildCompleteLayoutDiagrams } from "../../src/architecture-diagram.js";
 import { ARCHITECTURE_LAYER_STACK, ARCHITECTURE_MODEL_LABEL } from "../../src/architecture-model.js";
 import { renderSliceFileReviews, wireFileReviewToggles } from "./diff-view.js";
 import { setCommentToast } from "./diff-comments.js";
 import { initDiffFontFromServer } from "./diff-font.js";
-import { mountLayoutMermaid, activateDiagramUx } from "./diagram-ux.js";
+import { mountCompleteLayouts, activateDiagramUx } from "./diagram-ux.js";
 import { applyReviewStreamEvent, postReviewStream } from "./review-stream.js";
 
 const statusDot = {
@@ -633,16 +633,20 @@ function wireSliceRailResize(root) {
  * @param {string} source
  * @param {() => void} [onRetry]
  */
-function wireMermaidLayoutMount(root, source, onRetry) {
-  if (!(root instanceof HTMLElement) || !source?.trim()) return;
+function wireMermaidLayoutMount(root, diagrams, onRetry) {
+  if (!(root instanceof HTMLElement) || !diagrams?.length) return;
   const host = root.querySelector("#architecture-read-mermaid");
   if (!(host instanceof HTMLElement)) return;
 
   const draw = () => {
     const panel = root.querySelector("#cedar-review-panel-architecture");
     if (panel instanceof HTMLElement && panel.hidden) return;
-    if (host.querySelector("svg")) return;
-    void mountLayoutMermaid(host, source).then((drew) => {
+    const pending = diagrams.some((diagram) => {
+      const pre = host.querySelector(`[data-mermaid-layout="${diagram.id}"]`);
+      return pre instanceof HTMLElement && !pre.querySelector("svg");
+    });
+    if (!pending) return;
+    void mountCompleteLayouts(host, diagrams).then((drew) => {
       if (!drew) {
         onRetry?.();
         showToast("Mermaid layout could not render.", "error");
@@ -757,15 +761,16 @@ function renderResults(container, data) {
         deletions: f.deletions ?? 0,
       })),
     }));
-  let diagramMermaid = breakouts?.diagramMermaid ?? "";
-  if (!diagramMermaid.trim() && diagramMicroPrs.length) {
-    diagramMermaid = buildArchitectureDiagramMermaid(
-      diagramMicroPrs,
-      breakouts,
-      { number: pull.number, title: pull.title },
-      { owner: target?.owner, repo: target?.repo }
-    );
-  }
+  const completeLayout = diagramMicroPrs.length
+    ? buildCompleteLayoutDiagrams(
+        diagramMicroPrs,
+        breakouts,
+        { number: pull.number, title: pull.title },
+        { owner: target?.owner, repo: target?.repo }
+      )
+    : breakouts?.completeLayout ?? null;
+  const layoutDiagrams = completeLayout?.diagrams?.filter((d) => d.source?.trim()) ?? [];
+  const diagramMermaid = layoutDiagrams.map((d) => d.source).join("\n\n") || breakouts?.diagramMermaid || "";
   const showArchitectureSection = archSliceCount > 0 || Boolean(diagramMermaid.trim());
   const architectureReadSummary = (
     breakouts?.architectureVisual?.summary ??
@@ -994,15 +999,25 @@ function renderResults(container, data) {
                 : ""
             }
             ${
-              diagramMermaid.trim()
-                ? `<div class="mt-6" id="architecture-read-mermaid" data-diagram-wrap data-diagram-panzoom>
-            <div class="architecture-read-mermaid-head mb-2 flex flex-wrap items-center justify-between gap-2">
-              <p class="cedar-label mb-0">Complete layout</p>
-              ${mermaidToolbar(`<span class="cedar-badge cedar-badge-muted">Mermaid</span>`)}
-            </div>
-            <div class="diagram-complete-layout cedar-mermaid-scroll diagram-mermaid-sleek">
-              <pre id="cedar-mermaid-layout" class="cedar-mermaid-source m-0"></pre>
-            </div>
+              layoutDiagrams.length
+                ? `<div class="diagram-complete-stack" id="architecture-read-mermaid">
+            <p class="cedar-label mb-0">Complete layout</p>
+            ${layoutDiagrams
+              .map(
+                (diagram) => `<section class="diagram-complete-card" data-diagram-wrap data-diagram-panzoom>
+              <div class="architecture-read-mermaid-head mb-2 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p class="cedar-label mb-0">${escapeHtml(diagram.title)}</p>
+                  <p class="diagram-complete-caption">${escapeHtml(diagram.caption ?? "")}</p>
+                </div>
+                ${mermaidToolbar(`<span class="cedar-badge cedar-badge-muted">${escapeHtml(diagram.badge ?? "Mermaid")}</span>`)}
+              </div>
+              <div class="diagram-complete-layout cedar-mermaid-scroll diagram-mermaid-sleek">
+                <pre data-mermaid-layout="${escapeHtml(diagram.id)}" class="cedar-mermaid-source m-0"></pre>
+              </div>
+            </section>`
+              )
+              .join("")}
           </div>`
                 : ""
             }
@@ -1083,8 +1098,8 @@ function renderResults(container, data) {
     window.scrollTo({ top: 0, behavior: "smooth" });
   });
 
-  if (diagramMermaid.trim()) {
-    wireMermaidLayoutMount(container, diagramMermaid);
+  if (layoutDiagrams.length) {
+    wireMermaidLayoutMount(container, layoutDiagrams);
   }
 
   if (archSliceCount > 0) {

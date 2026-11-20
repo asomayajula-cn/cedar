@@ -289,10 +289,32 @@
     @apply sticky top-16 z-10 -mx-1 rounded-lg bg-black/50 px-1 py-2 backdrop-blur-md;
   }
 
-  #architecture-read-mermaid .diagram-complete-layout {
-    min-height: min(32rem, 62vh);
-    max-height: min(88vh, 960px);
-    @apply p-6 sm:p-8;
+  .diagram-complete-stack {
+    @apply mt-6 flex flex-col gap-8;
+  }
+
+  .diagram-complete-card .diagram-complete-caption {
+    @apply mt-1 max-w-2xl text-[11px] leading-relaxed text-zinc-500;
+  }
+
+  #architecture-read-mermaid .diagram-complete-layout,
+  #architecture-read-mermaid .diagram-mermaid-sleek {
+    min-height: 0;
+    max-height: none;
+    height: auto;
+    @apply p-3 sm:p-4;
+  }
+
+  #architecture-read-mermaid .cedar-mermaid-scroll .mermaid-rendered,
+  #architecture-read-mermaid .cedar-mermaid-scroll .cedar-mermaid-source {
+    min-width: 0;
+  }
+
+  #architecture-read-mermaid .cedar-mermaid-scroll .mermaid-rendered svg {
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    min-height: 0;
   }
 
   #architecture-read-mermaid.diagram-mermaid-sleek {
