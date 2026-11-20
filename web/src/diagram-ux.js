@@ -61,6 +61,7 @@ function clampDiagramZoom(z) {
  * @param {"in" | "out"} dir
  */
 function nudgeDiagramZoom(wrap, dir) {
+  userZoomedWrap.add(wrap);
   const current = umlZoomByWrap.get(wrap) ?? 1;
   const next =
     dir === "in" ? current * DIAGRAM_ZOOM_STEP : current / DIAGRAM_ZOOM_STEP;
@@ -110,6 +111,7 @@ function normalizeSequenceSvg(svg) {
 }
 
 function fitDiagramZoomToStage(wrap) {
+  userZoomedWrap.delete(wrap);
   const stage = wrap.querySelector(".diagram-complete-layout");
   const svg = wrap.querySelector("svg");
   if (!(stage instanceof HTMLElement) || !(svg instanceof SVGSVGElement)) {
@@ -131,6 +133,8 @@ function fitDiagramZoomToStage(wrap) {
 
 /** @type {WeakSet<HTMLElement>} */
 const wheelZoomByWrap = new WeakSet();
+/** @type {WeakSet<HTMLElement>} */
+const userZoomedWrap = new WeakSet();
 
 /**
  * @param {HTMLElement} wrap
@@ -144,6 +148,7 @@ function wireDiagramWheelZoom(wrap, stage) {
     (e) => {
       if (!umlFitByWrap.has(wrap)) return;
       e.preventDefault();
+      userZoomedWrap.add(wrap);
       const factor = e.deltaY > 0 ? 1 / DIAGRAM_ZOOM_STEP : DIAGRAM_ZOOM_STEP;
       const next = clampDiagramZoom((umlZoomByWrap.get(wrap) ?? 1) * factor);
       umlZoomByWrap.set(wrap, next);
@@ -628,7 +633,13 @@ function mountLayoutMermaidScrollable(wrap, pre) {
   });
 
   if (!resizeObserverByWrap.has(wrap)) {
-    const ro = new ResizeObserver(() => fitDiagramZoomToStage(wrap));
+    const ro = new ResizeObserver(() => {
+      if (userZoomedWrap.has(wrap)) {
+        umlFitByWrap.get(wrap)?.();
+        return;
+      }
+      fitDiagramZoomToStage(wrap);
+    });
     ro.observe(stage);
     resizeObserverByWrap.set(wrap, ro);
   }

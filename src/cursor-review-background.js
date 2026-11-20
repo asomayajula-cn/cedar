@@ -55,21 +55,86 @@ export function backgroundCursorReviewEnabled(explicit) {
 export async function runBackgroundCursorReview(opts) {
   const emit = opts.emit ?? (() => {});
   const useAiReview = opts.useAiReview ?? sliceReviewRequested();
-  if (!useAiReview || !sliceReviewAiAvailable()) {
-    return {
-      microResults: opts.microResults,
-      macroReview: null,
-      cursorReviewSummary: buildCursorReviewSummary(opts.microResults, null, false),
-    };
-  }
 
   /** @type {import("./review-engine.js").MicroReviewResult[]} */
   const microResults = opts.microResults.map((r) => ({ ...r }));
+
+  function finishSkipped(reason) {
+    for (const r of microResults) {
+      if (r.cursorReview?.status === "pending") {
+        r.cursorReview = {
+          source: "cursor",
+          count: 0,
+          status: "error",
+          error: reason.slice(0, 240),
+        };
+      }
+    }
+    const cursorReviewSummary = buildCursorReviewSummary(microResults, null, useAiReview);
+    emitPhase("cursor-slices", "Cursor · slice review", "blocked", reason.slice(0, 80));
+    emitPhase("macro", "Cursor · macro review (entire PR)", "blocked", reason.slice(0, 80));
+    emit({
+      type: "cursor_done",
+      microResults,
+      macroReview: null,
+      cursorReviewSummary,
+      error: reason,
+    });
+    return { microResults, macroReview: null, cursorReviewSummary };
+  }
+
+  if (!useAiReview) {
+    return finishSkipped(
+      "Per-slice Composer review is off (CEDAR_AI_SLICE_REVIEW=false). Enable it and run Start review again."
+    );
+  }
+  if (!sliceReviewAiAvailable()) {
+    return finishSkipped(
+      "CURSOR_API_KEY not available on the API for background review. Save the key in Configuration, restart npm run dev:api, then Start review."
+    );
+  }
+
   const byId = new Map(microResults.map((r) => [r.componentId, r]));
   const ordered = opts.microPrs.filter((m) => (m.files?.length ?? 0) > 0);
   let aiSliceReviewStopped = false;
 
+  emit({ type: "activity", text: "Cursor macro review (background)…", phase: "macro" });
+  emit({ type: "cursor_progress", completed: 0, total: ordered.length, phase: "macro", detail: "Whole-PR themes…" });
+  emitPhase("macro", "Cursor · macro review (entire PR)", "running", "background · before slices");
+
+  /** @type {import("./ai-macro-review.js").ReturnType<typeof aiMacroPrReview> extends Promise<infer T> ? T : null} */
+  let macroReview = null;
+  try {
+    macroReview = await aiMacroPrReview({
+      pull: opts.pull,
+      breakouts: opts.breakouts,
+      microPrs: opts.microPrs,
+      microResults,
+    });
+    const macroThemes = macroReview?.findings?.length ?? 0;
+    emitPhase(
+      "macro",
+      "Cursor · macro review (entire PR)",
+      "done",
+      `${macroThemes} PR theme(s) · background`
+    );
+    emit({
+      type: "cursor_macro",
+      macroReview,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    emitPhase("macro", "Cursor · macro review (entire PR)", "blocked", message.slice(0, 80));
+  }
+
   emit({ type: "activity", text: "Cursor slice review (background)…", phase: "cursor-slices" });
+  emit({
+    type: "cursor_progress",
+    completed: 0,
+    total: ordered.length,
+    phase: "slice",
+    detail: `0 of ${ordered.length} slices…`,
+  });
   emitPhase("cursor-slices", "Cursor · slice review", "running", `${ordered.length} slice(s) · background`);
 
   let slicePassIndex = 0;
@@ -157,29 +222,6 @@ export async function runBackgroundCursorReview(opts) {
     aiSliceReviewStopped ? "blocked" : "done",
     `${stats.total} finding(s) · background`
   );
-
-  emit({ type: "cursor_progress", completed: ordered.length, total: ordered.length, phase: "macro" });
-  emitPhase("macro", "Cursor · macro review (entire PR)", "running");
-  /** @type {import("./ai-macro-review.js").ReturnType<typeof aiMacroPrReview> extends Promise<infer T> ? T : null} */
-  let macroReview = null;
-  try {
-    macroReview = await aiMacroPrReview({
-      pull: opts.pull,
-      breakouts: opts.breakouts,
-      microPrs: opts.microPrs,
-      microResults,
-    });
-    const macroThemes = macroReview?.findings?.length ?? 0;
-    emitPhase(
-      "macro",
-      "Cursor · macro review (entire PR)",
-      "done",
-      `${macroThemes} PR theme(s) · background`
-    );
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    emitPhase("macro", "Cursor · macro review (entire PR)", "blocked", message.slice(0, 80));
-  }
 
   const cursorReviewSummary = buildCursorReviewSummary(microResults, macroReview, useAiReview);
   emit({

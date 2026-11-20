@@ -23,12 +23,39 @@ function renderMacroFindingMeta(f) {
 
 /**
  * @param {{ body?: string, event?: string, priority?: string, findings?: Array<{ message?: string, tag?: string, priority?: string, ruleId?: string, severity?: string }>, source?: string }} macroReview
+ * @param {{ cursorReviewPending?: boolean, cursorReviewSummary?: { available?: boolean, enabled?: boolean, slicePassRan?: boolean }, serverHealth?: { hasCursor?: boolean, sliceReviewAvailable?: boolean } }} [ctx]
  */
-export function renderMacroReviewPanelHtml(macroReview) {
+export function renderMacroReviewPanelHtml(macroReview, ctx = {}) {
   if (!macroReview?.body?.trim() && !(macroReview?.findings?.length)) {
+    const summary = ctx.cursorReviewSummary;
+    const health = ctx.serverHealth ?? (typeof window !== "undefined" ? window.__cedarServerHealth : null);
+    const pending = ctx.cursorReviewPending === true;
+    const hasCursor = Boolean(
+      summary?.available ||
+        summary?.enabled ||
+        health?.hasCursor ||
+        health?.sliceReviewAvailable
+    );
+
+    let hint =
+      'PR-wide themes and recommendation from Composer — macro runs <strong class="font-medium text-zinc-400">before</strong> per-slice Cursor review. Set <span class="font-mono text-zinc-600">CURSOR_API_KEY</span> (Configuration or <span class="font-mono text-zinc-600">.env</span>) and run <strong class="font-medium text-zinc-400">Start review</strong>.';
+
+    if (pending) {
+      hint =
+        'Macro review runs <strong class="font-medium text-zinc-400">first</strong> in the background, then slice review — watch the progress bar above. Themes will appear here when Composer finishes.';
+    } else if (hasCursor) {
+      if (summary?.slicePassRan) {
+        hint =
+          'Cursor finished slice review but returned no PR-wide macro comment. Check the progress log for errors and run <strong class="font-medium text-zinc-400">Start review</strong> again, or confirm macro review was not blocked.';
+      } else {
+        hint =
+          'Cursor key is loaded. Enable per-slice review and run <strong class="font-medium text-zinc-400">Start review</strong> — macro themes run automatically before slice review.';
+      }
+    }
+
     return `<section class="cedar-glass-subtle cedar-macro-review mb-6 px-5 py-4" aria-labelledby="cedar-macro-review-heading">
       <h2 id="cedar-macro-review-heading" class="text-sm font-semibold text-white">Cursor · macro review (entire PR)</h2>
-      <p class="mt-2 text-xs leading-relaxed text-zinc-500">PR-wide themes and recommendation from Composer — runs after per-slice Cursor findings. Set <span class="font-mono text-zinc-600">CURSOR_API_KEY</span> and re-run <strong class="font-medium text-zinc-400">Start review</strong>.</p>
+      <p class="mt-2 text-xs leading-relaxed text-zinc-500">${hint}</p>
     </section>`;
   }
 

@@ -443,6 +443,12 @@
     height: auto;
   }
 
+  .cedar-complete-layout-views .cedar-layout-view .cedar-mermaid-scroll .mermaid-rendered svg,
+  .cedar-complete-layout-views .cedar-layout-view .cedar-mermaid-scroll .cedar-mermaid-source svg {
+    max-width: none !important;
+    margin-inline: 0;
+  }
+
   .cedar-mermaid-fallback {
     @apply whitespace-pre-wrap text-left font-mono text-[11px] leading-relaxed text-zinc-500;
   }

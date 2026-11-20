@@ -210,7 +210,7 @@ export async function runPrReviewPipeline(opts) {
   const diagramMarkdown = buildCompleteLayoutMarkdown(diagramLayoutViews);
 
   phase("review", "Micro reviews & diagrams", "running");
-  const [microResults, pipelineRendered, visualResolved] = await Promise.all([
+  const [reviewPass, pipelineRendered, visualResolved] = await Promise.all([
     runMicroReviewPass(ordered, {
       multiBoundaryFiles,
       useAiReview,
@@ -231,48 +231,25 @@ export async function runPrReviewPipeline(opts) {
     }),
     resolveArchitectureVisual(baseDiagramGraph, ordered, breakoutPlan ?? undefined, pullMeta),
   ]);
+  const microResults = reviewPass.microResults;
+  let macroReview = reviewPass.macroReview;
 
   const { graph: diagramGraph, visual: architectureVisual, source: diagramVisualSource } =
     visualResolved;
   const { pipelineDot, pipelineSvg } = pipelineRendered;
   phase("review", "Micro reviews & diagrams", "done", diagramVisualSource ?? "heuristic");
 
-  /** @type {import('./ai-macro-review.js').ReturnType<typeof aiMacroPrReview> extends Promise<infer T> ? T : never} */
-  let macroReview = null;
   if (cursorReviewPending) {
-    phase("cursor-slices", "Cursor · slice review", "skipped", "Queued — runs in background on load");
-    phase("macro", "Cursor · macro review (entire PR)", "skipped", "Queued — after slice review");
+    phase("macro", "Cursor · macro review (entire PR)", "skipped", "Queued first in background");
+    phase("cursor-slices", "Cursor · slice review", "skipped", "Queued after macro · background");
   }
   if (useAiReview && sliceReviewAiAvailable() && !deferCursorAi) {
-    phase("macro", "Cursor · macro review (entire PR)", "running");
-    try {
-      macroReview = await aiMacroPrReview({
-        pull: {
-          title: pull.title,
-          number: pull.number,
-          headSha: pull.head.sha,
-        },
-        breakouts: breakoutPlan ?? undefined,
-        microPrs: ordered,
-        microResults,
-      });
-      const macroThemes = macroReview?.findings?.length ?? 0;
-      const macroDetail = macroReview
-        ? `${macroThemes} PR theme(s) · ${macroReview.event ?? "COMMENT"}`
-        : "empty";
-      phase("macro", "Cursor · macro review (entire PR)", "done", macroDetail);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      phase("macro", "Cursor · macro review (entire PR)", "blocked", message.slice(0, 80));
-      console.warn("[cedar] Macro PR review failed:", err);
-    }
-
     const cursorReviewSummary = buildCursorReviewSummary(microResults, macroReview, useAiReview);
     const slicePart = `${cursorReviewSummary.slice.total} slice comment(s) · ${cursorReviewSummary.slice.slicesWithFindings}/${cursorReviewSummary.slice.slicesAttempted} slices`;
     const macroPart = cursorReviewSummary.macro
       ? `${cursorReviewSummary.macro.findingCount} PR theme(s)`
       : "no macro themes";
-    phase("cursor-report", "Cursor · PR findings", "done", `${slicePart} · ${macroPart}`);
+    phase("cursor-report", "Cursor · PR findings", "done", `${macroPart} · ${slicePart}`);
   }
 
   const cursorReviewSummary = buildCursorReviewSummary(microResults, macroReview, useAiReview);
@@ -467,11 +444,6 @@ async function runMicroReviewPass(ordered, ctx) {
   const cursorEnabled = ctx.useAiReview && sliceReviewAiAvailable();
   const reviewable = ordered.filter((m) => (m.files?.length ?? 0) > 0);
   const reviewableTotal = reviewable.length;
-  let slicePassIndex = 0;
-
-  if (cursorEnabled && !ctx.deferCursorAi && reviewableTotal > 0) {
-    emitPhase("cursor-slices", "Cursor · slice review", "running", `${reviewableTotal} slice(s)`);
-  }
 
   for (const micro of ordered) {
     let result = reviewMicroPr(micro, { multiBoundaryFiles: ctx.multiBoundaryFiles });
@@ -485,59 +457,6 @@ async function runMicroReviewPass(ordered, ctx) {
           status: "pending",
         },
       };
-    } else if (cursorEnabled && !ctx.deferCursorAi && !aiSliceReviewStopped && micro.files.length) {
-      slicePassIndex += 1;
-      const sliceLabel = `${micro.componentName} (${slicePassIndex}/${reviewableTotal})`;
-      emitReviewProgress({
-        type: "activity",
-        text: `Cursor · ${sliceLabel}`,
-        phase: "cursor-slices",
-      });
-      emitPhase("cursor-slices", "Cursor · slice review", "running", sliceLabel);
-
-      try {
-        const aiFindings = await aiReviewMicroSlice(micro, {
-          architectureSummary: ctx.breakoutPlan?.architectureSummary,
-        });
-        const valid = aiFindings.filter(isCodeReviewFinding);
-        result = {
-          ...result,
-          reviewComments: aiFindings,
-          cursorReview: {
-            source: "cursor",
-            count: valid.length,
-            status: valid.length ? "ok" : "empty",
-          },
-        };
-        emitPhase(
-          "cursor-slices",
-          "Cursor · slice review",
-          "running",
-          `${sliceLabel} · ${valid.length} finding(s)`
-        );
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        if (isAiAuthError(err)) {
-          aiSliceReviewStopped = true;
-          console.warn("[cedar] AI slice review disabled after auth error:", err);
-        } else {
-          console.warn("[cedar] AI slice review skipped for slice", micro.componentId, err);
-        }
-        result = {
-          ...result,
-          cursorReview: {
-            source: "cursor",
-            count: 0,
-            status: aiSliceReviewStopped ? "stopped" : "error",
-            error: message.slice(0, 240),
-          },
-        };
-        emitReviewProgress({
-          type: "activity",
-          text: `Cursor slice failed · ${micro.componentName}`,
-          phase: "error",
-        });
-      }
     } else if (sliceReviewAiAvailable() && !ctx.useAiReview && micro.files.length) {
       result = {
         ...result,
@@ -546,32 +465,6 @@ async function runMicroReviewPass(ordered, ctx) {
           count: 0,
           status: "skipped",
           error: "CEDAR_AI_SLICE_REVIEW=false (breakouts still use Cursor)",
-        },
-      };
-    } else if (cursorEnabled && aiSliceReviewStopped && micro.files.length) {
-      result = {
-        ...result,
-        cursorReview: {
-          source: "cursor",
-          count: 0,
-          status: "stopped",
-          error: "Composer slice review stopped after an earlier auth/API error",
-        },
-      };
-    } else if (
-      sliceReviewAiAvailable() &&
-      ctx.useAiReview &&
-      micro.files.length &&
-      result.status !== "skipped" &&
-      !result.cursorReview
-    ) {
-      result = {
-        ...result,
-        cursorReview: {
-          source: "cursor",
-          count: 0,
-          status: "error",
-          error: "Composer slice pass did not attach — re-run Start review",
         },
       };
     }
@@ -594,6 +487,113 @@ async function runMicroReviewPass(ordered, ctx) {
     }
   }
 
+  /** @type {Awaited<ReturnType<typeof aiMacroPrReview>>} */
+  let macroReview = null;
+
+  if (cursorEnabled && !ctx.deferCursorAi && reviewableTotal > 0) {
+    emitPhase("macro", "Cursor · macro review (entire PR)", "running");
+    try {
+      macroReview = await aiMacroPrReview({
+        pull: {
+          title: ctx.pull.title,
+          number: ctx.pull.number,
+          headSha: ctx.pull.head.sha,
+        },
+        breakouts: ctx.breakoutPlan ?? undefined,
+        microPrs: ordered,
+        microResults,
+      });
+      const macroThemes = macroReview?.findings?.length ?? 0;
+      const macroDetail = macroReview
+        ? `${macroThemes} PR theme(s) · ${macroReview.event ?? "COMMENT"}`
+        : "empty";
+      emitPhase("macro", "Cursor · macro review (entire PR)", "done", macroDetail);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      emitPhase("macro", "Cursor · macro review (entire PR)", "blocked", message.slice(0, 80));
+      console.warn("[cedar] Macro PR review failed:", err);
+    }
+
+    emitPhase("cursor-slices", "Cursor · slice review", "running", `${reviewableTotal} slice(s)`);
+  }
+
+  const byId = new Map(microResults.map((r) => [r.componentId, r]));
+  let slicePassIndex = 0;
+
+  for (const micro of ordered) {
+    const result = byId.get(micro.componentId);
+    if (!result) continue;
+
+    if (cursorEnabled && !ctx.deferCursorAi && !aiSliceReviewStopped && micro.files.length) {
+      slicePassIndex += 1;
+      const sliceLabel = `${micro.componentName} (${slicePassIndex}/${reviewableTotal})`;
+      emitReviewProgress({
+        type: "activity",
+        text: `Cursor · ${sliceLabel}`,
+        phase: "cursor-slices",
+      });
+      emitPhase("cursor-slices", "Cursor · slice review", "running", sliceLabel);
+
+      try {
+        const aiFindings = await aiReviewMicroSlice(micro, {
+          architectureSummary: ctx.breakoutPlan?.architectureSummary,
+        });
+        const valid = aiFindings.filter(isCodeReviewFinding);
+        result.reviewComments = aiFindings;
+        result.cursorReview = {
+          source: "cursor",
+          count: valid.length,
+          status: valid.length ? "ok" : "empty",
+        };
+        emitPhase(
+          "cursor-slices",
+          "Cursor · slice review",
+          "running",
+          `${sliceLabel} · ${valid.length} finding(s)`
+        );
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        if (isAiAuthError(err)) {
+          aiSliceReviewStopped = true;
+          console.warn("[cedar] AI slice review disabled after auth error:", err);
+        } else {
+          console.warn("[cedar] AI slice review skipped for slice", micro.componentId, err);
+        }
+        result.cursorReview = {
+          source: "cursor",
+          count: 0,
+          status: aiSliceReviewStopped ? "stopped" : "error",
+          error: message.slice(0, 240),
+        };
+        emitReviewProgress({
+          type: "activity",
+          text: `Cursor slice failed · ${micro.componentName}`,
+          phase: "error",
+        });
+      }
+    } else if (cursorEnabled && aiSliceReviewStopped && micro.files.length && !result.cursorReview) {
+      result.cursorReview = {
+        source: "cursor",
+        count: 0,
+        status: "stopped",
+        error: "Composer slice review stopped after an earlier auth/API error",
+      };
+    } else if (
+      sliceReviewAiAvailable() &&
+      ctx.useAiReview &&
+      micro.files.length &&
+      result.status !== "skipped" &&
+      !result.cursorReview
+    ) {
+      result.cursorReview = {
+        source: "cursor",
+        count: 0,
+        status: "error",
+        error: "Composer slice pass did not attach — re-run Start review",
+      };
+    }
+  }
+
   if (cursorEnabled && !ctx.deferCursorAi && reviewableTotal > 0) {
     const stats = summarizeCursorSliceReview(microResults);
     const detail = `${stats.total} finding(s) · ${stats.slicesWithFindings}/${reviewableTotal} slices`;
@@ -605,7 +605,7 @@ async function runMicroReviewPass(ordered, ctx) {
     );
   }
 
-  return microResults;
+  return { microResults, macroReview };
 }
 
 /**

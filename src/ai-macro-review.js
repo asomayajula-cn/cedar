@@ -80,8 +80,7 @@ Rules:
   });
 
   const parsed = parseJsonFromModel(raw);
-  const body = String(parsed.body ?? "").trim();
-  if (!body) return null;
+  let body = String(parsed.body ?? "").trim();
 
   const verdictRaw = String(parsed.verdict ?? "comment").toLowerCase();
   const event =
@@ -104,6 +103,21 @@ Rules:
       });
     })
     .filter(Boolean);
+
+  if (!body && findings.length) {
+    body = [
+      "## Summary",
+      "",
+      ...findings.map((f) => `- ${f.message}`),
+      "",
+      "## Recommendation",
+      "",
+      "See themed findings above.",
+    ].join("\n");
+  }
+  if (!body && !findings.length) {
+    throw new Error("Composer macro review returned empty JSON (no body or findings)");
+  }
 
   return {
     body,

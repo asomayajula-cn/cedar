@@ -143,7 +143,7 @@ export function mountApp(root) {
             <div class="cedar-glass-subtle mb-6 space-y-4 rounded-xl p-4 sm:p-5">
               <div class="flex flex-wrap items-start justify-between gap-2">
                 <div>
-                  <p class="cedar-label mb-0">Room configuration</p>
+                  <p class="cedar-label mb-0">Configuration</p>
                   <p class="mt-1 text-[10px] leading-snug text-zinc-600">Writes <span class="font-mono text-zinc-500">GITHUB_TOKEN</span> and <span class="font-mono text-zinc-500">CURSOR_API_KEY</span> to the project <span class="font-mono text-zinc-500">.env</span> and applies them to this API.</p>
                 </div>
                 <button type="button" id="save-env-btn" class="cedar-btn-secondary cedar-btn-compact shrink-0">Save to .env</button>
@@ -476,6 +476,8 @@ async function startBackgroundCursorReviewIfNeeded(container) {
     },
   };
 
+  const progressDetail = document.getElementById("cedar-review-progress-detail");
+
   const onEvent = (event) => {
     applyCursorBackgroundEvent(event, () => {
       if (event.type === "cursor_slice") {
@@ -485,21 +487,38 @@ async function startBackgroundCursorReviewIfNeeded(container) {
       if (event.type === "cursor_done") {
         const results = document.getElementById("results");
         if (results && session.data) {
+          if (event.error) {
+            showToast(String(event.error), "error");
+          }
           refreshReviewUi();
           finishReviewUiWithoutBackground(results);
         }
       }
     });
-    applyReviewStreamEvent(event, null, null);
+    applyReviewStreamEvent(event, progressDetail, null);
   };
 
   try {
     await postCursorReviewStream(payload, onEvent);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    if (statusEl) statusEl.textContent = `Cursor review failed · ${msg}`;
+    if (progressDetail) progressDetail.textContent = `Cursor review failed · ${msg}`;
     showToast(msg, "error");
     session.data.cursorReviewPending = false;
+    markPendingCursorSlicesFailed(msg);
+    refreshReviewUi();
+  }
+}
+
+/** @param {string} message */
+function markPendingCursorSlicesFailed(message) {
+  const session = window.__cedarSession;
+  if (!session?.data?.microResults) return;
+  const err = message.slice(0, 240);
+  for (const r of session.data.microResults) {
+    if (r.cursorReview?.status === "pending") {
+      r.cursorReview = { source: "cursor", count: 0, status: "error", error: err };
+    }
   }
 }
 
@@ -1203,7 +1222,11 @@ function renderCursorReviewRollup(summary) {
 
 function renderResults(container, data) {
   const { pull, gate, microPrs, microResults, macroReview, cursorReviewSummary, composite, breakouts, partition, process, target } = data;
-  const macroReviewHtml = renderMacroReviewPanelHtml(macroReview);
+  const macroReviewHtml = renderMacroReviewPanelHtml(macroReview, {
+    cursorReviewPending: data.cursorReviewPending,
+    cursorReviewSummary,
+    serverHealth: window.__cedarServerHealth,
+  });
   sliceApprovals = window.__cedarSession?.sliceApprovals ?? sliceApprovals;
   ensureFindingSession(window.__cedarSession);
 

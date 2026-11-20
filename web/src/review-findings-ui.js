@@ -141,7 +141,7 @@ function sliceCursorEmptyMessage(r, session) {
     return `No Cursor draft comments for this slice. GitHub inline comments, if any, stay on the diff only.`;
   }
 
-  return `Cursor slice review did not run on this pass. In <strong class="font-medium text-zinc-400">Room configuration</strong>, paste your key and click <strong class="font-medium text-zinc-400">Save to .env</strong>, confirm the status shows <span class="font-mono text-zinc-500">In .env / API · set</span>, then <strong class="font-medium text-zinc-400">Start review</strong> and watch <strong class="font-medium text-zinc-400">Cursor · slice review</strong> in the log.`;
+  return `Cursor slice review did not run on this pass. In <strong class="font-medium text-zinc-400">Configuration</strong>, paste your key and click <strong class="font-medium text-zinc-400">Save to .env</strong>, confirm the status shows <span class="font-mono text-zinc-500">In .env / API · set</span>, then <strong class="font-medium text-zinc-400">Start review</strong> and watch <strong class="font-medium text-zinc-400">Cursor · slice review</strong> in the log.`;
 }
 
 /**

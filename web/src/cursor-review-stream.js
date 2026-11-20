@@ -60,6 +60,13 @@ export function applyCursorBackgroundEvent(event, refreshUi) {
 
   applyCursorBackgroundProgress(/** @type {{ type?: string, completed?: number, total?: number, phase?: string }} */ (event));
 
+  if (event.type === "cursor_macro" && event.macroReview != null) {
+    session.data.macroReview = event.macroReview;
+    session.data.cursorReviewPending = true;
+    refreshUi();
+    return;
+  }
+
   if (event.type === "cursor_slice" && event.componentId && event.microResult) {
     const id = String(event.componentId);
     const idx = session.data.microResults.findIndex((r) => r.componentId === id);
