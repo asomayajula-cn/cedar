@@ -134,6 +134,34 @@ export async function mountLayoutMermaid(root, source) {
 }
 
 /**
+ * @param {ParentNode} root
+ * @param {{ components?: string, flow?: string, events?: string }} views
+ */
+export async function mountCompleteLayoutViews(root, views) {
+  if (!root || !views) return 0;
+  const panels = [
+    { key: "components", sel: "#cedar-mermaid-components" },
+    { key: "flow", sel: "#cedar-mermaid-flow" },
+    { key: "events", sel: "#cedar-mermaid-events" },
+  ];
+  let drawn = 0;
+  for (const { key, sel } of panels) {
+    const source = views[key];
+    const pre = root.querySelector(sel);
+    if (!pre || !source?.trim()) continue;
+    const ok = await renderArchitectureMermaid(source, pre);
+    const wrap = pre.closest("[data-diagram-wrap]");
+    const svg = pre.querySelector("svg");
+    if (ok && wrap instanceof HTMLElement && svg instanceof SVGSVGElement) {
+      queuePanFit(wrap, svg);
+      activateDiagramUx(wrap);
+      drawn += 1;
+    }
+  }
+  return drawn;
+}
+
+/**
  * @param {HTMLElement} wrap
  * @param {SVGSVGElement} svg
  */

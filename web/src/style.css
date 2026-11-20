@@ -289,6 +289,11 @@
     @apply sticky top-16 z-10 -mx-1 rounded-lg bg-black/50 px-1 py-2 backdrop-blur-md;
   }
 
+  .cedar-complete-layout-views .cedar-layout-view .diagram-complete-layout {
+    min-height: min(24rem, 48vh);
+    max-height: min(72vh, 720px);
+  }
+
   #architecture-read-mermaid .diagram-complete-layout {
     min-height: min(32rem, 62vh);
     max-height: min(88vh, 960px);
