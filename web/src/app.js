@@ -20,6 +20,7 @@ import {
   refitPanZoomDiagrams,
 } from "./diagram-ux.js";
 import { applyReviewStreamEvent, postReviewStream } from "./review-stream.js";
+import { buildPrChatContext, wirePrChatSidebar } from "./pr-chat.js";
 
 const statusDot = {
   passed: "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]",
@@ -997,6 +998,18 @@ function renderResults(container, data) {
           <p class="cedar-rail-label cedar-rail-label-with-icon">${slicesIconSvg("cedar-rail-icon")}<span>Slices</span></p>
           <div class="mt-2 flex flex-col gap-0.5">${sidebarSlices}</div>
         </div>
+        <div class="cedar-review-rail-card cedar-pr-chat-card">
+          <p class="cedar-rail-label">Ask about this PR</p>
+          <p class="cedar-pr-chat-hint mt-1 text-[9px] leading-snug text-zinc-600">Same Cursor key · bridge in ask mode</p>
+          <div class="cedar-pr-chat-log mt-2" id="cedar-pr-chat-log" aria-live="polite" aria-relevant="additions"></div>
+          <form class="cedar-pr-chat-form mt-2">
+            <label class="sr-only" for="cedar-pr-chat-input">Question about this pull request</label>
+            <textarea id="cedar-pr-chat-input" class="cedar-pr-chat-input" rows="3" maxlength="2000"
+              placeholder="Architecture, slices, blockers, what changed…"></textarea>
+            <button type="submit" class="cedar-pr-chat-send cedar-btn-secondary mt-2 w-full text-xs">Send</button>
+          </form>
+          <p class="cedar-pr-chat-status mt-2 text-[9px] text-zinc-500" hidden></p>
+        </div>
         <p class="rounded-lg border px-3 py-2 text-xs ${gate.ready ? "border-emerald-500/20 bg-emerald-500/5 text-emerald-300/90" : "border-amber-500/20 bg-amber-500/5 text-amber-200/90"}">
           ${gate.ready ? "Composite review is ready." : escapeHtml(gate.blockedReason ?? "Composite pending.")}
         </p>
@@ -1222,6 +1235,11 @@ function renderResults(container, data) {
       });
     });
   }
+
+  wirePrChatSidebar(container, {
+    getContext: () => buildPrChatContext(data),
+    getToken: () => window.__cedarSession?.token,
+  });
 
   wireFileReviewToggles(container);
 }

@@ -22,13 +22,16 @@ async function bridgeFetch(pathname, init) {
   return res;
 }
 
-async function ensureBridgeSession() {
+/**
+ * @param {string} [modeOverride]
+ */
+async function ensureBridgeSession(modeOverride) {
   const cwd = process.cwd();
   const apiKey = process.env.CURSOR_API_KEY;
   if (!apiKey) throw new Error("CURSOR_API_KEY is not set");
 
   const model = resolveCursorModel();
-  const mode = resolveCursorMode();
+  const mode = modeOverride ?? resolveCursorMode();
   const now = Date.now();
 
   if (
@@ -164,6 +167,7 @@ export async function warmCursorBridgeSession() {
  * @param {{
  *   messages: { role: string, content: string }[],
  *   model?: string,
+ *   mode?: "agent" | "ask" | "plan",
  * }} opts
  */
 export async function cursorBridgeChat(opts) {
@@ -175,25 +179,28 @@ export async function cursorBridgeChat(opts) {
     .join("\n\n");
 
   const wantsJson = opts.json || /Return JSON only|JSON object/i.test(system);
+  const mode = opts.mode ?? resolveCursorMode();
+  const isQa = mode === "ask";
   const jsonOnly =
-    process.env.CEDAR_CURSOR_MODE !== "agent"
+    !isQa && mode !== "agent"
       ? wantsJson
         ? `[Plan mode — output raw JSON only: first character must be {. No prose, no fences. Do not edit files or run commands.]\n\n`
         : `[Plan mode — do not edit, create, or delete files, and do not run shell commands.]\n\n`
-      : "";
+      : isQa
+        ? "[Ask mode — answer questions only. Do not edit files or run commands.]\n\n"
+        : "";
 
   const prompt = system
     ? `${jsonOnly}SYSTEM INSTRUCTIONS:\n${system}\n\n---\n\n${dialogue}`
     : `${jsonOnly}${dialogue}`;
 
-  const mode = resolveCursorMode();
   const model = resolveCursorModel(opts.model);
 
   let lastError;
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       emitBridgeSse({ type: "activity", text: "Sending to Cursor agent…", phase: "start" });
-      const sessionId = await ensureBridgeSession();
+      const sessionId = await ensureBridgeSession(mode);
       const res = await bridgeFetch(`/sessions/${encodeURIComponent(sessionId)}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

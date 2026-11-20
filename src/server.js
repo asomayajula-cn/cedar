@@ -14,7 +14,8 @@ import {
   resolveAiModel,
   resolveCursorModel,
 } from "./default-model.js";
-import { activeAiProvider } from "./ai-chat.js";
+import { activeAiProvider, hasAiProvider } from "./ai-chat.js";
+import { answerPrChatQuestion, prChatProviderLabel } from "./pr-chat.js";
 import { cedarAiDiagramMode } from "./diagram-visual-mode.js";
 import { ensureCursorBridge, bridgeBaseUrl, isBridgeManaged } from "./cursor-bridge-spawn.js";
 import { warmCursorBridgeSession } from "./cursor-bridge-client.js";
@@ -36,6 +37,7 @@ app.get("/api/health", (_req, res) => {
     hasCursor: Boolean(process.env.CURSOR_API_KEY),
     hasOpenRouter: Boolean(process.env.OPENROUTER_API_KEY),
     aiProvider: activeAiProvider(),
+    prChat: hasAiProvider(),
     cursorBridge:
       process.env.CEDAR_CURSOR_BRIDGE === "false"
         ? "off"
@@ -164,6 +166,36 @@ app.post("/api/review/stream", async (req, res) => {
     send({ type: "error", error: explained.error ?? String(err) });
   } finally {
     res.end();
+  }
+});
+
+app.post("/api/pr-chat", async (req, res) => {
+  const { messages, context } = req.body ?? {};
+  if (!hasAiProvider()) {
+    res.status(503).json({
+      error: "Set CURSOR_API_KEY or OPENROUTER_API_KEY on the server",
+      provider: null,
+    });
+    return;
+  }
+  if (!context || typeof context !== "object") {
+    res.status(400).json({ error: "context required (review snapshot from Cedar UI)" });
+    return;
+  }
+  if (!Array.isArray(messages)) {
+    res.status(400).json({ error: "messages array required" });
+    return;
+  }
+
+  try {
+    const reply = await answerPrChatQuestion(messages, context);
+    res.json({
+      reply: String(reply ?? "").trim(),
+      provider: prChatProviderLabel(),
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: message, provider: prChatProviderLabel() });
   }
 });
 
