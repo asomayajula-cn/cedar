@@ -2,6 +2,7 @@ import { cedarMarkSvg } from "./cedar-logo.js";
 import { mountArchitectureGraphs } from "./architecture-canvas.js";
 import { buildDiagramGraph } from "../../src/diagram-graph.js";
 import { buildArchitectureDiagramMermaid } from "../../src/architecture-diagram.js";
+import { ARCHITECTURE_LAYER_STACK, ARCHITECTURE_MODEL_LABEL } from "../../src/architecture-model.js";
 import { renderSliceFileReviews, wireFileReviewToggles } from "./diff-view.js";
 import { setCommentToast } from "./diff-comments.js";
 import { initDiffFontFromServer } from "./diff-font.js";
@@ -261,6 +262,25 @@ function mermaidToolbar(badge = "") {
     <button type="button" class="diagram-tool-btn" data-diagram-action="out" title="Zoom out">−</button>
     <button type="button" class="diagram-tool-btn" data-diagram-action="reset" title="Fit">Fit</button>
     ${badge}
+  </div>`;
+}
+
+/**
+ * @param {string[]} activeSliceIds
+ */
+function renderPrLayerStack(activeSliceIds) {
+  const active = new Set(activeSliceIds);
+  const layers = ARCHITECTURE_LAYER_STACK.filter((l) => active.has(l.id));
+  if (!layers.length) return "";
+  const items = layers
+    .map(
+      (layer) =>
+        `<li class="cedar-layer-chip is-active"><span class="cedar-layer-chip-label">${escapeHtml(layer.label)}</span><span class="cedar-layer-chip-hint">${escapeHtml(layer.hint)}</span></li>`
+    )
+    .join("");
+  return `<div class="cedar-layer-stack mt-4" aria-label="${escapeHtml(ARCHITECTURE_MODEL_LABEL)}">
+    <p class="cedar-label mb-2">Layers in this PR</p>
+    <ol class="cedar-layer-stack-list">${items}</ol>
   </div>`;
 }
 
@@ -754,6 +774,11 @@ function renderResults(container, data) {
   ).trim();
   const architectureReadNotes =
     breakouts?.architectureVisual?.conceptualNotes ?? breakouts?.diagramGraph?.meta?.conceptualNotes ?? [];
+  const activeArchitectureIds = microPrs
+    .filter((m) => (m.files?.length ?? m.fileCount ?? 0) > 0)
+    .map((m) => m.componentId);
+  const prLayerStackHtml = renderPrLayerStack(activeArchitectureIds);
+
   const showArchitectureRead =
     showArchitectureSection ||
     architectureReadSummary ||
@@ -937,6 +962,7 @@ function renderResults(container, data) {
               showArchitectureRead
                 ? `<section class="cedar-glass p-6" id="architecture-read">
             <h2 class="text-sm font-semibold text-white">Architecture read</h2>
+            ${prLayerStackHtml}
             ${
               architectureReadSummary
                 ? `<p class="mt-4 max-w-3xl text-base leading-relaxed text-zinc-200">${escapeHtml(architectureReadSummary)}</p>`

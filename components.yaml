@@ -1,6 +1,15 @@
-# Layered layout — matches examples/Spring Boot package layout (first match wins).
+# Canonical layer map — first matching path wins (list specific / inner layers before broad globs).
 
 components:
+  - id: migrations
+    name: Schema & migrations
+    paths:
+      - "migrations/**"
+      - "**/src/main/resources/db/migration/**"
+      - "**/flyway/**"
+      - "**/liquibase/**"
+    depends_on: [domain]
+
   - id: domain
     name: Domain layer
     paths:
@@ -18,15 +27,26 @@ components:
       - "internal/usecase/**"
     depends_on: [domain]
 
-  - id: infrastructure
-    name: Infrastructure layer
+  - id: repository
+    name: Repository & data access
     paths:
-      - "**/src/main/java/**/infrastructure/**"
+      - "**/src/main/java/**/repository/**"
+      - "**/src/main/java/**/persistence/**"
+      - "**/src/main/java/**/data/**"
+      - "**/*Repository.java"
+      - "**/*Repository.kt"
       - "internal/store/**"
     depends_on: [domain, application]
 
+  - id: infrastructure
+    name: Infrastructure adapters
+    paths:
+      - "**/src/main/java/**/infrastructure/**"
+      - "**/src/main/java/**/adapter/**"
+    depends_on: [domain, application, repository]
+
   - id: api
-    name: API adapters
+    name: API & HTTP adapters
     paths:
       - "**/src/main/java/**/api/**"
       - "api/**"
@@ -34,10 +54,20 @@ components:
       - "src/routes/**"
     depends_on: [application, domain]
 
-  - id: config
-    name: Runtime config · 12-factor
+  - id: persistence
+    name: Persistence models
     paths:
-      - "**/src/main/resources/**"
+      - "db/**"
+      - "**/prisma/**"
+      - "**/drizzle/**"
+    depends_on: [domain]
+
+  - id: config
+    name: Runtime config · 12-factor (III)
+    paths:
+      - "**/src/main/resources/application*.yml"
+      - "**/src/main/resources/application*.yaml"
+      - "**/src/main/resources/application*.properties"
       - "**/application*.yml"
       - "**/application*.yaml"
       - "**/application*.properties"
@@ -45,22 +75,24 @@ components:
     depends_on: []
 
   - id: build_deploy
-    name: Build & release · 12-factor
+    name: Build & release · 12-factor (V)
     paths:
       - "**/pom.xml"
       - "**/build.gradle*"
       - "Dockerfile*"
       - "docker-compose*.yml"
       - "Procfile"
+      - ".github/workflows/**"
     depends_on: []
 
-  - id: persistence
-    name: Persistence & migrations
+  - id: integration
+    name: Contracts & integration
     paths:
-      - "migrations/**"
-      - "db/**"
-      - "**/src/main/resources/db/**"
-    depends_on: [domain]
+      - "contracts/**"
+      - "proto/**"
+      - "openapi/**"
+      - "**/*.openapi.yaml"
+    depends_on: [api, domain]
 
   - id: web
     name: Web & UI
@@ -73,19 +105,24 @@ components:
   - id: infra
     name: Platform & ops · 12-factor
     paths:
-      - ".github/**"
       - "terraform/**"
       - "k8s/**"
       - "docker/**"
+      - ".github/**"
     depends_on: []
 
-  - id: integration
-    name: Contracts & integration
+  - id: tests
+    name: Tests
     paths:
-      - "contracts/**"
-      - "proto/**"
-      - "openapi/**"
-      - "**/*.openapi.yaml"
-    depends_on: [api, domain]
+      - "**/src/test/**"
+      - "**/__tests__/**"
+      - "**/*.test.ts"
+      - "**/*.spec.ts"
+    depends_on: []
+
+  - id: misc
+    name: Unclassified changes
+    paths: []
+    depends_on: []
 
 default_component: misc

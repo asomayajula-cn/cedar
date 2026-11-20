@@ -1,3 +1,5 @@
+import { compareSliceArchitectureOrder } from "./architecture-model.js";
+
 /**
  * Deterministic slice ordering for diagrams and review (dependency-first).
  * @typedef {import('./partition.js').MicroPr} MicroPr
@@ -24,7 +26,7 @@ export function orderMicroPrsForLayout(microPrs) {
     }
   }
 
-  for (const id of [...byId.keys()].sort()) visit(id);
+  for (const id of [...byId.keys()].sort(compareSliceArchitectureOrder)) visit(id);
   return ordered;
 }
 

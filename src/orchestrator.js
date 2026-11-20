@@ -1,10 +1,7 @@
 import path from "node:path";
 import { loadComponentsConfig } from "./load-config.js";
 import { partitionPrByComponents, partitionPrByAssignments } from "./partition.js";
-import {
-  discoverArchitecturalBreakouts,
-  aiComponentsToDefs,
-} from "./ai-breakouts.js";
+import { discoverArchitecturalBreakouts } from "./ai-breakouts.js";
 import { aiReviewMicroSlice } from "./ai-micro-review.js";
 import {
   createClient,
@@ -31,6 +28,12 @@ import { resolveArchitectureVisual } from "./ai-architecture-visual.js";
 import { breakoutCacheKey, readBreakoutCache, writeBreakoutCache } from "./breakout-cache.js";
 import { resolveAiModel } from "./default-model.js";
 import { emitPhase } from "./review-progress.js";
+import {
+  alignMicroPrsToPrArchitecture,
+  componentsForPrPartition,
+  resolvePartitionCatalog,
+  summarizePrArchitecture,
+} from "./pr-architecture.js";
 
 /**
  * @param {{
@@ -115,10 +118,16 @@ export async function runPrReviewPipeline(opts) {
         `${breakoutPlan.components.length} slices · ${breakoutPlan.strategy}`
       );
     }
-    components = aiComponentsToDefs(breakoutPlan.components);
-    defaultComponent = components[0]?.id ?? "general";
+    components = resolvePartitionCatalog(
+      yamlConfig.components,
+      breakoutPlan.fileAssignments,
+      breakoutPlan.components
+    );
+    defaultComponent = yamlConfig.defaultComponent;
   } else {
     phase("breakouts", "Map components", "done", "components.yaml");
+    components = yamlConfig.components;
+    defaultComponent = yamlConfig.defaultComponent;
   }
 
   phase("partition", "Partition micro slices", "running");
@@ -127,7 +136,34 @@ export async function runPrReviewPipeline(opts) {
     : partitionPrByComponents(files, components, defaultComponent);
 
   const multiBoundaryFiles = multiTagged.map((f) => f.filename);
+  const activeIds = new Set(microPrs.filter((m) => m.files.length > 0).map((m) => m.componentId));
+  alignMicroPrsToPrArchitecture(microPrs, activeIds);
   const ordered = orderMicroPrsForLayout(microPrs);
+
+  const prComponents = componentsForPrPartition(
+    ordered,
+    yamlConfig.components,
+    breakoutPlan?.components ?? []
+  );
+  const prArchitectureSummary = summarizePrArchitecture(files, ordered);
+  if (breakoutPlan) {
+    breakoutPlan = {
+      ...breakoutPlan,
+      components: prComponents,
+      architectureSummary: prArchitectureSummary,
+    };
+  } else {
+    breakoutPlan = {
+      architectureSummary: prArchitectureSummary,
+      components: prComponents,
+      fileAssignments: Object.fromEntries(
+        ordered.flatMap((m) => m.files.map((f) => [f.filename, m.componentId]))
+      ),
+      model: resolveAiModel(),
+      strategy: "yaml",
+      diagramVisual: null,
+    };
+  }
   const sliceCount = ordered.filter((m) => m.files.length > 0).length;
   phase("partition", "Partition micro slices", "done", `${sliceCount} slices`);
 

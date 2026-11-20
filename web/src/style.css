@@ -314,6 +314,26 @@
     cursor: grabbing;
   }
 
+  .cedar-layer-stack-list {
+    @apply m-0 flex list-none flex-wrap gap-2 p-0;
+  }
+
+  .cedar-layer-chip {
+    @apply inline-flex flex-col rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-left;
+  }
+
+  .cedar-layer-chip.is-active {
+    @apply border-white/20 bg-white/[0.06];
+  }
+
+  .cedar-layer-chip-label {
+    @apply text-[11px] font-medium text-zinc-100;
+  }
+
+  .cedar-layer-chip-hint {
+    @apply text-[9px] text-zinc-500;
+  }
+
   .diagram-complete-layout {
     min-height: 22rem;
     max-height: min(75vh, 720px);

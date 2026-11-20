@@ -1,4 +1,5 @@
 import { minimatch } from "minimatch";
+import { compareSliceArchitectureOrder } from "./architecture-model.js";
 
 /**
  * @typedef {import('./load-config.js').ComponentDef} ComponentDef
@@ -103,7 +104,7 @@ export function partitionPrByComponents(files, components, defaultId) {
   }
 
   const microPrs = [...buckets.values()].sort((a, b) =>
-    a.componentId.localeCompare(b.componentId)
+    compareSliceArchitectureOrder(a.componentId, b.componentId)
   );
 
   return { microPrs, byFile, multiTagged };
@@ -159,7 +160,7 @@ export function partitionPrByAssignments(files, components, assignments, default
   }
 
   const microPrs = [...buckets.values()].sort((a, b) =>
-    a.componentId.localeCompare(b.componentId)
+    compareSliceArchitectureOrder(a.componentId, b.componentId)
   );
 
   return { microPrs, byFile, multiTagged: [] };

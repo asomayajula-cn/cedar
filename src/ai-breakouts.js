@@ -1,7 +1,15 @@
 import { aiChat, parseJsonFromModel, resolveAiModel } from "./ai-chat.js";
-import { AI_PARTITION_SYSTEM_EXTRA, ARCHITECTURE_MODEL_LABEL } from "./architecture-model.js";
+import {
+  AI_PARTITION_SYSTEM_EXTRA,
+  ARCHITECTURE_MODEL_LABEL,
+  CANONICAL_SLICE_IDS,
+  displayNameForSlice,
+  enrichComponentsFromYaml,
+  normalizeSliceId,
+} from "./architecture-model.js";
 import { includeDiagramInBreakoutCall } from "./diagram-visual-mode.js";
 import { heuristicArchitecturalBreakouts } from "./heuristic-breakouts.js";
+import { filterComponentsWithFiles } from "./pr-architecture.js";
 
 const MAX_FILES_FULL = 80;
 const PATCH_CHAR_LIMIT = 1200;
@@ -66,9 +74,10 @@ export async function discoverArchitecturalBreakouts(files, pullCtx) {
  * @param {PrFile[]} files
  */
 function mergePlans(ai, heuristic, files) {
-  const components = ai.components.length ? ai.components : heuristic.components;
+  let components = ai.components.length ? ai.components : heuristic.components;
   const assignments = { ...heuristic.fileAssignments, ...ai.fileAssignments };
   ensureAllFilesAssigned(assignments, files, components);
+  components = filterComponentsWithFiles(components, assignments);
 
   const strategy = ai.components.length && Object.keys(ai.fileAssignments).length ? "ai" : "ai+heuristic";
 
@@ -112,7 +121,8 @@ async function requestAiBreakouts(digest, pullCtx, hint) {
 Goals:
 - 2–8 slices (not one per file; not one giant slice unless the PR is tiny)
 - Each changed file appears exactly once in file_assignments
-- architecture_summary: one short paragraph on how layers and deploy surfaces change (do not lecture on methodology labels)
+- components[] must only include slices that have ≥1 file in this PR (infer layers from changed_paths; do not invent empty layers)
+- architecture_summary: one short paragraph on which modules and layers this PR actually changes (paths in the diff)
 
 ${AI_PARTITION_SYSTEM_EXTRA}
 
@@ -148,6 +158,7 @@ Context: ${ARCHITECTURE_MODEL_LABEL}. Labels only — no extra nodes.`
       head: pullCtx.headRef,
     },
     changed_files: digest,
+    allowed_slice_ids: CANONICAL_SLICE_IDS.filter((id) => id !== "misc"),
     heuristic_hint: {
       summary: hint.architectureSummary,
       suggested_slices: hint.components.map((c) => ({ id: c.id, name: c.name, file_count: Object.values(hint.fileAssignments).filter((id) => id === c.id).length })),
@@ -229,17 +240,20 @@ function coalesceComponents(parsed) {
     return [];
   }
 
-  return raw.map((c) => ({
-    id: slugId(c.id ?? c.component_id ?? c.name),
-    name: String(c.name ?? c.title ?? c.id ?? "Slice"),
+  return raw.map((c) => {
+    const id = normalizeSliceId(slugId(c.id ?? c.component_id ?? c.name));
+    return {
+    id,
+    name: displayNameForSlice(id, String(c.name ?? c.title ?? c.id ?? "Slice")),
     description: c.description ? String(c.description) : undefined,
     rationale: c.rationale ? String(c.rationale) : c.why ? String(c.why) : undefined,
     depends_on: Array.isArray(c.depends_on)
-      ? c.depends_on.map((d) => slugId(String(d)))
+      ? c.depends_on.map((d) => normalizeSliceId(slugId(String(d))))
       : Array.isArray(c.dependsOn)
-        ? c.dependsOn.map((d) => slugId(String(d)))
+        ? c.dependsOn.map((d) => normalizeSliceId(slugId(String(d))))
         : [],
-  }));
+  };
+  });
 }
 
 /**
@@ -258,7 +272,9 @@ function coalesceAssignments(parsed, components) {
 
   if (raw && typeof raw === "object") {
     for (const [path, comp] of Object.entries(raw)) {
-      const id = typeof comp === "string" ? slugId(comp) : slugId(comp?.component_id ?? comp?.id ?? String(comp));
+      const id = normalizeSliceId(
+        typeof comp === "string" ? slugId(comp) : slugId(comp?.component_id ?? comp?.id ?? String(comp))
+      );
       out[path] = id;
     }
   }
@@ -266,7 +282,7 @@ function coalesceAssignments(parsed, components) {
   if (Array.isArray(parsed.components)) {
     for (const c of parsed.components) {
       if (Array.isArray(c.files)) {
-        const id = slugId(c.id ?? c.name);
+        const id = normalizeSliceId(slugId(c.id ?? c.name));
         for (const p of c.files) {
           out[String(p)] = id;
         }
@@ -288,7 +304,7 @@ function coalesceAssignments(parsed, components) {
  * @param {AiComponentDef[]} components
  */
 function ensureAllFilesAssigned(assignments, files, components) {
-  const fallback = components[0]?.id ?? "general";
+  const fallback = components[0]?.id ?? "misc";
   for (const f of files) {
     if (!assignments[f.filename]) {
       assignments[f.filename] = fallback;
@@ -318,7 +334,7 @@ function slugId(value) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_|_$/g, "")
-    .slice(0, 48) || "general";
+    .slice(0, 48) || "misc";
 }
 
 export function aiComponentsToDefs(components) {
