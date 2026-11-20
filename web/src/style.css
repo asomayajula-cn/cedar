@@ -119,6 +119,26 @@
     max-height: min(50vh, 480px);
   }
 
+  .architecture-read-mermaid-head {
+    @apply sticky top-16 z-10 -mx-1 rounded-lg bg-black/50 px-1 py-2 backdrop-blur-md;
+  }
+
+  #architecture-read-mermaid .diagram-complete-layout {
+    min-height: min(32rem, 62vh);
+    max-height: min(88vh, 960px);
+    @apply p-6 sm:p-8;
+  }
+
+  #architecture-read-mermaid.diagram-mermaid-sleek {
+    min-height: min(32rem, 62vh);
+    max-height: min(88vh, 960px);
+  }
+
+  #architecture-read-mermaid .cedar-mermaid-scroll .mermaid svg {
+    min-height: 24rem;
+    max-height: none;
+  }
+
   .diagram-overview .diagram-host {
     @apply h-full w-full overflow-hidden p-2;
     cursor: grab;

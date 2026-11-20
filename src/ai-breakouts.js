@@ -123,7 +123,7 @@ SOLID (use in component names/rationale, not as extra slice ids unless paths dem
 - ISP: small application ports, not god interfaces
 - DIP: domain/application do not depend on infrastructure or Spring; depend on abstractions
 
-Return JSON only with keys: architecture_summary, components[], file_assignments{}.
+Your entire response must be one JSON object (no text before or after). Keys: architecture_summary, components[], file_assignments{}.
 components[].id must be snake_case.${
     includeDiagramInBreakoutCall()
       ? `
@@ -187,6 +187,10 @@ Context: ${ARCHITECTURE_MODEL_LABEL}. Labels only — no extra nodes.`
       };
     } catch (err) {
       lastError = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      if (/prose instead of json/i.test(msg) || /Unexpected token/i.test(msg)) {
+        await new Promise((r) => setTimeout(r, 400));
+      }
     }
   }
 

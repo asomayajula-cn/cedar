@@ -1,8 +1,9 @@
 import { cedarMarkSvg } from "./cedar-logo.js";
 import { mountArchitectureGraphs } from "./architecture-canvas.js";
 import { buildDiagramGraph } from "../../src/diagram-graph.js";
+import { buildArchitectureDiagramMermaid } from "../../src/architecture-diagram.js";
 import { renderSliceFileReviews, wireFileReviewToggles } from "./diff-view.js";
-import { mountLayoutMermaid } from "./diagram-ux.js";
+import { mountLayoutMermaid, activateDiagramUx } from "./diagram-ux.js";
 import { applyReviewStreamEvent, postReviewStream } from "./review-stream.js";
 
 const statusDot = {
@@ -246,6 +247,16 @@ function cyToolbar(targetId, badge = "") {
   </div>`;
 }
 
+function mermaidToolbar(badge = "") {
+  return `<div class="diagram-toolbar flex flex-wrap items-center gap-1.5" data-diagram-toolbar>
+    <span class="cedar-label mb-0">View</span>
+    <button type="button" class="diagram-tool-btn" data-diagram-action="in" title="Zoom in">+</button>
+    <button type="button" class="diagram-tool-btn" data-diagram-action="out" title="Zoom out">−</button>
+    <button type="button" class="diagram-tool-btn" data-diagram-action="reset" title="Fit">Fit</button>
+    ${badge}
+  </div>`;
+}
+
 function virtualPrLabel(target, pull, componentId, index, total) {
   const repo = target?.owner && target?.repo ? `${target.owner}/${target.repo}` : "repository";
   return {
@@ -304,7 +315,29 @@ function renderResults(container, data) {
     .join("");
 
   const archSliceCount = microPrs.filter((m) => (m.files?.length ?? m.fileCount ?? 0) > 0).length;
-  const diagramMermaid = breakouts?.diagramMermaid ?? "";
+  const diagramMicroPrs = microPrs
+    .filter((m) => (m.files?.length ?? m.fileCount ?? 0) > 0)
+    .map((m) => ({
+      componentId: m.componentId,
+      componentName: m.componentName,
+      additions: m.additions ?? 0,
+      deletions: m.deletions ?? 0,
+      dependsOn: m.dependsOn ?? [],
+      files: (m.files ?? []).map((f) => ({
+        filename: f.path ?? f.filename,
+        additions: f.additions ?? 0,
+        deletions: f.deletions ?? 0,
+      })),
+    }));
+  let diagramMermaid = breakouts?.diagramMermaid ?? "";
+  if (!diagramMermaid.trim() && diagramMicroPrs.length) {
+    diagramMermaid = buildArchitectureDiagramMermaid(
+      diagramMicroPrs,
+      breakouts,
+      { number: pull.number, title: pull.title },
+      { owner: target?.owner, repo: target?.repo }
+    );
+  }
   const showArchitectureSection = archSliceCount > 0 || Boolean(diagramMermaid.trim());
   const architectureReadSummary = (
     breakouts?.architectureVisual?.summary ??
@@ -439,23 +472,6 @@ function renderResults(container, data) {
         </div>`
             : ""
         }
-        ${
-          diagramMermaid.trim()
-            ? `<details class="mt-5 group">
-            <summary class="cursor-pointer list-none text-xs font-medium text-zinc-500 hover:text-zinc-300 [&::-webkit-details-marker]:hidden">
-              <span class="cedar-label">Export flow (Mermaid)</span>
-            </summary>
-            <div class="mt-3" data-diagram-wrap data-diagram-panzoom>
-              <div class="mb-2 flex justify-end gap-1.5" data-diagram-toolbar>
-                <button type="button" class="diagram-tool-btn" data-diagram-action="reset" title="Fit">Fit</button>
-              </div>
-              <div class="diagram-complete-layout cedar-mermaid-scroll diagram-mermaid-sleek">
-                <pre id="cedar-mermaid-layout" class="cedar-mermaid-source m-0"></pre>
-              </div>
-            </div>
-          </details>`
-            : ""
-        }
       </section>`
         : ""
     }
@@ -486,13 +502,16 @@ function renderResults(container, data) {
             : ""
         }
         ${
-          architectureReadSummary || architectureReadNotes.length || composite
+          architectureReadSummary ||
+          architectureReadNotes.length ||
+          composite ||
+          diagramMermaid.trim()
             ? `<section class="cedar-glass p-6" id="architecture-read">
             <h2 class="text-sm font-semibold text-white">Architecture read</h2>
             ${
               architectureReadSummary
                 ? `<p class="mt-4 max-w-3xl text-base leading-relaxed text-zinc-200">${escapeHtml(architectureReadSummary)}</p>`
-                : !composite
+                : !composite && !diagramMermaid.trim()
                   ? `<p class="mt-4 text-sm text-zinc-500">Cursor can supply a one-paragraph visual read when <span class="font-mono text-zinc-600">CEDAR_AI_DIAGRAM</span> is on; the full narrative appears after every slice passes.</p>`
                   : ""
             }
@@ -501,6 +520,19 @@ function renderResults(container, data) {
                 ? `<ul class="mt-4 list-inside list-disc space-y-1 text-sm text-zinc-400">${architectureReadNotes
                     .map((n) => `<li>${escapeHtml(n)}</li>`)
                     .join("")}</ul>`
+                : ""
+            }
+            ${
+              diagramMermaid.trim()
+                ? `<div class="mt-6" id="architecture-read-mermaid" data-diagram-wrap data-diagram-panzoom>
+            <div class="architecture-read-mermaid-head mb-2 flex flex-wrap items-center justify-between gap-2">
+              <p class="cedar-label mb-0">Complete layout</p>
+              ${mermaidToolbar(`<span class="cedar-badge cedar-badge-muted">Mermaid</span>`)}
+            </div>
+            <div class="diagram-complete-layout cedar-mermaid-scroll diagram-mermaid-sleek">
+              <pre id="cedar-mermaid-layout" class="cedar-mermaid-source m-0"></pre>
+            </div>
+          </div>`
                 : ""
             }
             ${
@@ -541,13 +573,15 @@ function renderResults(container, data) {
 
   const renderMermaid = () => {
     if (!diagramMermaid.trim()) return;
-    void mountLayoutMermaid(container, diagramMermaid).then((drew) => {
+    const host = container.querySelector("#architecture-read-mermaid");
+    void mountLayoutMermaid(host ?? container, diagramMermaid).then((drew) => {
       if (!drew) showToast("Mermaid layout could not render.", "error");
+      const mermaidRoot = container.querySelector("#architecture-read-mermaid");
+      if (mermaidRoot) activateDiagramUx(mermaidRoot);
     });
   };
-  requestAnimationFrame(renderMermaid);
-  container.querySelector("details summary")?.addEventListener("click", () => {
-    requestAnimationFrame(() => requestAnimationFrame(renderMermaid));
+  requestAnimationFrame(() => {
+    requestAnimationFrame(renderMermaid);
   });
 
   if (archSliceCount > 0) {

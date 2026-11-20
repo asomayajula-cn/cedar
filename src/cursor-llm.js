@@ -42,6 +42,7 @@ async function cursorChatOneShot(opts) {
 
   const system =
     opts.messages.find((m) => m.role === "system")?.content?.trim() ?? "";
+  const wantsJson = Boolean(opts.json);
   const dialogue = opts.messages
     .filter((m) => m.role !== "system")
     .map((m) => `${m.role.toUpperCase()}:\n${m.content}`)
@@ -58,11 +59,14 @@ async function cursorChatOneShot(opts) {
   let lastError;
   for (const useSystemPrompt of [Boolean(system), false]) {
     try {
+      const jsonLead = wantsJson
+        ? "Reply with raw JSON only (starts with {). No markdown fences or preamble.\n\n"
+        : "";
       const prompt = useSystemPrompt
-        ? dialogue
+        ? `${jsonLead}${dialogue}`
         : system
-          ? `SYSTEM INSTRUCTIONS:\n${system}\n\n---\n\n${dialogue}`
-          : dialogue;
+          ? `${jsonLead}SYSTEM INSTRUCTIONS:\n${system}\n\n---\n\n${dialogue}`
+          : `${jsonLead}${dialogue}`;
 
       const options = useSystemPrompt
         ? { ...baseOptions, systemPrompt: system }

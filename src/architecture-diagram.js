@@ -39,8 +39,8 @@ export function buildArchitectureDiagramMermaid(microPrs, breakouts, pull, targe
     const nodeId = `slice_${safeNodeId(m.componentId)}`;
     idByComponent.set(m.componentId, nodeId);
     const label = formatSliceLabel(m.componentName, m.files.length, m.additions, m.deletions).replace(
-      "\n",
-      "<br/>"
+      /\n/g,
+      " · "
     );
     lines.push(`  ${nodeId}["${mermaidLabel(label)}"]:::slice`);
     lines.push(`  pr --> ${nodeId}`);

@@ -54,12 +54,4 @@ export async function openRouterChat(opts) {
   return content;
 }
 
-/**
- * @param {string} content
- */
-export function parseJsonFromModel(content) {
-  const trimmed = content.trim();
-  const fence = trimmed.match(/^```(?:json)?\s*([\s\S]*?)```$/i);
-  const jsonText = fence ? fence[1].trim() : trimmed;
-  return JSON.parse(jsonText);
-}
+export { parseJsonFromModel } from "./parse-model-json.js";

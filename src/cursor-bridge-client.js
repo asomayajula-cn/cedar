@@ -82,6 +82,8 @@ async function collectSseText(res) {
   const decoder = new TextDecoder();
   let buffer = "";
   let text = "";
+  /** @type {string | null} */
+  let doneSummary = null;
   let terminalError = null;
 
   /** @param {string} chunk */
@@ -95,10 +97,13 @@ async function collectSseText(res) {
     }
     emitBridgeSse(event);
     if (event.type === "text" && event.text) text += event.text;
-    if (event.type === "error" && event.error) terminalError = String(event.error);
-    if (event.type === "done" && event.status === "error") {
-      terminalError = event.error ?? event.summary ?? "Cursor agent run failed";
+    if (event.type === "done") {
+      if (event.summary) doneSummary = String(event.summary);
+      if (event.status === "error") {
+        terminalError = event.error ?? event.summary ?? "Cursor agent run failed";
+      }
     }
+    if (event.type === "error" && event.error) terminalError = String(event.error);
   }
 
   while (true) {
@@ -117,9 +122,28 @@ async function collectSseText(res) {
   }
 
   if (terminalError) throw new Error(terminalError);
-  const trimmed = text.trim();
-  if (!trimmed) throw new Error("Cursor bridge returned no text");
-  return trimmed;
+
+  const streamText = text.trim();
+  const summaryText = doneSummary?.trim() ?? "";
+  const merged = pickBestModelText(streamText, summaryText);
+  if (!merged) throw new Error("Cursor bridge returned no text");
+  return merged;
+}
+
+/**
+ * Prefer the payload that actually contains JSON (Composer often streams prose first).
+ * @param {string} streamText
+ * @param {string} summaryText
+ */
+function pickBestModelText(streamText, summaryText) {
+  const streamHasJson = streamText.includes("{");
+  const summaryHasJson = summaryText.includes("{");
+  if (summaryHasJson && !streamHasJson) return summaryText;
+  if (streamHasJson && !summaryHasJson) return streamText;
+  if (summaryHasJson && streamHasJson) {
+    return summaryText.length > streamText.length ? summaryText : streamText;
+  }
+  return summaryText || streamText;
 }
 
 /**
@@ -150,9 +174,12 @@ export async function cursorBridgeChat(opts) {
     .map((m) => `${m.role.toUpperCase()}:\n${m.content}`)
     .join("\n\n");
 
+  const wantsJson = opts.json || /Return JSON only|JSON object/i.test(system);
   const jsonOnly =
     process.env.CEDAR_CURSOR_MODE !== "agent"
-      ? `[Plan mode — respond with the requested JSON only. Do not edit, create, or delete files, and do not run shell commands.]\n\n`
+      ? wantsJson
+        ? `[Plan mode — output raw JSON only: first character must be {. No prose, no fences. Do not edit files or run commands.]\n\n`
+        : `[Plan mode — do not edit, create, or delete files, and do not run shell commands.]\n\n`
       : "";
 
   const prompt = system
