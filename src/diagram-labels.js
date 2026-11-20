@@ -1,4 +1,27 @@
 /**
+ * Review-slice tag line for architecture-first diagrams.
+ * @param {import('./partition.js').MicroPr} micro
+ */
+export function formatSliceTag(micro) {
+  const files = micro.files?.length ?? micro.fileCount ?? 0;
+  const add = micro.additions ?? 0;
+  const del = micro.deletions ?? 0;
+  const id = String(micro.componentId ?? "slice").trim();
+  return `slice ${id} · ${files} file${files === 1 ? "" : "s"} · +${add} −${del}`;
+}
+
+/**
+ * Architecture layer title with optional review-slice tag (second line).
+ * @param {string} layerName
+ * @param {string} [sliceTag]
+ */
+export function formatArchitectureLayerLabel(layerName, sliceTag) {
+  const title = String(layerName ?? "Layer").trim().slice(0, 48);
+  if (!sliceTag?.trim()) return title;
+  return `${title}\n${String(sliceTag).trim().slice(0, 56)}`;
+}
+
+/**
  * Compact labels for interactive + export diagrams.
  * @param {string} name
  * @param {number} files

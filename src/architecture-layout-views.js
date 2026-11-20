@@ -1,20 +1,20 @@
 /**
- * Complete layout: UML components, request flow, and event sequence (all PRs).
+ * Complete layout: UML components, request flow, and event sequence (PR architecture + slice tags).
  * @typedef {import('./partition.js').MicroPr} MicroPr
  * @typedef {import('./ai-breakouts.js').AiComponentDef} AiComponentDef
+ * @typedef {import('./pr-architecture-layers.js').PrArchitectureLayer} PrArchitectureLayer
  */
 
-import { displayNameForSlice, normalizeSliceId } from "./architecture-model.js";
-import { slicesForArchitectureDiagram } from "./diagram-layout.js";
-import { formatPrHubLabel } from "./diagram-labels.js";
+import { normalizeSliceId } from "./architecture-model.js";
+import { formatArchitectureLayerLabel, formatPrHubLabel, formatSliceTag } from "./diagram-labels.js";
+import { buildPrArchitectureLayers } from "./pr-architecture-layers.js";
 
-const MAX_TYPES_PER_SLICE = 14;
-const MAX_SLICES = 16;
+const MAX_LAYERS = 16;
 
-/** Runtime request path (subset used when slices are present). */
+/** Runtime request path (subset used when layers are present). */
 const REQUEST_CHAIN = ["web", "api", "application", "domain", "repository", "infrastructure"];
 
-/** Sidecar ops slices linked into flow. */
+/** Sidecar ops layers linked into flow. */
 const OPS_LINKS = [
   { from: "config", to: "api", label: "configures" },
   { from: "config", to: "application", label: "configures" },
@@ -32,56 +32,47 @@ const OPS_LINKS = [
  * @param {{ owner?: string, repo?: string }} [target]
  */
 export function buildCompleteLayoutViews(microPrs, breakouts, pull, target) {
-  const touched = slicesForArchitectureDiagram(microPrs).slice(0, MAX_SLICES);
-  const active = new Set(touched.map((m) => normalizeSliceId(m.componentId)));
+  const layers = buildPrArchitectureLayers(microPrs, breakouts).slice(0, MAX_LAYERS);
+  const active = new Set(layers.map((l) => l.id));
 
   return {
-    components: buildComponentsClassDiagram(touched, breakouts),
-    flow: buildRequestFlowDiagram(touched, active, pull, target),
-    events: buildEventsSequenceDiagram(touched, active),
+    components: buildComponentsClassDiagram(layers),
+    flow: buildRequestFlowDiagram(layers, active, pull, target),
+    events: buildEventsSequenceDiagram(layers, active),
   };
 }
 
 /**
- * @param {MicroPr[]} touched
- * @param {{ components?: AiComponentDef[] }} [breakouts]
+ * @param {PrArchitectureLayer[]} layers
  */
-function buildComponentsClassDiagram(touched, breakouts) {
-  if (!touched.length) {
+function buildComponentsClassDiagram(layers) {
+  if (!layers.length) {
     return "classDiagram\n  class PR {\n    <<empty>>\n    No changed layers\n  }";
   }
 
-  const lines = [
-    "classDiagram",
-    touched.length <= 4 ? "  direction LR" : "  direction TB",
-  ];
-  const classBySlice = new Map();
+  const lines = ["classDiagram", layers.length <= 4 ? "  direction LR" : "  direction TB"];
+  const classByLayer = new Map();
 
-  for (const m of touched) {
-    const id = normalizeSliceId(m.componentId);
-    const className = `${safeIdent(id)}_layer`;
-    const types = collectChangedTypes(m);
-    classBySlice.set(id, className);
-    const title = mermaidSafe(displayNameForSlice(id, m.componentName));
+  for (const layer of layers) {
+    const className = `${safeIdent(layer.id)}_layer`;
+    classByLayer.set(layer.id, className);
+    const title = mermaidSafe(layer.name);
     lines.push(`  class ${className}["${title}"]`);
-    if (!types.length) {
-      lines.push(`  ${className} : ${m.files.length} files changed`);
-    } else {
-      for (const t of types) {
-        lines.push(`  ${className} : ${mermaidSafe(t)}`);
-      }
+    if (layer.summary) {
+      lines.push(`  ${className} : ${mermaidSafe(layer.summary)}`);
     }
+    for (const t of layer.types) {
+      lines.push(`  ${className} : ${mermaidSafe(t)}`);
+    }
+    lines.push(`  ${className} : ${mermaidSafe(formatSliceTag(layer.micro))}`);
   }
 
   const deps = new Set();
-  for (const m of touched) {
-    const from = classBySlice.get(normalizeSliceId(m.componentId));
-    for (const depId of [
-      ...(m.dependsOn ?? []),
-      ...(breakouts?.components?.find((c) => c.id === m.componentId)?.depends_on ?? []),
-    ]) {
+  for (const layer of layers) {
+    const from = classByLayer.get(layer.id);
+    for (const depId of layer.dependsOn) {
       const dep = normalizeSliceId(depId);
-      const to = classBySlice.get(dep);
+      const to = classByLayer.get(dep);
       if (from && to && from !== to) {
         const key = `${from}..>${to}`;
         if (!deps.has(key)) {
@@ -96,13 +87,13 @@ function buildComponentsClassDiagram(touched, breakouts) {
 }
 
 /**
- * @param {MicroPr[]} touched
+ * @param {PrArchitectureLayer[]} layers
  * @param {Set<string>} active
  * @param {{ title?: string, number?: number }} [pull]
  * @param {{ owner?: string, repo?: string }} [target]
  */
-function buildRequestFlowDiagram(touched, active, pull, target) {
-  if (!touched.length) {
+function buildRequestFlowDiagram(layers, active, pull, target) {
+  if (!layers.length) {
     return "flowchart LR\n  empty[No layers in PR]";
   }
 
@@ -125,8 +116,9 @@ function buildRequestFlowDiagram(touched, active, pull, target) {
     lines.push(`  ${nid}${shape}:::${kind}`);
   };
 
-  for (const m of touched) {
-    register(m.componentId, displayNameForSlice(m.componentId, m.componentName));
+  for (const layer of layers) {
+    const label = flowNodeLabel(layer);
+    register(layer.id, label);
   }
 
   const chainPresent = REQUEST_CHAIN.filter((id) => active.has(id));
@@ -156,10 +148,10 @@ function buildRequestFlowDiagram(touched, active, pull, target) {
     }
   }
 
-  for (const m of touched) {
-    const from = nodeId.get(normalizeSliceId(m.componentId));
+  for (const layer of layers) {
+    const from = nodeId.get(layer.id);
     if (!from) continue;
-    for (const dep of m.dependsOn ?? []) {
+    for (const dep of layer.dependsOn) {
       const to = nodeId.get(normalizeSliceId(dep));
       if (to && to.nid !== from.nid) {
         lines.push(`  ${from.nid} -.-> ${to.nid}`);
@@ -171,11 +163,11 @@ function buildRequestFlowDiagram(touched, active, pull, target) {
 }
 
 /**
- * @param {MicroPr[]} touched
+ * @param {PrArchitectureLayer[]} layers
  * @param {Set<string>} active
  */
-function buildEventsSequenceDiagram(touched, active) {
-  if (!touched.length) {
+function buildEventsSequenceDiagram(layers, active) {
+  if (!layers.length) {
     return "sequenceDiagram\n  participant PR as Pull request\n  PR->>PR: No layer changes";
   }
 
@@ -183,29 +175,40 @@ function buildEventsSequenceDiagram(touched, active) {
   /** @type {Map<string, string>} */
   const alias = new Map();
 
-  const ensure = (id, display) => {
-    const key = normalizeSliceId(id);
+  const ensure = (layer) => {
+    const key = layer.id;
     if (alias.has(key)) return alias.get(key);
     const a = safeIdent(key).slice(0, 24) || "layer";
     alias.set(key, a);
-    lines.push(`  participant ${a} as ${mermaidSafe(display)}`);
+    const display = mermaidSafe(`${layer.name} · ${formatSliceTag(layer.micro)}`);
+    lines.push(`  participant ${a} as ${display}`);
     return a;
   };
 
-  if (active.has("web")) ensure("web", "Client / Web");
-  else lines.push("  actor Client as Client");
+  const layerById = new Map(layers.map((l) => [l.id, l]));
+
+  if (active.has("web")) {
+    const webLayer = layerById.get("web");
+    if (webLayer) ensure(webLayer);
+    else {
+      alias.set("web", "web");
+      lines.push("  participant web as Client / Web");
+    }
+  } else {
+    lines.push("  actor Client as Client");
+  }
 
   const order = ["api", "application", "domain", "repository", "infrastructure"];
   for (const id of order) {
     if (!active.has(id)) continue;
-    const m = touched.find((s) => normalizeSliceId(s.componentId) === id);
-    ensure(id, m?.componentName ?? displayNameForSlice(id));
+    const layer = layerById.get(id);
+    if (layer) ensure(layer);
   }
 
   for (const id of ["config", "build_deploy", "integration", "infra", "migrations", "persistence", "tests", "misc"]) {
     if (!active.has(id)) continue;
-    const m = touched.find((s) => normalizeSliceId(s.componentId) === id);
-    ensure(id, m?.componentName ?? displayNameForSlice(id));
+    const layer = layerById.get(id);
+    if (layer) ensure(layer);
   }
 
   const client = active.has("web") ? alias.get("web") : "Client";
@@ -233,49 +236,19 @@ function buildEventsSequenceDiagram(touched, active) {
   if (build && api) lines.push(`  ${build}-->>${api}: build & release (V)`);
 
   if (lines.length <= 2) {
-    const first = touched[0];
-    const a = ensure(first.componentId, first.componentName);
-    lines.push(`  Client->>${a}: change in ${mermaidSafe(first.componentName)}`);
+    const first = layers[0];
+    const a = ensure(first);
+    lines.push(`  Client->>${a}: ${mermaidSafe(formatSliceTag(first.micro))}`);
   }
 
   return lines.join("\n");
 }
 
 /**
- * @param {MicroPr} micro
- * @returns {string[]}
+ * @param {PrArchitectureLayer} layer
  */
-function collectChangedTypes(micro) {
-  /** @type {Set<string>} */
-  const types = new Set();
-
-  for (const f of micro.files ?? []) {
-    const path = f.filename ?? "";
-    const base = path.split("/").pop() ?? path;
-    const fromName = typeNameFromPath(base);
-    if (fromName) types.add(fromName);
-
-    const patch = f.patch ?? "";
-    for (const m of patch.matchAll(/^\+\s*(?:public\s+|private\s+|protected\s+)?(?:abstract\s+)?(?:class|interface|enum|record)\s+(\w+)/gm)) {
-      types.add(m[1]);
-    }
-    for (const m of patch.matchAll(/^\+\s*export\s+(?:default\s+)?(?:class|interface|type|function)\s+(\w+)/gm)) {
-      types.add(m[1]);
-    }
-  }
-
-  return [...types].slice(0, MAX_TYPES_PER_SLICE);
-}
-
-/**
- * @param {string} filename
- */
-function typeNameFromPath(filename) {
-  const m = filename.match(/^(.+)\.(java|kt|ts|tsx|jsx|js|go|py|rb)$/i);
-  if (!m) return "";
-  const base = m[1];
-  if (base === "index" || base === "mod") return "";
-  return base.replace(/[^A-Za-z0-9_$]/g, "") || "";
+function flowNodeLabel(layer) {
+  return formatArchitectureLayerLabel(layer.name, formatSliceTag(layer.micro)).replace(/\n/g, " · ");
 }
 
 /**
