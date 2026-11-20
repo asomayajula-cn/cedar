@@ -404,6 +404,10 @@ export function wireDiagramResizeListeners(root) {
 }
 
 function wireDiagramToolbars(root) {
+  const layoutHost =
+    root.querySelector("#architecture-read-mermaid") ??
+    (root instanceof HTMLElement && root.id === "architecture-read-mermaid" ? root : null);
+
   root.querySelectorAll("[data-diagram-wrap]").forEach((wrap) => {
     const bar = wrap.querySelector("[data-diagram-toolbar]");
     if (!bar || bar.dataset.wired) return;
@@ -414,17 +418,52 @@ function wireDiagramToolbars(root) {
         const umlFit = umlFitByWrap.get(wrap);
         const pz = panZoomByWrap.get(wrap);
         const action = btn.getAttribute("data-diagram-action");
+
+        if (action === "collapse") {
+          const collapsed = wrap.classList.toggle("is-diagram-collapsed");
+          const canvas = wrap.querySelector(".diagram-stage-canvas");
+          if (canvas instanceof HTMLElement) canvas.hidden = collapsed;
+          btn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+          btn.textContent = collapsed ? "▸" : "▾";
+          refitPanZoomDiagrams(root);
+          return;
+        }
+
+        if (action === "maximize") {
+          const on = wrap.classList.toggle("is-diagram-maximized");
+          btn.setAttribute("aria-pressed", on ? "true" : "false");
+          if (layoutHost instanceof HTMLElement) {
+            layoutHost.classList.toggle("has-maximized-panel", on);
+            layoutHost.querySelectorAll("[data-diagram-wrap]").forEach((peer) => {
+              if (!(peer instanceof HTMLElement) || peer === wrap) return;
+              peer.classList.toggle("is-diagram-minimized", on);
+            });
+          }
+          if (!on && layoutHost instanceof HTMLElement) {
+            const anyMax = layoutHost.querySelector(".is-diagram-maximized");
+            if (!anyMax) layoutHost.classList.remove("has-maximized-panel");
+            layoutHost.querySelectorAll(".is-diagram-minimized").forEach((el) => {
+              el.classList.remove("is-diagram-minimized");
+            });
+          }
+          requestAnimationFrame(() => refitPanZoomDiagrams(root));
+          return;
+        }
+
         if (umlFit) {
           if (action === "reset") umlFit();
           return;
         }
-        if (!pz) return;
+        if (!pz) {
+          if (action === "reset" && umlFitByWrap.get(wrap)) umlFitByWrap.get(wrap)?.();
+          return;
+        }
         if (action === "in") pz.zoomIn();
         else if (action === "out") pz.zoomOut();
         else if (action === "reset") {
-          const umlFit = umlFitByWrap.get(wrap);
-          if (umlFit) {
-            umlFit();
+          const fit = umlFitByWrap.get(wrap);
+          if (fit) {
+            fit();
             return;
           }
           pz.resetZoom();

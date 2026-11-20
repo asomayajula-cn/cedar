@@ -1,16 +1,12 @@
 /**
- * Complete layout: UML components, request flow, and event sequence (PR architecture + slice tags).
+ * Complete layout: UML components, request flow, and event sequence (PR architecture + class names).
  * @typedef {import('./partition.js').MicroPr} MicroPr
  * @typedef {import('./ai-breakouts.js').AiComponentDef} AiComponentDef
  * @typedef {import('./pr-architecture-layers.js').PrArchitectureLayer} PrArchitectureLayer
  */
 
 import { normalizeSliceId } from "./architecture-model.js";
-import {
-  formatPrHubLabel,
-  formatSliceTagMermaid,
-  mermaidFlowNodeLabel,
-} from "./diagram-labels.js";
+import { formatPrHubLabel, mermaidFlowNodeLabel } from "./diagram-labels.js";
 import { buildPrArchitectureLayers } from "./pr-architecture-layers.js";
 import { mermaidClassId, mermaidParticipantAlias, mermaidSafeText } from "./mermaid-sanitize.js";
 
@@ -19,7 +15,7 @@ const MAX_LAYERS = 16;
 /** Runtime request path (subset used when layers are present). */
 const REQUEST_CHAIN = ["web", "api", "application", "domain", "repository", "infrastructure"];
 
-/** Sidecar ops layers linked into flow. */
+/** Sidecar ops slices linked into flow. */
 const OPS_LINKS = [
   { from: "config", to: "api", label: "configures" },
   { from: "config", to: "application", label: "configures" },
@@ -31,6 +27,72 @@ const OPS_LINKS = [
 ];
 
 /**
+ * @param {{ from: string, to: string }} edge
+ */
+function requestChainMessage(edge) {
+  const key = `${edge.from}->${edge.to}`;
+  /** @type {Record<string, string>} */
+  const messages = {
+    "client->api": "submit request",
+    "client->web": "submit request",
+    "web->api": "route",
+    "api->application": "invoke",
+    "application->domain": "command",
+    "domain->application": "domain result",
+    "application->repository": "persist",
+    "repository->application": "stored",
+    "domain->repository": "persist",
+    "repository->domain": "stored",
+    "infrastructure->application": "adapter callback",
+  };
+  return messages[key] ?? "call";
+}
+
+/**
+ * @param {PrArchitectureLayer[]} layers
+ */
+function buildClassRegistry(layers) {
+  /** @type {Map<string, string>} */
+  const typeToMermaidId = new Map();
+  /** @type {Map<string, string[]>} */
+  const layerToClassIds = new Map();
+  /** @type {Map<string, string>} */
+  const layerToAnchor = new Map();
+  /** @type {Map<string, string>} */
+  const mermaidIdToType = new Map();
+  /** @type {Array<{ typeName: string, mermaidId: string, layerId: string, layer: PrArchitectureLayer }>} */
+  const classes = [];
+
+  for (const layer of layers) {
+    const layerTypes = layer.types ?? [];
+    const ids = [];
+
+    if (!layerTypes.length) {
+      const className = `${safeIdent(layer.id)}_layer`;
+      typeToMermaidId.set(className, className);
+      mermaidIdToType.set(className, layer.name);
+      ids.push(className);
+      classes.push({ typeName: layer.name, mermaidId: className, layerId: layer.id, layer });
+    } else {
+      for (const typeName of layerTypes) {
+        const className = mermaidClassId(typeName, typeToMermaidId);
+        if (!typeToMermaidId.has(typeName)) {
+          typeToMermaidId.set(typeName, className);
+          mermaidIdToType.set(className, typeName);
+          classes.push({ typeName, mermaidId: className, layerId: layer.id, layer });
+        }
+        ids.push(typeToMermaidId.get(typeName) ?? className);
+      }
+    }
+
+    layerToClassIds.set(layer.id, ids);
+    if (ids[0]) layerToAnchor.set(layer.id, ids[0]);
+  }
+
+  return { typeToMermaidId, layerToClassIds, layerToAnchor, mermaidIdToType, classes };
+}
+
+/**
  * @param {MicroPr[]} microPrs
  * @param {{ components?: AiComponentDef[] }} [breakouts]
  * @param {{ title?: string, number?: number }} [pull]
@@ -39,63 +101,53 @@ const OPS_LINKS = [
 export function buildCompleteLayoutViews(microPrs, breakouts, pull, target) {
   const layers = buildPrArchitectureLayers(microPrs, breakouts).slice(0, MAX_LAYERS);
   const active = new Set(layers.map((l) => l.id));
+  const registry = buildClassRegistry(layers);
 
   return {
-    components: buildComponentsClassDiagram(layers),
+    components: buildComponentsClassDiagram(layers, registry),
     flow: buildRequestFlowDiagram(layers, active, pull, target),
-    events: buildEventsSequenceDiagram(layers, active),
+    events: buildEventsSequenceDiagram(layers, active, registry),
   };
 }
 
 /**
  * @param {PrArchitectureLayer[]} layers
+ * @param {ReturnType<typeof buildClassRegistry>} registry
  */
-function buildComponentsClassDiagram(layers) {
+function buildComponentsClassDiagram(layers, registry) {
   if (!layers.length) {
     return 'classDiagram\n  class EmptyPR["No changed layers"]';
   }
 
   const lines = ["classDiagram", layers.length <= 4 ? "  direction LR" : "  direction TB"];
-  /** @type {Map<string, string>} */
-  const mermaidIdByType = new Map();
-  /** @type {Map<string, string>} */
-  const anchorByLayer = new Map();
 
   for (const layer of layers) {
     const layerTypes = layer.types ?? [];
     if (!layerTypes.length) {
-      const className = `${safeIdent(layer.id)}_layer`;
-      mermaidIdByType.set(className, className);
-      anchorByLayer.set(layer.id, className);
+      const className = registry.layerToAnchor.get(layer.id);
+      if (!className) continue;
       lines.push(`  class ${className}["${mermaidSafeText(layer.name)}"]`);
       if (layer.summary) lines.push(`  ${className} : ${mermaidSafeText(layer.summary)}`);
-      lines.push(`  ${className} : ${mermaidSafeText(formatSliceTagMermaid(layer.micro))}`);
       continue;
     }
 
-    const layerAnchors = [];
     for (let i = 0; i < layerTypes.length; i++) {
       const typeName = layerTypes[i];
-      const className = mermaidClassId(typeName, mermaidIdByType);
-      if (!mermaidIdByType.has(typeName)) {
-        mermaidIdByType.set(typeName, className);
-        lines.push(`  class ${className}["${mermaidSafeText(typeName)}"]`);
-        if (layer.summary && i === 0) lines.push(`  ${className} : ${mermaidSafeText(layer.summary)}`);
-        lines.push(`  ${className} : ${mermaidSafeText(layer.name)}`);
-        lines.push(`  ${className} : ${mermaidSafeText(formatSliceTagMermaid(layer.micro))}`);
-      }
-      layerAnchors.push(className);
+      const className = registry.typeToMermaidId.get(typeName);
+      if (!className) continue;
+      lines.push(`  class ${className}["${mermaidSafeText(typeName)}"]`);
+      if (layer.summary && i === 0) lines.push(`  ${className} : ${mermaidSafeText(layer.summary)}`);
+      lines.push(`  ${className} : ${mermaidSafeText(layer.name)}`);
     }
-    if (layerAnchors[0]) anchorByLayer.set(layer.id, layerAnchors[0]);
   }
 
   const deps = new Set();
   for (const layer of layers) {
-    const from = anchorByLayer.get(layer.id);
+    const from = registry.layerToAnchor.get(layer.id);
     if (!from) continue;
     for (const depId of layer.dependsOn) {
       const dep = normalizeSliceId(depId);
-      const to = anchorByLayer.get(dep);
+      const to = registry.layerToAnchor.get(dep);
       if (to && from !== to) {
         const key = `${from}..>${to}`;
         if (!deps.has(key)) {
@@ -141,8 +193,7 @@ function buildRequestFlowDiagram(layers, active, pull, target) {
   };
 
   for (const layer of layers) {
-    const label = mermaidFlowNodeLabel(layer);
-    register(layer.id, label);
+    register(layer.id, mermaidFlowNodeLabel(layer));
   }
 
   const chainPresent = REQUEST_CHAIN.filter((id) => active.has(id));
@@ -189,91 +240,99 @@ function buildRequestFlowDiagram(layers, active, pull, target) {
 /**
  * @param {PrArchitectureLayer[]} layers
  * @param {Set<string>} active
+ * @param {ReturnType<typeof buildClassRegistry>} registry
  */
-function buildEventsSequenceDiagram(layers, active) {
-  if (!layers.length) {
-    return "sequenceDiagram\n  participant PR as Pull request\n  PR->>PR: No layer changes";
+function buildEventsSequenceDiagram(layers, active, registry) {
+  if (!registry.classes.length) {
+    return "sequenceDiagram\n  participant Empty as Empty\n  Empty->>Empty: No types in PR";
   }
 
   const lines = ["sequenceDiagram", "  autonumber"];
-  /** @type {Map<string, string>} */
-  const alias = new Map();
+  const seen = new Set();
+  const anchor = (layerId) => registry.layerToAnchor.get(layerId);
 
-  const ensure = (layer) => {
-    const key = layer.id;
-    if (alias.has(key)) return alias.get(key);
-    const a = safeIdent(key).slice(0, 24) || "layer";
-    alias.set(key, a);
-    const names = (layer.types ?? []).slice(0, 2).join(", ");
-    const display = names
-      ? `${names} · ${layer.name} · ${formatSliceTagMermaid(layer.micro)}`
-      : `${layer.name} · ${formatSliceTagMermaid(layer.micro)}`;
-    lines.push(`  participant ${a} as ${mermaidParticipantAlias(display)}`);
-    return a;
-  };
-
-  const layerById = new Map(layers.map((l) => [l.id, l]));
-
-  if (active.has("web")) {
-    const webLayer = layerById.get("web");
-    if (webLayer) ensure(webLayer);
-    else {
-      alias.set("web", "web");
-      lines.push("  participant web as Client / Web");
-    }
-  } else {
+  const webAnchor = anchor("web");
+  if (!webAnchor || !active.has("web")) {
     lines.push("  actor Client as Client");
   }
 
-  const order = ["api", "application", "domain", "repository", "infrastructure"];
-  for (const id of order) {
-    if (!active.has(id)) continue;
-    const layer = layerById.get(id);
-    if (layer) ensure(layer);
+  for (const c of registry.classes) {
+    if (seen.has(c.mermaidId)) continue;
+    seen.add(c.mermaidId);
+    lines.push(`  participant ${c.mermaidId} as ${mermaidParticipantAlias(c.typeName)}`);
   }
 
-  for (const id of ["config", "build_deploy", "integration", "infra", "migrations", "persistence", "tests", "misc"]) {
-    if (!active.has(id)) continue;
-    const layer = layerById.get(id);
-    if (layer) ensure(layer);
+  const msgDone = new Set();
+  const emit = (from, to, text, dashed = false) => {
+    if (!from || !to || from === to) return;
+    const key = `${from}${dashed ? "--" : "->>"}${to}:${text}`;
+    if (msgDone.has(key)) return;
+    msgDone.add(key);
+    const arrow = dashed ? "-->>" : "->>";
+    lines.push(`  ${from}${arrow}${to}: ${mermaidSafeText(text)}`);
+  };
+
+  /** @type {Set<string>} */
+  const chainPairs = new Set();
+  const chainPresent = REQUEST_CHAIN.filter((id) => active.has(id) && anchor(id));
+  if (chainPresent.length) {
+    let prevKey = active.has("web") && webAnchor ? "web" : "client";
+    let prevId = prevKey === "client" ? "Client" : webAnchor;
+    for (const lid of chainPresent) {
+      const toId = anchor(lid);
+      if (!toId || !prevId) continue;
+      emit(prevId, toId, requestChainMessage({ from: prevKey, to: lid }));
+      chainPairs.add(`${prevId}->${toId}`);
+      prevKey = lid;
+      prevId = toId;
+    }
   }
 
-  const client = active.has("web") ? alias.get("web") : "Client";
-  const api = alias.get("api");
-  const app = alias.get("application");
-  const domain = alias.get("domain");
-  const repo = alias.get("repository");
-  const infra = alias.get("infrastructure");
-
-  if (api) {
-    lines.push(active.has("web") ? `  ${client}->>${api}: HTTP request` : `  Client->>${api}: HTTP request`);
+  if (anchor("domain") && anchor("application")) {
+    emit(anchor("domain"), anchor("application"), "domain result", true);
   }
-  if (api && app) lines.push(`  ${api}->>${app}: invoke use case`);
-  else if (api && domain) lines.push(`  ${api}->>${domain}: domain call`);
-  if (app && domain) lines.push(`  ${app}->>${domain}: command`);
-  if (domain && app) lines.push(`  ${domain}-->>${app}: domain event / result`);
-  if (app && repo) lines.push(`  ${app}->>${repo}: persist`);
-  else if (domain && repo) lines.push(`  ${domain}->>${repo}: persist`);
-  if (repo && app) lines.push(`  ${repo}-->>${app}: stored`);
-  if (infra && app) lines.push(`  ${infra}-->>${app}: adapter (ports)`);
+  if (anchor("repository") && anchor("application")) {
+    emit(anchor("repository"), anchor("application"), "stored", true);
+  } else if (anchor("repository") && anchor("domain")) {
+    emit(anchor("repository"), anchor("domain"), "stored", true);
+  }
+  if (anchor("infrastructure") && anchor("application")) {
+    emit(anchor("infrastructure"), anchor("application"), "adapter callback", true);
+  }
 
-  const config = alias.get("config");
-  if (config && api) lines.push(`  ${config}-->>${api}: runtime config (III)`);
-  const build = alias.get("build_deploy");
-  if (build && api) lines.push(`  ${build}-->>${api}: build & release (V)`);
+  for (const layer of layers) {
+    const from = anchor(layer.id);
+    if (!from) continue;
+    for (const dep of layer.dependsOn) {
+      const to = anchor(normalizeSliceId(dep));
+      if (chainPairs.has(`${from}->${to}`)) continue;
+      emit(from, to, "uses");
+    }
+  }
+
+  for (const link of OPS_LINKS) {
+    if (!active.has(link.from) || !active.has(link.to)) continue;
+    emit(anchor(link.from), anchor(link.to), link.label, true);
+  }
+
+  for (const layer of layers) {
+    const ids = registry.layerToClassIds.get(layer.id) ?? [];
+    for (let i = 0; i < ids.length - 1; i++) {
+      const a = ids[i];
+      const b = ids[i + 1];
+      const aName = registry.mermaidIdToType.get(a) ?? a;
+      const bName = registry.mermaidIdToType.get(b) ?? b;
+      emit(a, b, `collaborates`);
+    }
+  }
 
   if (lines.length <= 2) {
-    const first = layers[0];
-    const a = ensure(first);
-    lines.push(`  Client->>${a}: ${mermaidSafeText(formatSliceTagMermaid(first.micro))}`);
+    const first = registry.classes[0];
+    emit(active.has("web") && webAnchor ? webAnchor : "Client", first.mermaidId, `touch ${first.typeName}`);
   }
 
   return lines.join("\n");
 }
-
-/**
- * @param {PrArchitectureLayer} layer
- */
 
 /**
  * @param {{ components: string, flow: string, events: string }} views

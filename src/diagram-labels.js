@@ -48,8 +48,8 @@ export function formatClassArchitectureLabel(layer, maxClasses = 3) {
  */
 export function mermaidFlowNodeLabel(layer) {
   const names = primaryClassNames(layer, 3);
-  const headline = names.length ? names.join(", ") : layer.name;
-  return `${headline} · ${layer.name} · ${formatSliceTagMermaid(layer.micro)}`;
+  if (names.length) return names.join(", ");
+  return layer.name;
 }
 
 /**

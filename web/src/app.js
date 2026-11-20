@@ -20,6 +20,7 @@ const statusDot = {
   passed: "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]",
   failed: "bg-rose-400 shadow-[0_0_8px_rgba(251,113,133,0.45)]",
   skipped: "bg-zinc-600",
+  pending: "bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.35)]",
 };
 
 const statusLabel = {
@@ -261,13 +262,32 @@ function cyToolbar(targetId, badge = "") {
   </div>`;
 }
 
-function mermaidToolbar(badge = "") {
+/**
+ * @param {Array<{ componentId: string, componentName: string, status: string }>} slices
+ */
+function renderDiagramSliceBadges(slices) {
+  if (!slices.length) return "";
+  const dots = slices
+    .map((r) => {
+      const dot = statusDot[r.status] ?? statusDot.pending;
+      const name = String(r.componentName ?? r.componentId ?? "slice").trim();
+      return `<button type="button" class="cedar-diagram-slice-dot h-2.5 w-2.5 rounded-full ${dot}"
+        data-jump-slice="${escapeHtml(r.componentId)}"
+        title="${escapeHtml(name)}"
+        aria-label="${escapeHtml(name)}"></button>`;
+    })
+    .join("");
+  return `<div class="cedar-diagram-slice-badges flex flex-wrap items-center gap-1.5" role="list" aria-label="Micro slices in this PR">${dots}</div>`;
+}
+
+function mermaidToolbar(sliceBadgesHtml = "") {
   return `<div class="diagram-toolbar flex flex-wrap items-center gap-1.5" data-diagram-toolbar>
-    <span class="cedar-label mb-0">View</span>
+    ${sliceBadgesHtml}
     <button type="button" class="diagram-tool-btn" data-diagram-action="in" title="Zoom in">+</button>
     <button type="button" class="diagram-tool-btn" data-diagram-action="out" title="Zoom out">−</button>
     <button type="button" class="diagram-tool-btn" data-diagram-action="reset" title="Fit">Fit</button>
-    ${badge}
+    <button type="button" class="diagram-tool-btn" data-diagram-action="collapse" title="Collapse diagram" aria-expanded="true">▾</button>
+    <button type="button" class="diagram-tool-btn" data-diagram-action="maximize" title="Expand panel" aria-pressed="false">⤢</button>
   </div>`;
 }
 
@@ -818,6 +838,15 @@ function renderResults(container, data) {
   const firstSliceId = activeSlices[0]?.componentId ?? "";
   const hasArchitectureContent = Boolean(breakouts?.architectureSummary) || showArchitectureRead;
   const defaultMainTab = hasArchitectureContent ? "architecture" : "slices";
+  const diagramSliceBadges = renderDiagramSliceBadges(
+    microResults
+      .filter((r) => r.status !== "skipped")
+      .map((r) => ({
+        componentId: r.componentId,
+        componentName: microPrs.find((m) => m.componentId === r.componentId)?.componentName ?? r.componentName,
+        status: r.status,
+      }))
+  );
 
   const sliceTabBar = activeSlices
     .map((r, i) => {
@@ -1045,7 +1074,7 @@ function renderResults(container, data) {
             <article class="cedar-layout-view cedar-layout-view-uml w-full" data-layout-view="uml" data-diagram-wrap>
               <div class="architecture-read-mermaid-head mb-2 flex flex-wrap items-center justify-between gap-2">
                 <p class="cedar-label mb-0">UML · components</p>
-                ${mermaidToolbar(`<span class="cedar-badge cedar-badge-muted">Class</span>`)}
+                ${mermaidToolbar(diagramSliceBadges)}
               </div>
               <div class="diagram-complete-layout diagram-stage-canvas cedar-mermaid-scroll">
                 <div id="cedar-mermaid-components" class="cedar-mermaid-source m-0" role="img" aria-label="UML components class diagram"></div>
@@ -1054,7 +1083,7 @@ function renderResults(container, data) {
             <article class="cedar-layout-view mt-8 w-full" data-layout-view="flow" data-diagram-wrap>
               <div class="architecture-read-mermaid-head mb-2 flex flex-wrap items-center justify-between gap-2">
                 <p class="cedar-label mb-0">Flow</p>
-                ${mermaidToolbar(`<span class="cedar-badge cedar-badge-muted">Request path</span>`)}
+                ${mermaidToolbar(diagramSliceBadges)}
               </div>
               <div class="diagram-complete-layout diagram-stage-canvas cedar-mermaid-scroll">
                 <div id="cedar-mermaid-flow" class="cedar-mermaid-source m-0" role="img" aria-label="Request flow diagram"></div>
@@ -1063,7 +1092,7 @@ function renderResults(container, data) {
             <article class="cedar-layout-view mt-8 w-full" data-layout-view="events" data-diagram-wrap>
               <div class="architecture-read-mermaid-head mb-2 flex flex-wrap items-center justify-between gap-2">
                 <p class="cedar-label mb-0">Events</p>
-                ${mermaidToolbar(`<span class="cedar-badge cedar-badge-muted">Sequence</span>`)}
+                ${mermaidToolbar(diagramSliceBadges)}
               </div>
               <div class="diagram-complete-layout diagram-stage-canvas cedar-mermaid-scroll">
                 <div id="cedar-mermaid-events" class="cedar-mermaid-source m-0" role="img" aria-label="Domain events sequence diagram"></div>
@@ -1111,9 +1140,9 @@ function renderResults(container, data) {
     </div>
   `;
 
-  container.querySelectorAll("[data-scroll-slice]").forEach((btn) => {
+  container.querySelectorAll("[data-scroll-slice], [data-jump-slice]").forEach((btn) => {
     btn.addEventListener("click", () => {
-      const id = btn.getAttribute("data-scroll-slice");
+      const id = btn.getAttribute("data-scroll-slice") ?? btn.getAttribute("data-jump-slice");
       if (id) activateSliceTab(container, id);
     });
   });
