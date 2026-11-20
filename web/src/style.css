@@ -65,6 +65,162 @@
     @apply inline-flex items-center justify-center rounded-xl border border-white/12 bg-white/[0.04] px-4 py-2 text-sm font-medium text-zinc-200 transition hover:border-white/25 hover:bg-white/[0.07] disabled:opacity-40;
   }
 
+  .cedar-btn-compact {
+    @apply px-4 py-2.5 text-sm;
+  }
+
+  .cedar-btn-signoff {
+    @apply inline-flex h-8 shrink-0 items-center justify-center rounded-lg border px-3 text-[11px] font-semibold tracking-tight transition duration-150 disabled:cursor-not-allowed disabled:opacity-45;
+  }
+
+  .cedar-btn-slice {
+    @apply border-white/10 bg-white/[0.04] text-zinc-300 hover:border-white/18 hover:bg-white/[0.07] hover:text-zinc-100;
+  }
+
+  .cedar-btn-slice.is-ready {
+    @apply border-emerald-500/30 bg-emerald-500/10 text-emerald-100 hover:border-emerald-500/40 hover:bg-emerald-500/15;
+  }
+
+  .cedar-btn-slice.is-done {
+    @apply border-emerald-500/20 bg-emerald-500/[0.07] text-emerald-300/90 opacity-100;
+  }
+
+  .cedar-btn-approve-pr {
+    @apply h-9 min-w-[7.5rem] border-white/10 bg-white/[0.06] text-zinc-400;
+  }
+
+  .cedar-btn-approve-pr.is-ready {
+    @apply border-white/20 bg-white text-black shadow-[0_1px_0_rgba(255,255,255,0.2)_inset] hover:bg-zinc-100;
+  }
+
+  .cedar-slice-panel .cedar-btn-slice {
+    @apply self-start;
+  }
+
+  .cedar-pr-header-metrics .cedar-btn-approve-pr {
+    @apply w-full sm:w-auto sm:min-w-[8.25rem];
+  }
+
+  .cedar-pr-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 1rem 1.5rem;
+    @apply p-5 sm:p-6;
+  }
+
+  .cedar-pr-header-id {
+    @apply min-w-0;
+  }
+
+  .cedar-pr-header-eyebrow {
+    @apply text-[8px] font-semibold uppercase tracking-[0.12em] text-zinc-500;
+  }
+
+  .cedar-pr-header-title {
+    @apply mt-1.5 block text-base font-semibold leading-snug tracking-tight text-white hover:text-zinc-200 sm:text-lg;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .cedar-pr-header-meta {
+    @apply mt-1 font-mono text-[10px] leading-snug text-zinc-500;
+  }
+
+  .cedar-pr-header-metrics {
+    @apply flex w-full min-w-0 flex-col items-stretch gap-2.5 sm:w-auto sm:flex-row sm:items-stretch;
+  }
+
+  .cedar-pr-stats {
+    display: grid;
+    grid-template-columns: minmax(4.75rem, auto) 1px minmax(4.75rem, auto);
+    grid-template-rows: auto auto auto;
+    align-items: center;
+    column-gap: 0.875rem;
+    row-gap: 0.35rem;
+    @apply rounded-xl border border-white/[0.07] bg-black/35 px-3.5 py-2.5 sm:px-4;
+  }
+
+  .cedar-pr-stat-label {
+    @apply m-0 text-[8px] font-semibold uppercase leading-none tracking-[0.12em] text-zinc-500;
+  }
+
+  .cedar-pr-stats > .cedar-pr-stat-label:nth-child(1) {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .cedar-pr-stats > .cedar-pr-stat-label:nth-child(3) {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .cedar-pr-stat-value {
+    @apply m-0 text-base font-semibold leading-none tracking-tight;
+    grid-row: 2;
+  }
+
+  .cedar-pr-stats > .cedar-pr-stat-value:nth-child(4) {
+    grid-column: 1;
+  }
+
+  .cedar-pr-stats > .cedar-pr-stat-value:nth-child(5) {
+    grid-column: 3;
+  }
+
+  .cedar-pr-stat-num {
+    @apply text-base font-semibold;
+  }
+
+  .cedar-pr-stat-denom {
+    @apply ml-0.5 text-[11px] font-medium text-zinc-600;
+  }
+
+  .cedar-pr-stat-caption {
+    @apply m-0 min-h-[0.625rem] text-[8px] leading-snug text-zinc-500;
+    grid-column: 1;
+    grid-row: 3;
+  }
+
+  .cedar-pr-stat-divider {
+    grid-column: 2;
+    grid-row: 1 / -1;
+    @apply w-px justify-self-center bg-white/10;
+  }
+
+  .cedar-pr-stat-progress {
+    @apply m-0 h-1 w-full min-w-[4.75rem] overflow-hidden rounded-full bg-white/10;
+    grid-column: 3;
+    grid-row: 3;
+    align-self: center;
+  }
+
+  .cedar-pr-stat-progress-fill {
+    @apply h-full rounded-full bg-emerald-500 transition-all duration-300;
+  }
+
+  @media (max-width: 639px) {
+    .cedar-pr-header {
+      grid-template-columns: 1fr;
+      align-items: stretch;
+    }
+
+    .cedar-pr-header-metrics {
+      @apply flex-row flex-wrap items-center;
+    }
+
+    .cedar-pr-stats {
+      flex: 1 1 auto;
+    }
+
+    .cedar-pr-header-approve {
+      @apply w-auto flex-1;
+      min-width: 8.5rem;
+    }
+  }
+
   .cedar-input {
     @apply w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3.5 text-sm text-white shadow-inner shadow-black/20 placeholder:text-zinc-600 transition focus:border-white/25 focus:bg-black/60 focus:outline-none focus:ring-2 focus:ring-white/10;
   }
@@ -199,31 +355,637 @@
     @apply flex flex-col gap-2;
   }
 
-  .cedar-gh-file-header {
+  .cedar-shell:has(#main-stage.cedar-review-wide) header > div {
+    @apply max-w-none px-3 sm:px-4 lg:px-5;
+  }
+
+  #main-stage.cedar-review-wide {
+    width: 100%;
+    max-width: none;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+    padding-top: 1.5rem;
+    padding-bottom: 2rem;
+  }
+
+  @media (min-width: 640px) {
+    #main-stage.cedar-review-wide {
+      padding-left: 1rem;
+      padding-right: 1rem;
+    }
+  }
+
+  @media (min-width: 1280px) {
+    #main-stage.cedar-review-wide {
+      padding-left: 1.25rem;
+      padding-right: 1.25rem;
+    }
+  }
+
+  .cedar-review-layout {
+    --cedar-sidebar-width: 18rem;
+    @apply flex w-full min-w-0 max-w-none flex-col gap-4 lg:flex-row lg:items-stretch lg:gap-0;
+  }
+
+  #main-stage.cedar-review-wide .cedar-pr-header,
+  #main-stage.cedar-review-wide .cedar-review-layout,
+  #main-stage.cedar-review-wide .cedar-review-main {
+    @apply w-full max-w-none;
+  }
+
+  .cedar-review-sidebar {
+    @apply min-w-0 shrink-0 lg:sticky lg:top-20 lg:self-start lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto;
+    width: 100%;
+  }
+
+  @media (min-width: 1024px) {
+    .cedar-review-sidebar {
+      width: var(--cedar-sidebar-width);
+      min-width: 10rem;
+      max-width: min(22.5rem, 28vw);
+    }
+  }
+
+  .cedar-col-splitter {
+    display: none;
+  }
+
+  @media (min-width: 1024px) {
+    .cedar-col-splitter {
+      display: block;
+      flex: 0 0 7px;
+      width: 7px;
+      margin: 0 2px;
+      cursor: col-resize;
+      touch-action: none;
+      border-radius: 4px;
+      background: transparent;
+      position: relative;
+      align-self: stretch;
+      min-height: 12rem;
+      flex-shrink: 0;
+    }
+
+    .cedar-col-splitter::after {
+      content: "";
+      position: absolute;
+      inset: 0 2px;
+      border-radius: 4px;
+      background: rgb(255 255 255 / 0.04);
+      transition: background 0.15s;
+    }
+
+    .cedar-col-splitter:hover::after,
+    .cedar-col-splitter:focus-visible::after {
+      background: rgb(255 255 255 / 0.14);
+    }
+
+    .cedar-col-splitter:focus-visible {
+      @apply outline-none ring-2 ring-white/20 ring-offset-2 ring-offset-[#050505];
+    }
+
+    .cedar-slice-splitter {
+      z-index: 3;
+      min-height: 10rem;
+      margin: 0 2px;
+      flex-shrink: 0;
+    }
+  }
+
+  body.cedar-is-resizing-review,
+  body.cedar-is-resizing-slices {
+    cursor: col-resize;
+    user-select: none;
+  }
+
+  body.cedar-is-resizing-review .cedar-review-main,
+  body.cedar-is-resizing-slices .cedar-slice-review-pane {
+    pointer-events: none;
+  }
+
+  .cedar-review-sidebar-label {
+    @apply text-[9px] tracking-[0.1em];
+  }
+
+  .cedar-review-main {
+    flex: 1 1 0%;
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+  }
+
+  .cedar-review-stage {
+    @apply overflow-visible rounded-2xl border border-white/[0.07];
+    background: linear-gradient(180deg, rgb(12 12 13) 0%, rgb(8 8 9) 100%);
+    box-shadow:
+      0 1px 0 rgb(255 255 255 / 0.04) inset,
+      0 24px 64px -32px rgb(0 0 0 / 0.9);
+  }
+
+  .cedar-review-tabs-head {
+    @apply border-b border-white/[0.07] px-4 sm:px-6;
+  }
+
+  .cedar-main-tablist {
+    @apply -mb-px flex gap-6;
+  }
+
+  .cedar-main-tab {
+    @apply relative inline-flex items-center gap-2 border-0 border-b-2 border-transparent bg-transparent px-0 py-3.5 text-[13px] font-medium text-zinc-500 transition duration-150 hover:text-zinc-300;
+  }
+
+  .cedar-main-tab:focus-visible {
+    @apply outline-none ring-2 ring-white/15 ring-offset-2 ring-offset-[#0c0c0d] rounded-sm;
+  }
+
+  .cedar-main-tab.is-active {
+    @apply border-b-zinc-100 text-zinc-100;
+  }
+
+  .cedar-main-tab-count {
+    @apply rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-zinc-500;
+  }
+
+  .cedar-main-tab.is-active .cedar-main-tab-count {
+    @apply bg-white/[0.1] text-zinc-400;
+  }
+
+  .cedar-main-tabpanels {
+    @apply min-w-0 px-4 py-5 sm:px-6 sm:py-6;
+  }
+
+  #cedar-review-panel-slices,
+  .cedar-slices-tabpanel {
+    @apply min-w-0 overflow-visible px-1 py-2 sm:px-2 sm:py-3;
+  }
+
+  .cedar-diff-focus-bar {
+    @apply mb-2 flex flex-wrap gap-2;
+  }
+
+  .cedar-diff-focus-btn {
+    @apply rounded-lg border border-white/[0.08] bg-white/[0.03] px-2.5 py-1.5 text-[10px] font-medium text-zinc-400 transition hover:border-white/15 hover:bg-white/[0.06] hover:text-zinc-200;
+  }
+
+  .cedar-diff-focus-btn[aria-pressed="true"] {
+    @apply border-emerald-500/25 bg-emerald-500/10 text-emerald-200;
+  }
+
+  @media (min-width: 1024px) {
+    .cedar-review-layout.cedar-review-slices-focus .cedar-review-sidebar,
+    .cedar-review-layout.cedar-review-slices-focus > .cedar-review-splitter {
+      display: none;
+    }
+
+    .cedar-review-layout.cedar-review-slices-focus.cedar-pipeline-rail-expanded .cedar-review-sidebar {
+      display: block;
+    }
+
+    .cedar-review-layout.cedar-review-slices-focus.cedar-pipeline-rail-expanded > .cedar-review-splitter {
+      display: block;
+    }
+
+    .cedar-slices-shell.cedar-slice-rail-collapsed .cedar-slice-rail-wrap,
+    .cedar-slices-shell.cedar-slice-rail-collapsed > .cedar-slice-splitter {
+      display: none !important;
+    }
+
+    .cedar-slices-shell.cedar-slice-rail-collapsed .cedar-slice-review-pane {
+      flex: 1 1 100%;
+      width: 100%;
+      max-width: 100%;
+    }
+  }
+
+  .cedar-main-tabpanel:not([hidden]) {
+    animation: cedar-tab-in 0.22s ease-out both;
+  }
+
+  @keyframes cedar-tab-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .cedar-review-rail-card {
+    @apply rounded-xl border border-white/[0.06] bg-white/[0.02] p-3;
+  }
+
+  .cedar-rail-label {
+    @apply text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500;
+  }
+
+  .cedar-rail-hint {
+    @apply font-mono text-[9px] text-zinc-600;
+  }
+
+  .cedar-nav-item {
+    @apply flex w-full min-w-0 items-center gap-1.5 rounded-lg border border-transparent px-2 py-1.5 text-left text-[11px] font-medium text-zinc-400 transition duration-150 hover:bg-white/[0.04] hover:text-zinc-200;
+  }
+
+  .cedar-nav-item-stack {
+    @apply flex-col items-stretch gap-1 py-2;
+  }
+
+  .cedar-nav-item-row {
+    @apply flex w-full min-w-0 items-center gap-1.5;
+  }
+
+  .cedar-nav-item-index {
+    @apply w-4 shrink-0 text-[10px] font-medium text-zinc-600;
+  }
+
+  .cedar-nav-item.is-active .cedar-nav-item-index {
+    @apply text-zinc-400;
+  }
+
+  .cedar-nav-item-label {
+    @apply min-w-0 flex-1 break-words leading-snug;
+  }
+
+  .cedar-nav-item-meta {
+    @apply w-full pl-[1.375rem] font-mono text-[9px] leading-snug text-zinc-600;
+  }
+
+  .cedar-nav-item-check {
+    @apply shrink-0 text-[10px] text-emerald-400/90;
+  }
+
+  .cedar-nav-item.is-active {
+    @apply border-white/[0.08] bg-white/[0.06] text-zinc-100;
+  }
+
+  .cedar-slices-shell {
+    --cedar-slice-rail-width: 10.25rem;
+    @apply flex w-full min-w-0 flex-col gap-4 lg:flex-row lg:items-stretch lg:gap-0;
+  }
+
+  .cedar-slice-rail-wrap {
+    @apply shrink-0 border-b border-white/[0.06] px-0.5 pb-4;
+    width: 100%;
+    order: 3;
+  }
+
+  .cedar-slice-splitter {
+    order: 2;
+  }
+
+  .cedar-slice-review-pane {
+    order: 1;
+  }
+
+  @media (min-width: 1024px) {
+    .cedar-slice-rail-wrap.cedar-slice-rail-right {
+      width: var(--cedar-slice-rail-width);
+      flex: 0 0 var(--cedar-slice-rail-width);
+      min-width: 6.75rem;
+      max-width: 20rem;
+      @apply border-b-0 border-l border-white/[0.06] pb-0 pl-2;
+    }
+  }
+
+  .cedar-slice-rail {
+    @apply flex max-h-[min(38vh,16rem)] gap-1 overflow-x-auto overflow-y-hidden pb-0.5 lg:max-h-[min(72vh,40rem)] lg:flex-col lg:overflow-y-auto lg:overflow-x-hidden lg:pr-1;
+  }
+
+  .cedar-slice-rail .cedar-nav-item {
+    @apply max-w-[13rem] shrink-0 lg:max-w-none;
+  }
+
+  .cedar-slice-rail .cedar-nav-item-label {
+    @apply truncate break-normal lg:whitespace-normal lg:break-words;
+  }
+
+  .cedar-slice-panels,
+  .cedar-slice-review-pane {
+    @apply min-w-0 flex-1;
+  }
+
+  @media (min-width: 1024px) {
+    .cedar-slice-review-pane {
+      flex: 1 1 0%;
+      width: 0;
+      min-width: 0;
+      max-width: 100%;
+    }
+
+    .cedar-slices-shell .cedar-col-splitter.cedar-slice-splitter {
+      display: block;
+    }
+  }
+
+  @media (max-width: 1023px) {
+    .cedar-slices-shell .cedar-slice-splitter {
+      display: none;
+    }
+
+    .cedar-slice-rail-wrap {
+      order: 1;
+    }
+
+    .cedar-slice-review-pane {
+      order: 2;
+    }
+  }
+
+  .cedar-slice-panel {
+    @apply rounded-lg border border-white/[0.05] bg-black/20 p-2 sm:p-3;
+  }
+
+  .cedar-slice-review-pane .cedar-gh-files-changed {
+    @apply -mx-0.5;
+  }
+
+  .cedar-slice-review-pane .cedar-gh-file {
+    margin-bottom: 0.35rem;
+  }
+
+  .cedar-slice-panel:not([hidden]) {
+    animation: cedar-tab-in 0.18s ease-out both;
+  }
+
+  #cedar-review-panel-architecture > .cedar-glass,
+  #cedar-review-panel-architecture > .cedar-glass-subtle {
+    @apply border-white/[0.06] bg-black/20 shadow-none;
+  }
+
+
+  .cedar-gh-files-changed {
+    @apply w-full min-w-0;
+    font-size: var(--cedar-diff-font-size, 8px);
+    line-height: var(--cedar-diff-line-height, 14px);
+  }
+
+  .cedar-gh-diff-font-toggle {
+    display: inline-flex;
+    padding: 2px;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    background-color: #010409;
+  }
+
+  .cedar-gh-diff-font {
+    border: 0;
+    border-radius: 4px;
+    min-width: 1.75rem;
+    padding: 0.15rem 0.35rem;
+    font-size: 10px;
+    font-weight: 600;
+    color: #8b949e;
+    background: transparent;
+    cursor: pointer;
+    transition: background-color 0.15s, color 0.15s;
+  }
+
+  .cedar-gh-diff-font:hover {
+    color: #e6edf3;
+  }
+
+  .cedar-gh-diff-font.is-active {
+    color: #e6edf3;
+    background-color: #21262d;
+    box-shadow: 0 1px 0 rgb(0 0 0 / 0.2);
+  }
+
+  .cedar-gh-file {
+    margin-bottom: 0.5rem;
+    width: 100%;
+    min-width: 0;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    background-color: #0d1117;
+  }
+
+  .cedar-gh-file-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem 0.5rem;
+    padding: 0.3rem 0.45rem;
+    border-bottom: 1px solid #30363d;
+    background-color: #161b22;
+  }
+
+  .cedar-gh-diff-view-toggle {
+    display: inline-flex;
+    padding: 2px;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    background-color: #010409;
+  }
+
+  .cedar-gh-diff-mode {
+    border: 0;
+    border-radius: 4px;
+    padding: 0.15rem 0.45rem;
+    font-size: 10px;
+    font-weight: 500;
+    color: #8b949e;
+    background: transparent;
+    cursor: pointer;
+    transition: background-color 0.15s, color 0.15s;
+  }
+
+  .cedar-gh-diff-mode:hover {
+    color: #e6edf3;
+  }
+
+  .cedar-gh-diff-mode.is-active {
+    color: #e6edf3;
+    background-color: #21262d;
+    box-shadow: 0 1px 0 rgb(0 0 0 / 0.2);
+  }
+
+  .cedar-gh-open-github {
+    margin-left: auto;
+    font-size: 11px;
+    font-weight: 500;
+    color: #58a6ff;
+    text-decoration: none;
+  }
+
+  .cedar-gh-open-github:hover {
+    text-decoration: underline;
+  }
+
+  .cedar-gh-file-meta {
+    color: #8b949e;
+  }
+
+  .cedar-gh-file-body {
+    width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: visible;
+    background-color: #0d1117;
+  }
+
+  .cedar-gh-diff-empty {
+    padding: 2rem 1rem;
+    text-align: center;
+    color: #8b949e;
+  }
+
+  .cedar-gh-diff-fallback {
+    overflow-x: auto;
+    padding: 1rem;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, Liberation Mono, monospace;
+    font-size: inherit;
+    line-height: inherit;
+    color: #c9d1d9;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .cedar-diff2html {
+    color: #e6edf3;
+    font-size: inherit;
+    line-height: inherit;
+  }
+
+  .cedar-diff2html .d2h-wrapper,
+  .cedar-diff2html .d2h-diff-table,
+  .cedar-diff2html .d2h-file-header,
+  .cedar-diff2html .d2h-code-line,
+  .cedar-diff2html .d2h-code-side-line,
+  .cedar-diff2html .d2h-code-line-ctn,
+  .cedar-diff2html .d2h-code-linenumber,
+  .cedar-diff2html .d2h-code-side-linenumber,
+  .cedar-diff2html .d2h-info,
+  .cedar-diff2html .d2h-file-name,
+  .cedar-diff2html .d2h-lines-added,
+  .cedar-diff2html .d2h-lines-deleted {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, Liberation Mono, monospace;
+    font-size: var(--cedar-diff-font-size, 8px) !important;
+    line-height: var(--cedar-diff-line-height, 14px) !important;
+  }
+
+  .cedar-diff2html .d2h-file-wrapper {
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .cedar-diff2html .d2h-file-header {
     position: sticky;
     top: 0;
     z-index: 2;
+    min-height: 32px;
+    padding: 6px 12px;
+    background-color: #161b22;
+    border-bottom: 1px solid #30363d;
+  }
+
+  .cedar-diff2html .d2h-file-name {
+    font-weight: 600;
+    color: #58a6ff;
+  }
+
+  .cedar-diff2html .d2h-code-line-ctn {
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    user-select: text;
+  }
+
+  .cedar-diff2html .d2h-file-diff,
+  .cedar-diff2html .d2h-files-diff,
+  .cedar-diff2html .d2h-file-side-diff {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+
+  .cedar-diff2html[data-diff-format="line-by-line"] .d2h-file-side-diff {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .cedar-gh-file,
+  .cedar-glass .cedar-gh-files-changed {
+    overflow: visible;
+  }
+
+  .cedar-diff-comment-row .d2h-code-line-ctn {
+    cursor: pointer;
+  }
+
+  .cedar-diff-gutter {
+    position: relative;
+    cursor: pointer;
+    transition: background-color 0.12s, color 0.12s;
+  }
+
+  .cedar-diff-gutter:hover,
+  .cedar-diff-gutter:focus-within {
+    background-color: rgb(56 139 253 / 0.18) !important;
+    color: #79c0ff !important;
+  }
+
+  .cedar-diff-add-comment {
+    display: none;
+    position: absolute;
+    right: 2px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 1;
+    border: 0;
+    border-radius: 4px;
+    width: 1.1rem;
+    height: 1.1rem;
+    padding: 0;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    color: #e6edf3;
+    background: rgb(56 139 253 / 0.85);
+    cursor: pointer;
+  }
+
+  .cedar-diff-comment-row:hover .cedar-diff-add-comment,
+  .cedar-diff-gutter:focus-within .cedar-diff-add-comment {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .cedar-diff-line-commented .cedar-diff-gutter {
+    box-shadow: inset 2px 0 0 #3fb950;
+  }
+
+  .cedar-diff-comment-popover {
+    position: fixed;
+    z-index: 200;
+    width: min(21rem, calc(100vw - 1rem));
+    @apply rounded-xl border border-white/10 bg-zinc-900/98 p-3 shadow-2xl backdrop-blur-md;
+  }
+
+  .cedar-diff-comment-popover[hidden] {
+    display: none;
+  }
+
+  .cedar-diff-comment-form-title {
+    @apply text-[10px] font-semibold uppercase tracking-[0.1em] text-zinc-400;
+  }
+
+  .cedar-diff-comment-form-meta {
+    @apply mt-1 truncate font-mono text-[9px] text-zinc-500;
+  }
+
+  .cedar-diff-comment-input {
+    @apply mt-2 w-full resize-y rounded-lg border border-white/10 bg-black/50 px-2.5 py-2 text-xs text-zinc-100 placeholder:text-zinc-600 focus:border-white/20 focus:outline-none focus:ring-1 focus:ring-white/15;
+  }
+
+  .cedar-diff-comment-actions {
+    @apply mt-2 flex justify-end gap-2;
   }
 
   .cedar-gh-file-toggle {
     @apply inline-flex h-6 w-6 items-center justify-center rounded-md border border-transparent text-xs transition hover:border-white/10 hover:bg-white/5;
-  }
-
-  .cedar-diff2html .d2h-wrapper {
-    @apply text-[12px];
-  }
-
-  .cedar-diff2html .d2h-file-header {
-    display: none;
-  }
-
-  .cedar-diff2html .d2h-code-line-ctn {
-    word-break: break-word;
-  }
-
-  .cedar-diff2html .d2h-code-line,
-  .cedar-diff2html .d2h-code-side-line {
-    @apply font-mono;
   }
 
   .severity-blocker {
