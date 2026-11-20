@@ -155,7 +155,8 @@ export async function mountCompleteLayoutViews(root, views) {
     const wrap = pre.closest("[data-diagram-wrap]");
     const svg = pre.querySelector("svg");
     if (ok && wrap instanceof HTMLElement && svg instanceof SVGSVGElement) {
-      queuePanFit(wrap, svg, { fillViewport: key === "components" });
+      queuePanFit(wrap, svg, { fillViewport: true, fillWidth: true });
+      wireDiagramStageResize(wrap, svg, { fillWidth: true });
       activateDiagramUx(wrap);
       drawn += 1;
     }
@@ -171,6 +172,9 @@ export async function mountCompleteLayoutViews(root, views) {
  * @param {HTMLElement} wrap
  * @param {SVGSVGElement} svg
  * @param {{ fillViewport?: boolean }} [opts]
+ */
+/**
+ * @param {{ fillViewport?: boolean, fillWidth?: boolean }} [opts]
  */
 function queuePanFit(wrap, svg, opts) {
   requestAnimationFrame(() => {
@@ -202,7 +206,10 @@ function bindPanZoom(wrap, svg, opts = {}) {
       controlIconsEnabled: false,
     });
     panZoomByWrap.set(wrap, pz);
-    fitDiagramInStage(wrap, svg, pz, opts.fillViewport === true);
+    fitDiagramInStage(wrap, svg, pz, {
+      fill: opts.fillViewport === true,
+      fillWidth: opts.fillWidth === true,
+    });
     return pz;
   } catch (err) {
     console.warn("[cedar] pan/zoom unavailable", err);
@@ -219,7 +226,36 @@ function bindPanZoom(wrap, svg, opts = {}) {
  * @param {ReturnType<typeof svgPanZoom>} pz
  * @param {boolean} fillViewport
  */
-function fitDiagramInStage(wrap, svg, pz, fillViewport) {
+const resizeObserverByWrap = new WeakMap();
+
+/**
+ * @param {HTMLElement} wrap
+ * @param {SVGSVGElement} svg
+ */
+/**
+ * @param {HTMLElement} wrap
+ * @param {SVGSVGElement} svg
+ * @param {{ fillWidth?: boolean }} [opts]
+ */
+function wireDiagramStageResize(wrap, svg, opts = {}) {
+  if (resizeObserverByWrap.has(wrap)) return;
+  const stage = wrap.querySelector(".diagram-complete-layout");
+  if (!(stage instanceof HTMLElement)) return;
+  const ro = new ResizeObserver(() => {
+    const pz = panZoomByWrap.get(wrap);
+    if (pz) fitDiagramInStage(wrap, svg, pz, { fill: true, fillWidth: opts.fillWidth === true });
+  });
+  ro.observe(stage);
+  resizeObserverByWrap.set(wrap, ro);
+}
+
+/**
+ * @param {HTMLElement} wrap
+ * @param {SVGSVGElement} svg
+ * @param {ReturnType<typeof svgPanZoom>} pz
+ * @param {{ fill?: boolean, fillWidth?: boolean }} [opts]
+ */
+function fitDiagramInStage(wrap, svg, pz, opts = {}) {
   const stage = wrap.querySelector(".diagram-complete-layout");
   if (!(stage instanceof HTMLElement)) {
     pz.resize();
@@ -232,20 +268,21 @@ function fitDiagramInStage(wrap, svg, pz, fillViewport) {
   pz.fit();
   pz.center();
 
-  if (!fillViewport) return;
+  if (!opts.fill) return;
 
-  const pad = 24;
-  const stageW = Math.max(stage.clientWidth - pad, 280);
-  const stageH = Math.max(stage.clientHeight - pad, 280);
+  const pad = 16;
+  const stageW = Math.max(stage.clientWidth - pad, 200);
+  const stageH = Math.max(stage.clientHeight - pad, 200);
   const rect = svg.getBoundingClientRect();
   const svgW = rect.width || svg.width?.baseVal?.value || 0;
   const svgH = rect.height || svg.height?.baseVal?.value || 0;
-  if (svgW < 8 || svgH < 8 || stageW < 8 || stageH < 8) return;
+  if (svgW < 8 || svgH < 8 || stageW < 8) return;
 
-  const grow = Math.min(stageW / svgW, stageH / svgH, 4);
-  if (grow > 1.08) {
-    const current = pz.getZoom();
-    pz.zoom(current * grow * 0.94);
+  const growW = (stageW / svgW) * 0.98;
+  const growH = (stageH / svgH) * 0.94;
+  const grow = opts.fillWidth ? growW : Math.min(growW, growH, 4);
+  if (grow > 1.04) {
+    pz.zoom(pz.getZoom() * grow);
     pz.center();
   }
 }
@@ -267,7 +304,7 @@ function wireDiagramToolbars(root) {
           pz.resetZoom();
           const sv = wrap.querySelector("svg");
           if (sv instanceof SVGSVGElement) {
-            fitDiagramInStage(wrap, sv, pz, wrap.getAttribute("data-layout-view") === "uml");
+            fitDiagramInStage(wrap, sv, pz, { fill: true, fillWidth: true });
           } else {
             pz.resize();
             pz.fit();

@@ -289,27 +289,43 @@
     @apply sticky top-16 z-10 -mx-1 rounded-lg bg-black/50 px-1 py-2 backdrop-blur-md;
   }
 
+  .cedar-complete-layout-views {
+    @apply w-full max-w-none;
+  }
+
+  .cedar-complete-layout-views .cedar-layout-view {
+    @apply w-full max-w-none;
+  }
+
   .cedar-complete-layout-views .cedar-layout-view .diagram-complete-layout {
-    min-height: min(24rem, 48vh);
+    width: 100%;
+    min-height: min(28rem, 52vh);
+    height: min(36rem, 58vh);
     max-height: min(72vh, 720px);
+    @apply overflow-hidden;
+  }
+
+  .cedar-complete-layout-views .cedar-mermaid-scroll .mermaid-rendered,
+  .cedar-complete-layout-views .cedar-mermaid-scroll .cedar-mermaid-source {
+    @apply w-full min-w-0 max-w-none;
   }
 
   .cedar-layout-view-uml .diagram-complete-layout {
     min-height: min(38rem, 62vh);
+    height: min(44rem, 66vh);
     max-height: min(80vh, 820px);
-    @apply flex min-h-[min(38rem,62vh)] w-full items-center justify-center overflow-hidden;
   }
 
-  .cedar-layout-view-uml .mermaid-rendered,
-  .cedar-layout-view-uml .cedar-mermaid-source {
-    @apply flex h-full min-h-[inherit] w-full max-w-none items-center justify-center;
+  .cedar-layout-view-uml .mermaid-rendered {
+    @apply block h-full w-full;
   }
 
-  .cedar-layout-view-uml .mermaid-rendered svg {
-    max-width: none;
-    width: auto;
-    min-height: min(28rem, 50vh);
-    height: auto;
+  .cedar-layout-view-uml .mermaid-rendered svg,
+  .cedar-layout-view-uml .svg-pan-zoom_viewport {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100%;
   }
 
   #architecture-read-mermaid .diagram-complete-layout {
