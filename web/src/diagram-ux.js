@@ -164,12 +164,7 @@ export async function mountCompleteLayoutViews(root, views) {
     const wrap = pre.closest("[data-diagram-wrap]");
     const svg = pre.querySelector("svg");
     if (ok && wrap instanceof HTMLElement && svg instanceof SVGSVGElement) {
-      if (key === "components") {
-        mountUmlDiagramFullWidth(wrap, pre);
-      } else {
-        queuePanFit(wrap, svg, { fillViewport: true, fillWidth: true });
-        wireDiagramStageResize(wrap, svg, { fillWidth: true });
-      }
+      mountDiagramStageFullWidth(wrap, pre);
       activateDiagramUx(wrap);
       drawn += 1;
     }
@@ -321,11 +316,11 @@ export function refitPanZoomDiagrams(root) {
 }
 
 /**
- * UML class diagrams: scale SVG to the full stage width (no pan/zoom shrinking the graph).
+ * Scale Mermaid SVG to the full diagram stage (matches Overview viewport sizing).
  * @param {HTMLElement} wrap
  * @param {HTMLElement} pre
  */
-function mountUmlDiagramFullWidth(wrap, pre) {
+function mountDiagramStageFullWidth(wrap, pre) {
   const stage = wrap.querySelector(".diagram-complete-layout");
   const svg = pre.querySelector("svg");
   if (!(stage instanceof HTMLElement) || !(svg instanceof SVGSVGElement)) return;

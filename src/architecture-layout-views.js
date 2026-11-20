@@ -63,7 +63,7 @@ function buildComponentsClassDiagram(touched, breakouts) {
     const types = collectChangedTypes(m);
     classBySlice.set(id, className);
     const title = mermaidSafe(displayNameForSlice(id, m.componentName));
-    lines.push(`  class ${className} as "${title}"`);
+    lines.push(`  class ${className}["${title}"]`);
     if (!types.length) {
       lines.push(`  ${className} : ${m.files.length} files changed`);
     } else {

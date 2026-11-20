@@ -72,7 +72,6 @@ export function mountApp(root) {
             <div class="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white shadow-[0_0_40px_-12px_rgba(255,255,255,0.25)]">
               ${cedarMarkSvg("h-8 w-8")}
             </div>
-            <p class="cedar-label">Professional PR review</p>
             <h1 class="mt-4 text-4xl font-semibold tracking-tight text-white sm:text-[2.75rem] sm:leading-[1.1]">
               Review the architecture,<br class="hidden sm:block" /> not just the diff
             </h1>
@@ -643,12 +642,19 @@ function wireCompleteLayoutViews(root, views) {
   const host = root.querySelector("#architecture-read-mermaid");
   if (!(host instanceof HTMLElement)) return;
 
+  const allMounted = () =>
+    ["#cedar-mermaid-components", "#cedar-mermaid-flow", "#cedar-mermaid-events"].every((sel) => {
+      const slot = host.querySelector(sel);
+      return slot?.querySelector("svg") || !views[sel.replace("#cedar-mermaid-", "")]?.trim();
+    });
+
   const draw = () => {
     const panel = root.querySelector("#cedar-review-panel-architecture");
     if (panel instanceof HTMLElement && panel.hidden) return;
-    if (host.querySelector("[data-layout-view] svg")) return;
+    if (allMounted()) return;
     void mountCompleteLayoutViews(host, views).then((drew) => {
       if (!drew) showToast("Complete layout diagrams could not render.", "error");
+      else host.dataset.mermaidLayoutsMounted = "1";
       activateDiagramUx(host);
     });
   };
@@ -1009,40 +1015,6 @@ function renderResults(container, data) {
                 : ""
             }
             ${
-              hasLayoutViews
-                ? `<div class="mt-6 cedar-complete-layout-views" id="architecture-read-mermaid">
-            <p class="cedar-label mb-4">Complete layout</p>
-            <article class="cedar-layout-view cedar-layout-view-uml" data-layout-view="uml" data-diagram-wrap data-diagram-panzoom>
-              <div class="architecture-read-mermaid-head mb-2 flex flex-wrap items-center justify-between gap-2">
-                <p class="cedar-label mb-0">UML · components</p>
-                ${mermaidToolbar(`<span class="cedar-badge cedar-badge-muted">Class</span>`)}
-              </div>
-              <div class="diagram-complete-layout cedar-mermaid-scroll diagram-mermaid-sleek">
-                <pre id="cedar-mermaid-components" class="cedar-mermaid-source m-0" aria-label="UML components class diagram"></pre>
-              </div>
-            </article>
-            <article class="cedar-layout-view mt-6" data-layout-view data-diagram-wrap data-diagram-panzoom>
-              <div class="architecture-read-mermaid-head mb-2 flex flex-wrap items-center justify-between gap-2">
-                <p class="cedar-label mb-0">Flow</p>
-                ${mermaidToolbar(`<span class="cedar-badge cedar-badge-muted">Request path</span>`)}
-              </div>
-              <div class="diagram-complete-layout cedar-mermaid-scroll diagram-mermaid-sleek">
-                <pre id="cedar-mermaid-flow" class="cedar-mermaid-source m-0" aria-label="Request flow diagram"></pre>
-              </div>
-            </article>
-            <article class="cedar-layout-view mt-6" data-layout-view data-diagram-wrap data-diagram-panzoom>
-              <div class="architecture-read-mermaid-head mb-2 flex flex-wrap items-center justify-between gap-2">
-                <p class="cedar-label mb-0">Events</p>
-                ${mermaidToolbar(`<span class="cedar-badge cedar-badge-muted">Sequence</span>`)}
-              </div>
-              <div class="diagram-complete-layout cedar-mermaid-scroll diagram-mermaid-sleek">
-                <pre id="cedar-mermaid-events" class="cedar-mermaid-source m-0" aria-label="Domain events sequence diagram"></pre>
-              </div>
-            </article>
-          </div>`
-                : ""
-            }
-            ${
               composite
                 ? `<details class="mt-6 group"${architectureReadSummary ? "" : " open"}>
                 <summary class="cursor-pointer text-xs font-medium text-zinc-500 hover:text-zinc-300">Complete composite markdown</summary>
@@ -1054,6 +1026,42 @@ function renderResults(container, data) {
                 : !breakouts?.architectureSummary
                   ? `<p class="text-sm text-zinc-500">Architecture narrative and diagrams appear once partitioning finishes.</p>`
                   : ""
+            }
+            ${
+              hasLayoutViews
+                ? `<section class="cedar-diagram-stage mt-6 w-full min-w-0" aria-labelledby="complete-layout-heading">
+            <p id="complete-layout-heading" class="cedar-label mb-4">Complete layout</p>
+            <div class="cedar-complete-layout-views w-full min-w-0" id="architecture-read-mermaid">
+            <article class="cedar-layout-view cedar-layout-view-uml w-full" data-layout-view="uml" data-diagram-wrap>
+              <div class="architecture-read-mermaid-head mb-2 flex flex-wrap items-center justify-between gap-2">
+                <p class="cedar-label mb-0">UML · components</p>
+                ${mermaidToolbar(`<span class="cedar-badge cedar-badge-muted">Class</span>`)}
+              </div>
+              <div class="diagram-complete-layout diagram-stage-canvas cedar-mermaid-scroll">
+                <div id="cedar-mermaid-components" class="cedar-mermaid-source m-0" role="img" aria-label="UML components class diagram"></div>
+              </div>
+            </article>
+            <article class="cedar-layout-view mt-8 w-full" data-layout-view="flow" data-diagram-wrap>
+              <div class="architecture-read-mermaid-head mb-2 flex flex-wrap items-center justify-between gap-2">
+                <p class="cedar-label mb-0">Flow</p>
+                ${mermaidToolbar(`<span class="cedar-badge cedar-badge-muted">Request path</span>`)}
+              </div>
+              <div class="diagram-complete-layout diagram-stage-canvas cedar-mermaid-scroll">
+                <div id="cedar-mermaid-flow" class="cedar-mermaid-source m-0" role="img" aria-label="Request flow diagram"></div>
+              </div>
+            </article>
+            <article class="cedar-layout-view mt-8 w-full" data-layout-view="events" data-diagram-wrap>
+              <div class="architecture-read-mermaid-head mb-2 flex flex-wrap items-center justify-between gap-2">
+                <p class="cedar-label mb-0">Events</p>
+                ${mermaidToolbar(`<span class="cedar-badge cedar-badge-muted">Sequence</span>`)}
+              </div>
+              <div class="diagram-complete-layout diagram-stage-canvas cedar-mermaid-scroll">
+                <div id="cedar-mermaid-events" class="cedar-mermaid-source m-0" role="img" aria-label="Domain events sequence diagram"></div>
+              </div>
+            </article>
+            </div>
+          </section>`
+                : ""
             }
           </div>
 
