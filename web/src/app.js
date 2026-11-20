@@ -346,6 +346,11 @@ function renderResults(container, data) {
   ).trim();
   const architectureReadNotes =
     breakouts?.architectureVisual?.conceptualNotes ?? breakouts?.diagramGraph?.meta?.conceptualNotes ?? [];
+  const showArchitectureRead =
+    showArchitectureSection ||
+    architectureReadSummary ||
+    architectureReadNotes.length ||
+    Boolean(composite);
 
   const slicePanels = microResults
     .filter((r) => r.status !== "skipped")
@@ -376,33 +381,29 @@ function renderResults(container, data) {
               .join("")}</ul>`;
 
       return `
-        <article id="slice-${escapeHtml(r.componentId)}" class="cedar-glass scroll-mt-24 overflow-hidden" data-virtual-pr="${escapeHtml(vpr.id)}">
-          <div class="border-b border-white/[0.06] bg-white/[0.02] px-6 py-4">
-            <div class="flex flex-wrap items-start justify-between gap-4">
-              <div class="min-w-0">
-                <p class="cedar-label">Virtual micro-PR</p>
-                <p class="mt-1 font-mono text-xs text-zinc-500">${escapeHtml(vpr.id)}</p>
-                <h3 class="mt-2 text-lg font-semibold text-white">${escapeHtml(r.componentName)}</h3>
-                <p class="mt-1 font-mono text-xs text-zinc-500">${escapeHtml(vpr.slug)}</p>
-                <div class="mt-3 flex flex-wrap gap-2">
-                  <span class="cedar-badge cedar-badge-muted">${vpr.title}</span>
-                  <span class="cedar-badge cedar-badge-muted">${statusLabel[r.status] ?? r.status}</span>
-                  <span class="cedar-badge cedar-badge-muted">+${micro?.additions ?? 0} / −${micro?.deletions ?? 0}</span>
-                  <span class="cedar-badge cedar-badge-muted">${fileList.length} files</span>
-                  ${blockers ? `<span class="cedar-badge border-rose-500/30 bg-rose-500/10 text-rose-200">${blockers} blockers</span>` : ""}
-                  ${warnings ? `<span class="cedar-badge cedar-badge-warn">${warnings} warnings</span>` : ""}
-                  ${approved ? `<span class="cedar-badge cedar-badge-ok">Approved</span>` : ""}
-                </div>
-                ${rationale ? `<p class="mt-3 max-w-2xl text-sm leading-relaxed text-zinc-400">${escapeHtml(rationale)}</p>` : ""}
+        <article id="slice-${escapeHtml(r.componentId)}" class="cedar-glass scroll-mt-24 p-6" data-virtual-pr="${escapeHtml(vpr.id)}">
+          <div class="flex flex-wrap items-start justify-between gap-4">
+            <div class="min-w-0 max-w-3xl">
+              <p class="cedar-label">${escapeHtml(vpr.title)}</p>
+              <h3 class="mt-2 text-sm font-semibold text-white">${escapeHtml(r.componentName)}</h3>
+              <p class="mt-1 font-mono text-xs text-zinc-500">${escapeHtml(vpr.slug)}</p>
+              <div class="mt-4 flex flex-wrap gap-2">
+                <span class="cedar-badge cedar-badge-muted">${statusLabel[r.status] ?? r.status}</span>
+                <span class="cedar-badge cedar-badge-muted">+${micro?.additions ?? 0} / −${micro?.deletions ?? 0}</span>
+                <span class="cedar-badge cedar-badge-muted">${fileList.length} files</span>
+                ${blockers ? `<span class="cedar-badge border-rose-500/30 bg-rose-500/10 text-rose-200">${blockers} blockers</span>` : ""}
+                ${warnings ? `<span class="cedar-badge cedar-badge-warn">${warnings} warnings</span>` : ""}
+                ${approved ? `<span class="cedar-badge cedar-badge-ok">Approved</span>` : ""}
               </div>
-              <button type="button" data-approve-slice="${escapeHtml(r.componentId)}" data-component-name="${escapeHtml(r.componentName)}"
-                ${!canApprove || approved ? "disabled" : ""}
-                class="cedar-btn-primary shrink-0 ${approved ? "!bg-emerald-600 !text-white" : ""}">
-                ${approved ? "Virtual PR approved" : canApprove ? "Approve virtual PR" : "Resolve blockers"}
-              </button>
+              ${rationale ? `<p class="mt-4 text-base leading-relaxed text-zinc-200">${escapeHtml(rationale)}</p>` : ""}
             </div>
+            <button type="button" data-approve-slice="${escapeHtml(r.componentId)}" data-component-name="${escapeHtml(r.componentName)}"
+              ${!canApprove || approved ? "disabled" : ""}
+              class="cedar-btn-primary shrink-0 text-xs sm:text-sm ${approved ? "!bg-emerald-600 !text-white" : ""}">
+              ${approved ? "Virtual PR approved" : canApprove ? "Approve virtual PR" : "Resolve blockers"}
+            </button>
           </div>
-          <div class="space-y-6 p-6">
+          <div class="mt-6 space-y-6 border-t border-white/[0.06] pt-6">
             ${renderSliceFileReviews(fileList, pull.url)}
             <div>
               <p class="cedar-label mb-3">Review findings</p>
@@ -443,39 +444,6 @@ function renderResults(container, data) {
       </div>
     </div>
 
-    ${
-      showArchitectureSection
-        ? `<section class="cedar-glass mb-8 p-4 sm:p-6" id="architecture-diagrams">
-        <div class="flex flex-wrap items-end justify-between gap-2 border-b border-white/[0.06] pb-4">
-          <div>
-            <p class="cedar-label">Architecture</p>
-            <p class="mt-1 text-sm text-zinc-400">
-              Architectural slices · black &amp; white ·
-              ${breakouts?.diagramVisualSource === "cursor" ? "labels &amp; layout by Cursor" : "partition slices"}
-            </p>
-          </div>
-          <span class="cedar-badge cedar-badge-muted">${archSliceCount} slices</span>
-        </div>
-        ${
-          archSliceCount > 0
-            ? `<div class="mt-5">
-          <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <p class="cedar-label mb-0">Overview</p>
-            ${cyToolbar(
-              "cedar-cy-slices",
-              `<span class="cedar-badge cedar-badge-muted">${
-                breakouts?.diagramVisualSource === "cursor" ? "Cursor layout" : "Minimal"
-              }</span>`
-            )}
-          </div>
-          <div id="cedar-cy-slices" class="cedar-cy-host diagram-slices" role="img" aria-label="Architecture slices"></div>
-        </div>`
-            : ""
-        }
-      </section>`
-        : ""
-    }
-
     <div class="grid gap-8 lg:grid-cols-[minmax(0,15rem)_minmax(0,1fr)]">
       <aside class="space-y-4 lg:sticky lg:top-20 lg:self-start">
         <div class="cedar-glass p-4">
@@ -502,16 +470,13 @@ function renderResults(container, data) {
             : ""
         }
         ${
-          architectureReadSummary ||
-          architectureReadNotes.length ||
-          composite ||
-          diagramMermaid.trim()
+          showArchitectureRead
             ? `<section class="cedar-glass p-6" id="architecture-read">
             <h2 class="text-sm font-semibold text-white">Architecture read</h2>
             ${
               architectureReadSummary
                 ? `<p class="mt-4 max-w-3xl text-base leading-relaxed text-zinc-200">${escapeHtml(architectureReadSummary)}</p>`
-                : !composite && !diagramMermaid.trim()
+                : !composite && !diagramMermaid.trim() && archSliceCount === 0
                   ? `<p class="mt-4 text-sm text-zinc-500">Cursor can supply a one-paragraph visual read when <span class="font-mono text-zinc-600">CEDAR_AI_DIAGRAM</span> is on; the full narrative appears after every slice passes.</p>`
                   : ""
             }
@@ -520,6 +485,22 @@ function renderResults(container, data) {
                 ? `<ul class="mt-4 list-inside list-disc space-y-1 text-sm text-zinc-400">${architectureReadNotes
                     .map((n) => `<li>${escapeHtml(n)}</li>`)
                     .join("")}</ul>`
+                : ""
+            }
+            ${
+              archSliceCount > 0
+                ? `<div class="mt-6" id="architecture-read-overview">
+            <div class="architecture-read-mermaid-head mb-2 flex flex-wrap items-center justify-between gap-2">
+              <p class="cedar-label mb-0">Overview · virtual micro-PRs</p>
+              ${cyToolbar(
+                "cedar-cy-slices",
+                `<span class="cedar-badge cedar-badge-muted">${archSliceCount} slices · ${
+                  breakouts?.diagramVisualSource === "cursor" ? "Cursor" : "Minimal"
+                }</span>`
+              )}
+            </div>
+            <div id="cedar-cy-slices" class="cedar-cy-host diagram-overview-read" role="img" aria-label="Virtual micro-PR overview"></div>
+          </div>`
                 : ""
             }
             ${
@@ -546,12 +527,12 @@ function renderResults(container, data) {
           </section>`
             : ""
         }
-        <section>
-          <div class="mb-4 flex items-center justify-between">
+        <section class="space-y-6">
+          <div class="flex flex-wrap items-end justify-between gap-2">
             <h2 class="text-sm font-semibold text-white">Review by slice</h2>
-            <span class="text-xs text-zinc-600">${microResults.length} virtual micro-PRs</span>
+            <span class="cedar-badge cedar-badge-muted">${touched.length} virtual micro-PRs</span>
           </div>
-          <div class="space-y-5">${slicePanels}</div>
+          <div class="space-y-6">${slicePanels}</div>
         </section>
         <p id="approve-status" class="hidden text-sm font-medium text-emerald-400"></p>
       </div>

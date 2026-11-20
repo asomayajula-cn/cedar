@@ -113,6 +113,16 @@
     min-height: 18rem;
   }
 
+  .diagram-overview-read {
+    min-height: min(32rem, 62vh);
+    max-height: min(88vh, 960px);
+    height: min(42rem, 58vh);
+  }
+
+  #architecture-read-overview .architecture-read-mermaid-head {
+    @apply sticky top-16 z-10 -mx-1 rounded-lg bg-black/50 px-1 py-2 backdrop-blur-md;
+  }
+
   .diagram-mermaid-sleek {
     @apply border-white/[0.06] bg-gradient-to-b from-black/30 to-black/60;
     min-height: 14rem;
