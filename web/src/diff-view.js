@@ -1,12 +1,51 @@
 import { html as diff2html } from "diff2html";
+import {
+  getActiveDiffFontPreset,
+  getDiffFontSettings,
+  renderDiffFontControl,
+  wireDiffFontControls,
+} from "./diff-font.js";
+import { wireDiffComments } from "./diff-comments.js";
 
-const DIFF_OPTS = {
+const DIFF_BASE = {
   drawFileList: false,
   matching: "lines",
-  outputFormat: "line-by-line",
   colorScheme: "dark",
   renderNothingWhenEmpty: false,
 };
+
+/** @typedef {"side-by-side" | "line-by-line"} DiffOutputFormat */
+
+/**
+ * @returns {DiffOutputFormat}
+ */
+export function defaultDiffFormat() {
+  return "line-by-line";
+}
+
+/**
+ * @param {DiffOutputFormat} format
+ */
+function diffOptions(format) {
+  return {
+    ...DIFF_BASE,
+    outputFormat: format,
+  };
+}
+
+/**
+ * @param {string} patch
+ */
+function patchToB64(patch) {
+  return btoa(unescape(encodeURIComponent(patch)));
+}
+
+/**
+ * @param {string} b64
+ */
+function patchFromB64(b64) {
+  return decodeURIComponent(escape(atob(b64)));
+}
 
 /**
  * @param {string} path
@@ -16,29 +55,42 @@ export function normalizePatch(path, patch) {
   if (!patch?.trim()) return "";
   const p = patch.trim();
   if (p.startsWith("diff --git")) return p;
-  return [
-    `diff --git a/${path} b/${path}`,
-    `--- a/${path}`,
-    `+++ b/${path}`,
-    p,
-  ].join("\n");
+  return [`diff --git a/${path} b/${path}`, `--- a/${path}`, `+++ b/${path}`, p].join("\n");
 }
 
 /**
  * @param {string} path
  * @param {string | null | undefined} patch
+ * @param {DiffOutputFormat} [format]
  */
-export function renderGithubFileDiff(path, patch) {
+export function renderGithubFileDiff(path, patch, format = defaultDiffFormat()) {
   const full = normalizePatch(path, patch ?? "");
   if (!full) {
-    return `<p class="px-4 py-6 text-center text-xs text-zinc-500">Diff not available from GitHub (file may be too large or binary).</p>`;
+    return `<p class="cedar-gh-diff-empty">Diff not available from GitHub (file may be too large or binary).</p>`;
   }
   try {
-    const body = diff2html(full, DIFF_OPTS);
-    return `<div class="cedar-diff2html d2h-dark-color-scheme">${body}</div>`;
+    const body = diff2html(full, diffOptions(format));
+    return `<div class="cedar-diff2html d2h-dark-color-scheme" data-diff-format="${format}">${body}</div>`;
   } catch {
-    return `<pre class="overflow-x-auto p-4 font-mono text-[11px] text-zinc-400">${escapeHtml(patch ?? "")}</pre>`;
+    return `<pre class="cedar-gh-diff-fallback">${escapeHtml(patch ?? "")}</pre>`;
   }
+}
+
+/**
+ * @param {string} status
+ */
+function statusLabel(status) {
+  const s = String(status ?? "modified").toLowerCase();
+  const labels = {
+    added: "Added",
+    removed: "Deleted",
+    deleted: "Deleted",
+    renamed: "Renamed",
+    copied: "Copied",
+    changed: "Changed",
+    modified: "Modified",
+  };
+  return labels[s] ?? "Modified";
 }
 
 /**
@@ -51,51 +103,101 @@ export function renderSliceFileReviews(files, pullUrl = "") {
   }
 
   const ghFiles = pullUrl ? `${pullUrl.replace(/\/$/, "")}/files` : "";
+  const format = defaultDiffFormat();
 
   const cards = files
     .map((f, i) => {
       const status = f.status ?? "modified";
-      const diffHtml = f.patch ? renderGithubFileDiff(f.path, f.patch) : "";
+      const diffHtml = f.patch ? renderGithubFileDiff(f.path, f.patch, format) : "";
+      const patchB64 = f.patch ? patchToB64(f.patch) : "";
+      const ghFile = ghFiles ? `${ghFiles}#diff-${encodeGitHubAnchor(f.path)}` : "";
+
       return `
-      <article class="cedar-gh-file overflow-hidden rounded-xl border border-white/[0.08] bg-[#0a0a0c]" data-file-review>
-        <header class="cedar-gh-file-header flex flex-wrap items-center gap-3 border-b border-white/[0.08] bg-white/[0.03] px-4 py-2.5">
-          <button type="button" class="cedar-gh-file-toggle text-zinc-500 hover:text-white" data-file-toggle aria-expanded="true" title="Collapse diff">▾</button>
-          <span class="min-w-0 flex-1 truncate font-mono text-xs text-zinc-200" title="${escapeHtml(f.path)}">${escapeHtml(f.path)}</span>
-          <span class="text-[10px] uppercase tracking-wide text-zinc-600">${escapeHtml(status)}</span>
-          <span class="font-mono text-xs text-emerald-400/90">+${f.additions ?? 0}</span>
-          <span class="font-mono text-xs text-rose-400/90">−${f.deletions ?? 0}</span>
+      <article class="cedar-gh-file" data-file-review data-file-path="${escapeHtml(f.path)}"${
+        patchB64 ? ` data-patch-b64="${patchB64}"` : ""
+      }>
+        <div class="cedar-gh-file-actions">
+          <div class="cedar-gh-diff-view-toggle" role="group" aria-label="Diff view">
+            <button type="button" class="cedar-gh-diff-mode${format === "side-by-side" ? " is-active" : ""}" data-diff-mode="side-by-side" title="Split">Split</button>
+            <button type="button" class="cedar-gh-diff-mode${format === "line-by-line" ? " is-active" : ""}" data-diff-mode="line-by-line" title="Unified">Unified</button>
+          </div>
           ${
-            ghFiles
-              ? `<a href="${escapeHtml(ghFiles)}" target="_blank" rel="noreferrer" class="text-[11px] text-zinc-500 hover:text-zinc-300">GitHub</a>`
+            ghFile
+              ? `<a href="${escapeHtml(ghFile)}" target="_blank" rel="noreferrer" class="cedar-gh-open-github">Open on GitHub</a>`
               : ""
           }
-        </header>
-        <div class="cedar-gh-file-body max-h-[min(32rem,70vh)] overflow-auto" data-file-body id="file-review-${i}">
-          ${diffHtml || `<p class="px-4 py-6 text-center text-xs text-zinc-500">No patch returned for this file.</p>`}
+          <span class="cedar-gh-file-meta">${escapeHtml(statusLabel(status))}</span>
+        </div>
+        <div class="cedar-gh-file-body" data-file-body id="file-review-${i}">
+          ${diffHtml || `<p class="cedar-gh-diff-empty">No patch returned for this file.</p>`}
         </div>
       </article>`;
     })
     .join("");
 
+  const fontPreset = getActiveDiffFontPreset();
+  const { size, line } = getDiffFontSettings();
+
   return `
-    <div class="space-y-3">
-      <p class="cedar-label">Files changed · GitHub-style review</p>
+    <div class="cedar-gh-files-changed space-y-0" style="--cedar-diff-font-size: ${size}px; --cedar-diff-line-height: ${line}px">
+      <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p class="cedar-label mb-0">Files changed</p>
+          <p class="mt-1 text-[8px] text-zinc-600">Click a line or + in the gutter · posts to GitHub</p>
+        </div>
+        ${renderDiffFontControl(fontPreset)}
+      </div>
       ${cards}
     </div>`;
+}
+
+/**
+ * @param {string} path
+ */
+function encodeGitHubAnchor(path) {
+  return path.replace(/\//g, "-").replace(/\./g, "-");
 }
 
 /**
  * @param {ParentNode} root
  */
 export function wireFileReviewToggles(root) {
-  root.querySelectorAll("[data-file-toggle]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const article = btn.closest("[data-file-review]");
-      const body = article?.querySelector("[data-file-body]");
-      if (!body) return;
-      const hidden = body.classList.toggle("hidden");
-      btn.setAttribute("aria-expanded", hidden ? "false" : "true");
-      btn.textContent = hidden ? "▸" : "▾";
+  wireDiffFontControls(root);
+  wireDiffComments(root);
+
+  root.querySelectorAll(".cedar-gh-file[data-file-review]").forEach((article) => {
+    if (!(article instanceof HTMLElement)) return;
+
+    article.querySelectorAll(".d2h-file-header").forEach((header) => {
+      header.classList.add("d2h-sticky-header");
+    });
+
+    article.querySelectorAll("[data-diff-mode]").forEach((btn) => {
+      if (btn.dataset.wiredDiff) return;
+      btn.dataset.wiredDiff = "1";
+      btn.addEventListener("click", () => {
+        const mode = btn.getAttribute("data-diff-mode");
+        if (mode !== "side-by-side" && mode !== "line-by-line") return;
+        const path = article.getAttribute("data-file-path");
+        const b64 = article.getAttribute("data-patch-b64");
+        const body = article.querySelector("[data-file-body]");
+        if (!path || !b64 || !(body instanceof HTMLElement)) return;
+
+        article.querySelectorAll("[data-diff-mode]").forEach((b) => {
+          b.classList.toggle("is-active", b.getAttribute("data-diff-mode") === mode);
+        });
+
+        try {
+          const patch = patchFromB64(b64);
+          body.innerHTML = renderGithubFileDiff(path, patch, mode);
+          body.querySelectorAll(".d2h-file-header").forEach((header) => {
+            header.classList.add("d2h-sticky-header");
+          });
+          wireDiffComments(body);
+        } catch {
+          /* keep previous render */
+        }
+      });
     });
   });
 }

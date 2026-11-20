@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { runPrReviewPipeline } from "./orchestrator.js";
 import { resolvePrTarget } from "./parse-pr-url.js";
 import { submitGithubApproval } from "./approve.js";
+import { submitInlineDiffComment } from "./inline-comment.js";
 import { explainGithubError } from "./github-token-help.js";
 import {
   DEFAULT_CURSOR_MODEL,
@@ -18,6 +19,7 @@ import { cedarAiDiagramMode } from "./diagram-visual-mode.js";
 import { ensureCursorBridge, bridgeBaseUrl, isBridgeManaged } from "./cursor-bridge-spawn.js";
 import { warmCursorBridgeSession } from "./cursor-bridge-client.js";
 import { runWithReviewProgress } from "./review-progress.js";
+import { resolveDiffFontConfig } from "./diff-font-config.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, "..");
@@ -49,6 +51,7 @@ app.get("/api/health", (_req, res) => {
     defaultOpenRouterModel: DEFAULT_OPENROUTER_MODEL,
     githubTokenHint:
       "Reviews/approvals need Pull requests: Read and write (fine-grained) or repo scope (classic).",
+    diffFont: resolveDiffFontConfig(),
   });
 });
 
@@ -161,6 +164,52 @@ app.post("/api/review/stream", async (req, res) => {
     send({ type: "error", error: explained.error ?? String(err) });
   } finally {
     res.end();
+  }
+});
+
+app.post("/api/comment", async (req, res) => {
+  const token = req.body?.token ?? process.env.GITHUB_TOKEN;
+  const { path, line, side, body, headSha, owner, repo, pr, prUrl, componentId, componentName } = req.body ?? {};
+
+  if (!token) {
+    res.status(400).json({ error: "GitHub token required" });
+    return;
+  }
+  if (!path || typeof path !== "string") {
+    res.status(400).json({ error: "path required" });
+    return;
+  }
+  const lineNum = Number(line);
+  if (!Number.isFinite(lineNum) || lineNum < 1) {
+    res.status(400).json({ error: "valid line required" });
+    return;
+  }
+  if (!body || typeof body !== "string" || !body.trim()) {
+    res.status(400).json({ error: "comment body required" });
+    return;
+  }
+
+  try {
+    const result = await submitInlineDiffComment({
+      prUrl,
+      owner,
+      repo,
+      pr,
+      token,
+      path,
+      line: lineNum,
+      side: side === "LEFT" ? "LEFT" : "RIGHT",
+      body,
+      headSha,
+      componentId,
+      componentName,
+    });
+    res.json(result);
+  } catch (err) {
+    const explained = explainGithubError(err, { action: "post a pull request review comment" });
+    const errStatus = /** @type {{ status?: number }} */ (err)?.status;
+    const status = errStatus === 403 ? 403 : errStatus === 422 ? 422 : 500;
+    res.status(status).json(explained);
   }
 });
 

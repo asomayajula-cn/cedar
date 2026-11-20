@@ -3,6 +3,8 @@ import { mountArchitectureGraphs } from "./architecture-canvas.js";
 import { buildDiagramGraph } from "../../src/diagram-graph.js";
 import { buildArchitectureDiagramMermaid } from "../../src/architecture-diagram.js";
 import { renderSliceFileReviews, wireFileReviewToggles } from "./diff-view.js";
+import { setCommentToast } from "./diff-comments.js";
+import { initDiffFontFromServer } from "./diff-font.js";
 import { mountLayoutMermaid, activateDiagramUx } from "./diagram-ux.js";
 import { applyReviewStreamEvent, postReviewStream } from "./review-stream.js";
 
@@ -39,6 +41,8 @@ function showToast(message, tone = "neutral") {
 }
 
 export function mountApp(root) {
+  setCommentToast((message, tone) => showToast(message, tone === "error" ? "error" : "neutral"));
+
   root.innerHTML = `
     <div class="cedar-shell">
       <header class="sticky top-0 z-40 border-b border-white/[0.06] bg-black/40 backdrop-blur-xl">
@@ -128,6 +132,7 @@ async function refreshHealth() {
   try {
     const res = await fetch("/api/health");
     const data = await res.json();
+    initDiffFontFromServer(data.diffFont);
     if (data.hasToken && (data.hasCursor || data.hasOpenRouter)) {
       pill.textContent = "Ready";
       pill.className = "cedar-badge cedar-badge-ok";
@@ -166,6 +171,7 @@ async function onSubmit(e) {
   label.innerHTML = '<span class="cedar-spinner"></span><span class="ml-2">Connecting…</span>';
   hero.classList.add("hidden");
   results.classList.remove("hidden");
+  document.getElementById("main-stage")?.classList.add("cedar-review-wide");
   results.innerHTML = loadingSkeleton();
 
   try {
@@ -201,6 +207,7 @@ async function onSubmit(e) {
   } catch (err) {
     results.innerHTML = "";
     results.classList.add("hidden");
+    document.getElementById("main-stage")?.classList.remove("cedar-review-wide");
     errorEl.textContent = err instanceof Error ? err.message : String(err);
     errorEl.classList.remove("hidden");
     showToast(errorEl.textContent, "error");
@@ -266,6 +273,369 @@ function virtualPrLabel(target, pull, componentId, index, total) {
   };
 }
 
+/**
+ * @param {ParentNode} root
+ * @param {"architecture" | "slices"} [mainTab]
+ */
+function activateReviewMainTab(root, mainTab = "architecture") {
+  root.querySelectorAll("[data-review-tab]").forEach((btn) => {
+    if (!(btn instanceof HTMLElement)) return;
+    const on = btn.getAttribute("data-review-tab") === mainTab;
+    btn.classList.toggle("is-active", on);
+    btn.setAttribute("aria-selected", on ? "true" : "false");
+  });
+  root.querySelectorAll("[data-review-panel]").forEach((panel) => {
+    if (!(panel instanceof HTMLElement)) return;
+    panel.hidden = panel.getAttribute("data-review-panel") !== mainTab;
+  });
+  const layout = root.querySelector(".cedar-review-layout");
+  if (layout instanceof HTMLElement) {
+    layout.classList.toggle("cedar-review-slices-focus", mainTab === "slices");
+  }
+  if (mainTab === "slices") {
+    requestAnimationFrame(() => {
+      const shell = root.querySelector(".cedar-slices-shell");
+      if (shell instanceof HTMLElement) {
+        applySliceRailWidth(shell, readStoredSliceRailWidth());
+        window.dispatchEvent(new Event("resize"));
+      }
+    });
+  }
+}
+
+const SLICE_RAIL_COLLAPSED_KEY = "cedar.sliceRailCollapsed";
+
+/**
+ * @param {ParentNode} root
+ */
+function wireDiffFocusToggles(root) {
+  const shell = root.querySelector(".cedar-slices-shell");
+  const layout = root.querySelector(".cedar-review-layout");
+  if (!(shell instanceof HTMLElement) || !(layout instanceof HTMLElement)) return;
+
+  const stored = sessionStorage.getItem(SLICE_RAIL_COLLAPSED_KEY);
+  const collapsed = stored === null ? true : stored === "true";
+  shell.classList.toggle("cedar-slice-rail-collapsed", collapsed);
+
+  root.querySelectorAll("[data-toggle-slice-rail]").forEach((btn) => {
+    if (btn.dataset.wiredFocus) return;
+    btn.dataset.wiredFocus = "1";
+    btn.addEventListener("click", () => {
+      const isCollapsed = shell.classList.toggle("cedar-slice-rail-collapsed");
+      sessionStorage.setItem(SLICE_RAIL_COLLAPSED_KEY, isCollapsed ? "true" : "false");
+      const label = btn.querySelector("[data-toggle-label]");
+      if (label instanceof HTMLElement) {
+        label.textContent = isCollapsed ? "Show slices" : "Hide slices";
+      }
+      btn.setAttribute("aria-pressed", isCollapsed ? "true" : "false");
+      window.dispatchEvent(new Event("resize"));
+    });
+    const label = btn.querySelector("[data-toggle-label]");
+    if (label instanceof HTMLElement) {
+      label.textContent = shell.classList.contains("cedar-slice-rail-collapsed") ? "Show slices" : "Hide slices";
+    }
+  });
+
+  root.querySelectorAll("[data-toggle-pipeline-rail]").forEach((btn) => {
+    if (btn.dataset.wiredFocus) return;
+    btn.dataset.wiredFocus = "1";
+    btn.addEventListener("click", () => {
+      const expanded = layout.classList.toggle("cedar-pipeline-rail-expanded");
+      const label = btn.querySelector("[data-toggle-label]");
+      if (label instanceof HTMLElement) {
+        label.textContent = expanded ? "Hide pipeline" : "Show pipeline";
+      }
+      btn.setAttribute("aria-pressed", expanded ? "true" : "false");
+      window.dispatchEvent(new Event("resize"));
+    });
+    const label = btn.querySelector("[data-toggle-label]");
+    if (label instanceof HTMLElement) {
+      label.textContent = layout.classList.contains("cedar-pipeline-rail-expanded")
+        ? "Hide pipeline"
+        : "Show pipeline";
+    }
+  });
+
+  root.querySelectorAll("[data-toggle-slice-rail]").forEach((btn) => {
+    btn.setAttribute("aria-pressed", shell.classList.contains("cedar-slice-rail-collapsed") ? "true" : "false");
+  });
+}
+
+/**
+ * @param {ParentNode} root
+ * @param {string} componentId
+ */
+function activateSliceTab(root, componentId) {
+  if (!componentId) return;
+  activateReviewMainTab(root, "slices");
+  root.querySelectorAll("[data-slice-tab]").forEach((btn) => {
+    if (!(btn instanceof HTMLElement)) return;
+    const on = btn.getAttribute("data-slice-tab") === componentId;
+    btn.classList.toggle("is-active", on);
+    btn.setAttribute("aria-selected", on ? "true" : "false");
+    if (on) btn.scrollIntoView({ block: "nearest", inline: "nearest" });
+  });
+  root.querySelectorAll("[data-slice-panel]").forEach((panel) => {
+    if (!(panel instanceof HTMLElement)) return;
+    panel.hidden = panel.getAttribute("data-slice-panel") !== componentId;
+  });
+  root.querySelectorAll("[data-scroll-slice]").forEach((btn) => {
+    if (!(btn instanceof HTMLElement)) return;
+    btn.classList.toggle(
+      "is-active",
+      btn.getAttribute("data-scroll-slice") === componentId
+    );
+  });
+}
+
+/**
+ * @param {ParentNode} root
+ */
+function wireSliceKeyboardNav(root) {
+  if (root instanceof HTMLElement && root.dataset.wiredSliceKeys) return;
+  if (root instanceof HTMLElement) root.dataset.wiredSliceKeys = "1";
+
+  const sliceIds = [...root.querySelectorAll("[data-slice-tab]")]
+    .map((el) => el.getAttribute("data-slice-tab"))
+    .filter(Boolean);
+
+  document.addEventListener("keydown", (ev) => {
+    if (ev.target instanceof HTMLElement && /^(INPUT|TEXTAREA|SELECT)$/.test(ev.target.tagName)) return;
+    if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
+
+    const slicesPanel = root.querySelector('[data-review-panel="slices"]');
+    if (slicesPanel?.hidden) return;
+
+    const active = root.querySelector("[data-slice-tab].is-active");
+    const current = active?.getAttribute("data-slice-tab");
+    const idx = current ? sliceIds.indexOf(current) : 0;
+    if (idx < 0) return;
+
+    if (ev.key === "[" && idx > 0) {
+      ev.preventDefault();
+      activateSliceTab(root, sliceIds[idx - 1]);
+    } else if (ev.key === "]" && idx < sliceIds.length - 1) {
+      ev.preventDefault();
+      activateSliceTab(root, sliceIds[idx + 1]);
+    }
+  });
+}
+
+const SIDEBAR_WIDTH_KEY = "cedar.reviewSidebarWidthPx";
+const SIDEBAR_WIDTH_DEFAULT = 200;
+const SIDEBAR_WIDTH_MIN = 160;
+const SIDEBAR_WIDTH_MAX = 360;
+
+const SLICE_RAIL_WIDTH_KEY = "cedar.sliceRailWidthPx";
+const SLICE_RAIL_DEFAULT = 148;
+const SLICE_RAIL_MIN = 108;
+const SLICE_RAIL_MAX = 320;
+
+/**
+ * @param {HTMLElement | null | undefined} layout
+ */
+function readStoredSidebarWidth() {
+  const raw = localStorage.getItem(SIDEBAR_WIDTH_KEY);
+  const n = raw ? Number(raw) : NaN;
+  if (Number.isFinite(n)) return Math.min(SIDEBAR_WIDTH_MAX, Math.max(SIDEBAR_WIDTH_MIN, n));
+  return SIDEBAR_WIDTH_DEFAULT;
+}
+
+/**
+ * @param {HTMLElement | null | undefined} layout
+ */
+function applySidebarWidth(layout, widthPx) {
+  if (!layout) return;
+  layout.style.setProperty("--cedar-sidebar-width", `${widthPx}px`);
+}
+
+/**
+ * @param {ParentNode} root
+ */
+function wireReviewLayoutResize(root) {
+  const layout = root.querySelector(".cedar-review-layout");
+  const splitter = root.querySelector("[data-review-splitter]");
+  const sidebar = root.querySelector(".cedar-review-sidebar");
+  if (!(layout instanceof HTMLElement) || !(splitter instanceof HTMLElement)) return;
+
+  applySidebarWidth(layout, readStoredSidebarWidth());
+
+  if (splitter.dataset.wiredSplitter) return;
+  splitter.dataset.wiredSplitter = "1";
+
+  const notifyMainResized = () => {
+    window.dispatchEvent(new Event("resize"));
+  };
+
+  splitter.addEventListener("dblclick", () => {
+    applySidebarWidth(layout, SIDEBAR_WIDTH_DEFAULT);
+    localStorage.removeItem(SIDEBAR_WIDTH_KEY);
+    notifyMainResized();
+  });
+
+  splitter.addEventListener("pointerdown", (ev) => {
+    if (!window.matchMedia("(min-width: 1024px)").matches) return;
+    ev.preventDefault();
+    splitter.setPointerCapture(ev.pointerId);
+    document.body.classList.add("cedar-is-resizing-review");
+    const startX = ev.clientX;
+    const startW =
+      sidebar instanceof HTMLElement ? sidebar.getBoundingClientRect().width : readStoredSidebarWidth();
+
+    const onMove = (moveEv) => {
+      const next = Math.min(SIDEBAR_WIDTH_MAX, Math.max(SIDEBAR_WIDTH_MIN, startW + (moveEv.clientX - startX)));
+      applySidebarWidth(layout, next);
+      notifyMainResized();
+    };
+
+    const onUp = (upEv) => {
+      splitter.releasePointerCapture(upEv.pointerId);
+      document.body.classList.remove("cedar-is-resizing-review");
+      splitter.removeEventListener("pointermove", onMove);
+      splitter.removeEventListener("pointerup", onUp);
+      splitter.removeEventListener("pointercancel", onUp);
+      if (sidebar instanceof HTMLElement) {
+        const px = Math.round(sidebar.getBoundingClientRect().width);
+        localStorage.setItem(SIDEBAR_WIDTH_KEY, String(px));
+      }
+    };
+
+    splitter.addEventListener("pointermove", onMove);
+    splitter.addEventListener("pointerup", onUp);
+    splitter.addEventListener("pointercancel", onUp);
+  });
+
+  splitter.addEventListener("keydown", (ev) => {
+    if (!window.matchMedia("(min-width: 1024px)").matches) return;
+    let delta = 0;
+    if (ev.key === "ArrowLeft") delta = -16;
+    else if (ev.key === "ArrowRight") delta = 16;
+    else return;
+    ev.preventDefault();
+    const current = sidebar instanceof HTMLElement ? sidebar.getBoundingClientRect().width : SIDEBAR_WIDTH_DEFAULT;
+    const next = Math.min(SIDEBAR_WIDTH_MAX, Math.max(SIDEBAR_WIDTH_MIN, current + delta));
+    applySidebarWidth(layout, next);
+    localStorage.setItem(SIDEBAR_WIDTH_KEY, String(Math.round(next)));
+    notifyMainResized();
+  });
+}
+
+function readStoredSliceRailWidth() {
+  const raw = localStorage.getItem(SLICE_RAIL_WIDTH_KEY);
+  const n = raw ? Number(raw) : NaN;
+  if (Number.isFinite(n)) return Math.min(SLICE_RAIL_MAX, Math.max(SLICE_RAIL_MIN, n));
+  return SLICE_RAIL_DEFAULT;
+}
+
+/**
+ * @param {HTMLElement | null | undefined} shell
+ * @param {number} widthPx
+ */
+function applySliceRailWidth(shell, widthPx) {
+  if (!shell) return;
+  shell.style.setProperty("--cedar-slice-rail-width", `${widthPx}px`);
+}
+
+/**
+ * @param {ParentNode} root
+ */
+function wireSliceRailResize(root) {
+  const shell = root.querySelector(".cedar-slices-shell");
+  const splitter = root.querySelector("[data-slice-splitter]");
+  const rail = root.querySelector(".cedar-slice-rail-wrap");
+  if (!(shell instanceof HTMLElement) || !(splitter instanceof HTMLElement)) return;
+
+  applySliceRailWidth(shell, readStoredSliceRailWidth());
+
+  if (splitter.dataset.wiredSliceSplit) return;
+  splitter.dataset.wiredSliceSplit = "1";
+
+  const notifyResized = () => window.dispatchEvent(new Event("resize"));
+
+  splitter.addEventListener("dblclick", () => {
+    applySliceRailWidth(shell, SLICE_RAIL_DEFAULT);
+    localStorage.removeItem(SLICE_RAIL_WIDTH_KEY);
+    notifyResized();
+  });
+
+  splitter.addEventListener("pointerdown", (ev) => {
+    if (!window.matchMedia("(min-width: 1024px)").matches) return;
+    ev.preventDefault();
+    splitter.setPointerCapture(ev.pointerId);
+    document.body.classList.add("cedar-is-resizing-slices");
+    const startX = ev.clientX;
+    const startW = rail instanceof HTMLElement ? rail.getBoundingClientRect().width : readStoredSliceRailWidth();
+
+    const onMove = (moveEv) => {
+      // Rail sits on the right: drag left → narrower rail → wider diff pane
+      const next = Math.min(SLICE_RAIL_MAX, Math.max(SLICE_RAIL_MIN, startW - (moveEv.clientX - startX)));
+      applySliceRailWidth(shell, next);
+      notifyResized();
+    };
+
+    const onUp = (upEv) => {
+      splitter.releasePointerCapture(upEv.pointerId);
+      document.body.classList.remove("cedar-is-resizing-slices");
+      splitter.removeEventListener("pointermove", onMove);
+      splitter.removeEventListener("pointerup", onUp);
+      splitter.removeEventListener("pointercancel", onUp);
+      if (rail instanceof HTMLElement) {
+        localStorage.setItem(SLICE_RAIL_WIDTH_KEY, String(Math.round(rail.getBoundingClientRect().width)));
+      }
+    };
+
+    splitter.addEventListener("pointermove", onMove);
+    splitter.addEventListener("pointerup", onUp);
+    splitter.addEventListener("pointercancel", onUp);
+  });
+
+  splitter.addEventListener("keydown", (ev) => {
+    if (!window.matchMedia("(min-width: 1024px)").matches) return;
+    let delta = 0;
+    if (ev.key === "ArrowLeft") delta = 16;
+    else if (ev.key === "ArrowRight") delta = -16;
+    else return;
+    ev.preventDefault();
+    const current = rail instanceof HTMLElement ? rail.getBoundingClientRect().width : SLICE_RAIL_DEFAULT;
+    const next = Math.min(SLICE_RAIL_MAX, Math.max(SLICE_RAIL_MIN, current - delta));
+    applySliceRailWidth(shell, next);
+    localStorage.setItem(SLICE_RAIL_WIDTH_KEY, String(Math.round(next)));
+    notifyResized();
+  });
+}
+
+/**
+ * @param {ParentNode} root
+ * @param {"architecture" | "slices"} defaultMainTab
+ */
+function wireReviewTabs(root, defaultMainTab) {
+  root.querySelectorAll("[data-review-tab]").forEach((btn) => {
+    if (btn.dataset.wiredReviewTab) return;
+    btn.dataset.wiredReviewTab = "1";
+    btn.addEventListener("click", () => {
+      const tab = btn.getAttribute("data-review-tab");
+      if (tab === "architecture" || tab === "slices") activateReviewMainTab(root, tab);
+    });
+  });
+  activateReviewMainTab(root, defaultMainTab);
+}
+
+/**
+ * @param {ParentNode} root
+ * @param {string} [initialSliceId]
+ */
+function wireSliceTabs(root, initialSliceId = "") {
+  root.querySelectorAll("[data-slice-tab]").forEach((btn) => {
+    if (btn.dataset.wiredSliceTab) return;
+    btn.dataset.wiredSliceTab = "1";
+    btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-slice-tab");
+      if (id) activateSliceTab(root, id);
+    });
+  });
+  if (initialSliceId) activateSliceTab(root, initialSliceId);
+}
+
 function renderResults(container, data) {
   const { pull, gate, microPrs, microResults, composite, breakouts, partition, process, target } = data;
   sliceApprovals = window.__cedarSession?.sliceApprovals ?? sliceApprovals;
@@ -286,13 +656,15 @@ function renderResults(container, data) {
       const vpr = virtualPrLabel(target, pull, r.componentId, i + 1, sliceTotal);
       return `
         <button type="button" data-scroll-slice="${escapeHtml(r.componentId)}"
-          class="flex w-full flex-col gap-0.5 rounded-lg px-2.5 py-2 text-left transition hover:bg-white/[0.06]">
-          <span class="flex items-center gap-2">
-            <span class="h-2 w-2 shrink-0 rounded-full ${statusDot[r.status] ?? statusDot.skipped}"></span>
-            <span class="min-w-0 flex-1 truncate text-sm font-medium text-zinc-200">${escapeHtml(r.componentName)}</span>
-            ${approved ? '<span class="text-emerald-400">✓</span>' : ""}
+          class="cedar-nav-item cedar-nav-item-stack${i === 0 ? " is-active" : ""}"
+          title="${escapeHtml(r.componentName)}">
+          <span class="cedar-nav-item-row">
+            <span class="cedar-nav-item-index tabular-nums">${i + 1}</span>
+            <span class="h-1.5 w-1.5 shrink-0 rounded-full ${statusDot[r.status] ?? statusDot.skipped}"></span>
+            <span class="cedar-nav-item-label">${escapeHtml(r.componentName)}</span>
+            ${approved ? '<span class="cedar-nav-item-check">✓</span>' : ""}
           </span>
-          <span class="pl-4 font-mono text-[10px] text-zinc-600">${escapeHtml(vpr.id)} · ${micro?.fileCount ?? r.filesReviewed} files</span>
+          <span class="cedar-nav-item-meta">${escapeHtml(vpr.id)} · ${micro?.fileCount ?? r.filesReviewed} files</span>
         </button>`;
     })
     .join("");
@@ -302,13 +674,13 @@ function renderResults(container, data) {
       const done = step.status === "done";
       const blocked = step.status === "blocked";
       return `
-        <li class="flex gap-3 text-xs">
-          <span class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[10px] font-semibold ${
+        <li class="flex gap-2 text-[10px] leading-snug">
+          <span class="mt-px flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-[9px] font-semibold ${
             done ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" : blocked ? "border-rose-500/40 text-rose-300" : "border-white/10 text-zinc-500"
           }">${i + 1}</span>
-          <span>
+          <span class="min-w-0">
             <span class="font-medium text-zinc-200">${escapeHtml(step.label)}</span>
-            <span class="block text-zinc-600">${escapeHtml(step.detail ?? step.status)}</span>
+            <span class="block text-[9px] text-zinc-600">${escapeHtml(step.detail ?? step.status)}</span>
           </span>
         </li>`;
     })
@@ -352,8 +724,27 @@ function renderResults(container, data) {
     architectureReadNotes.length ||
     Boolean(composite);
 
-  const slicePanels = microResults
-    .filter((r) => r.status !== "skipped")
+  const activeSlices = microResults.filter((r) => r.status !== "skipped");
+  const firstSliceId = activeSlices[0]?.componentId ?? "";
+  const hasArchitectureContent = Boolean(breakouts?.architectureSummary) || showArchitectureRead;
+  const defaultMainTab = hasArchitectureContent ? "architecture" : "slices";
+
+  const sliceTabBar = activeSlices
+    .map((r, i) => {
+      const approved = sliceApprovals.has(r.componentId);
+      const active = i === 0;
+      return `<button type="button" role="tab" class="cedar-nav-item cedar-slice-tab${active ? " is-active" : ""}"
+        data-slice-tab="${escapeHtml(r.componentId)}" aria-selected="${active ? "true" : "false"}"
+        title="${escapeHtml(r.componentName)}">
+        <span class="cedar-nav-item-index tabular-nums">${i + 1}</span>
+        <span class="h-1.5 w-1.5 shrink-0 rounded-full ${statusDot[r.status] ?? statusDot.skipped}"></span>
+        <span class="cedar-nav-item-label">${escapeHtml(r.componentName)}</span>
+        ${approved ? '<span class="cedar-nav-item-check">✓</span>' : ""}
+      </button>`;
+    })
+    .join("");
+
+  const slicePanels = activeSlices
     .map((r, i) => {
       const micro = microPrs.find((m) => m.componentId === r.componentId);
       const rationale = micro?.rationale ?? micro?.description;
@@ -381,7 +772,9 @@ function renderResults(container, data) {
               .join("")}</ul>`;
 
       return `
-        <article id="slice-${escapeHtml(r.componentId)}" class="cedar-glass scroll-mt-24 p-6" data-virtual-pr="${escapeHtml(vpr.id)}">
+        <article id="slice-${escapeHtml(r.componentId)}" class="cedar-slice-panel" data-slice-panel="${escapeHtml(r.componentId)}" data-virtual-pr="${escapeHtml(vpr.id)}"${
+          i === 0 ? "" : " hidden"
+        }>
           <div class="flex flex-wrap items-start justify-between gap-4">
             <div class="min-w-0 max-w-3xl">
               <p class="cedar-label">${escapeHtml(vpr.title)}</p>
@@ -393,85 +786,120 @@ function renderResults(container, data) {
                 <span class="cedar-badge cedar-badge-muted">${fileList.length} files</span>
                 ${blockers ? `<span class="cedar-badge border-rose-500/30 bg-rose-500/10 text-rose-200">${blockers} blockers</span>` : ""}
                 ${warnings ? `<span class="cedar-badge cedar-badge-warn">${warnings} warnings</span>` : ""}
-                ${approved ? `<span class="cedar-badge cedar-badge-ok">Approved</span>` : ""}
+                ${approved ? `<span class="cedar-badge cedar-badge-ok">Signed off</span>` : ""}
               </div>
-              ${rationale ? `<p class="mt-4 text-base leading-relaxed text-zinc-200">${escapeHtml(rationale)}</p>` : ""}
+              ${
+                rationale
+                  ? `<details class="mt-3">
+                <summary class="cursor-pointer text-xs text-zinc-500 hover:text-zinc-300">Slice rationale</summary>
+                <p class="mt-2 text-sm leading-relaxed text-zinc-300">${escapeHtml(rationale)}</p>
+              </details>`
+                  : ""
+              }
             </div>
             <button type="button" data-approve-slice="${escapeHtml(r.componentId)}" data-component-name="${escapeHtml(r.componentName)}"
               ${!canApprove || approved ? "disabled" : ""}
-              class="cedar-btn-primary shrink-0 text-xs sm:text-sm ${approved ? "!bg-emerald-600 !text-white" : ""}">
-              ${approved ? "Virtual PR approved" : canApprove ? "Approve virtual PR" : "Resolve blockers"}
+              class="cedar-btn-signoff cedar-btn-slice${canApprove && !approved ? " is-ready" : ""}${approved ? " is-done" : ""}">
+              ${approved ? "Signed off" : canApprove ? "Sign off slice" : "Resolve blockers"}
             </button>
           </div>
-          <div class="mt-6 space-y-6 border-t border-white/[0.06] pt-6">
+          <div class="mt-4 space-y-4 border-t border-white/[0.06] pt-4">
             ${renderSliceFileReviews(fileList, pull.url)}
-            <div>
-              <p class="cedar-label mb-3">Review findings</p>
-              ${findings}
-            </div>
+            <details class="group">
+              <summary class="cursor-pointer text-xs font-medium text-zinc-500 hover:text-zinc-300">Review findings</summary>
+              <div class="mt-3">${findings}</div>
+            </details>
           </div>
         </article>`;
     })
     .join("");
 
   container.innerHTML = `
-    <div class="cedar-glass mb-8 flex flex-col gap-6 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
-      <div class="min-w-0 flex-1">
-        <p class="cedar-label">Pull request</p>
+    <header class="cedar-pr-header cedar-glass mb-8">
+      <div class="cedar-pr-header-id">
+        <p class="cedar-pr-header-eyebrow">Pull request</p>
         <a href="${escapeHtml(pull.url)}" target="_blank" rel="noreferrer"
-          class="mt-2 block text-xl font-semibold tracking-tight text-white hover:text-zinc-200">${escapeHtml(pull.title)}</a>
-        <p class="mt-1 font-mono text-xs text-zinc-500">#${pull.number} · ${gate.headSha.slice(0, 7)} · ${escapeHtml(breakouts?.strategy ?? partition?.mode ?? "review")}</p>
+          class="cedar-pr-header-title" title="${escapeHtml(pull.title)}">${escapeHtml(pull.title)}</a>
+        <p class="cedar-pr-header-meta">#${pull.number} · ${gate.headSha.slice(0, 7)} · ${escapeHtml(breakouts?.strategy ?? partition?.mode ?? "review")}</p>
       </div>
-      <div class="flex flex-wrap items-center gap-4">
-        <div class="flex items-center gap-4 rounded-xl border border-white/[0.08] bg-black/40 px-5 py-3">
-          <div class="text-center">
-            <p class="cedar-label">Confidence</p>
-            <p class="mt-1 text-3xl font-semibold tabular-nums ${confidence.color}">${confidence.score}<span class="text-lg text-zinc-600">/5</span></p>
-            <p class="text-xs text-zinc-500">${confidence.label}</p>
-          </div>
-          <div class="h-12 w-px bg-white/10 max-sm:hidden"></div>
-          <div class="text-center max-sm:w-full">
-            <p class="cedar-label">Slices signed off</p>
-            <p class="mt-1 text-lg font-semibold text-white">${approvedCount}<span class="text-zinc-600">/${touched.length}</span></p>
-            <div class="mt-2 h-1.5 w-24 overflow-hidden rounded-full bg-white/10">
-              <div class="h-full rounded-full bg-emerald-500 transition-all" style="width:${approvePct}%"></div>
-            </div>
+      <div class="cedar-pr-header-metrics">
+        <div class="cedar-pr-stats" role="group" aria-label="Review progress">
+          <p class="cedar-pr-stat-label">Confidence</p>
+          <div class="cedar-pr-stat-divider" aria-hidden="true"></div>
+          <p class="cedar-pr-stat-label">Slices signed off</p>
+          <p class="cedar-pr-stat-value tabular-nums ${confidence.color}">
+            <span class="cedar-pr-stat-num">${confidence.score}</span><span class="cedar-pr-stat-denom">/5</span>
+          </p>
+          <p class="cedar-pr-stat-value tabular-nums text-zinc-100">
+            <span class="cedar-pr-stat-num">${approvedCount}</span><span class="cedar-pr-stat-denom">/${touched.length}</span>
+          </p>
+          <p class="cedar-pr-stat-caption">${confidence.label}</p>
+          <div class="cedar-pr-stat-progress" role="progressbar" aria-valuenow="${approvePct}" aria-valuemin="0" aria-valuemax="100" aria-label="Slices approved">
+            <div class="cedar-pr-stat-progress-fill" style="width:${approvePct}%"></div>
           </div>
         </div>
-        <button type="button" id="approve-pr-btn" ${canApprovePr ? "" : "disabled"} class="cedar-btn-primary">
-          Approve on GitHub
+        <button type="button" id="approve-pr-btn" ${canApprovePr ? "" : "disabled"} class="cedar-btn-signoff cedar-btn-approve-pr${canApprovePr ? " is-ready" : ""}"
+          title="${canApprovePr ? "Approve the full pull request on GitHub" : "Sign off every slice first; resolve blockers if any slice failed"}">
+          Approve full PR
         </button>
       </div>
-    </div>
+    </header>
 
-    <div class="grid gap-8 lg:grid-cols-[minmax(0,15rem)_minmax(0,1fr)]">
-      <aside class="space-y-4 lg:sticky lg:top-20 lg:self-start">
-        <div class="cedar-glass p-4">
-          <p class="cedar-label">Pipeline</p>
-          <ul class="mt-4 space-y-3">${processList}</ul>
+    <div class="cedar-review-layout">
+      <aside class="cedar-review-sidebar space-y-2 lg:sticky lg:top-20 lg:self-start">
+        <div class="cedar-review-rail-card">
+          <p class="cedar-rail-label">Pipeline</p>
+          <ul class="mt-2 space-y-2">${processList}</ul>
         </div>
-        <div class="cedar-glass p-4">
-          <p class="cedar-label">Micro slices</p>
-          <div class="mt-3 space-y-0.5">${sidebarSlices}</div>
+        <div class="cedar-review-rail-card cedar-review-rail-slices lg:hidden">
+          <p class="cedar-rail-label">Slices</p>
+          <div class="mt-2 flex flex-col gap-0.5">${sidebarSlices}</div>
         </div>
         <p class="rounded-lg border px-3 py-2 text-xs ${gate.ready ? "border-emerald-500/20 bg-emerald-500/5 text-emerald-300/90" : "border-amber-500/20 bg-amber-500/5 text-amber-200/90"}">
           ${gate.ready ? "Composite review is ready." : escapeHtml(gate.blockedReason ?? "Composite pending.")}
         </p>
         <button type="button" id="new-review-btn" class="cedar-btn-secondary w-full text-xs">New review</button>
       </aside>
+      <div
+        class="cedar-col-splitter cedar-review-splitter"
+        data-review-splitter
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize sidebar"
+        tabindex="0"
+        title="Drag to resize · double-click to reset"
+      ></div>
 
-      <div class="space-y-8">
-        ${
-          breakouts?.architectureSummary
-            ? `<section class="cedar-glass-subtle px-5 py-4">
+      <div class="cedar-review-main cedar-review-stage min-w-0">
+        <header class="cedar-review-tabs-head">
+          <div class="cedar-main-tablist" role="tablist" aria-label="Review views">
+            <button type="button" role="tab" class="cedar-main-tab${defaultMainTab === "architecture" ? " is-active" : ""}" data-review-tab="architecture"
+              aria-selected="${defaultMainTab === "architecture" ? "true" : "false"}">
+              <span>Architecture</span>
+            </button>
+            <button type="button" role="tab" class="cedar-main-tab${defaultMainTab === "slices" ? " is-active" : ""}" data-review-tab="slices"
+              aria-selected="${defaultMainTab === "slices" ? "true" : "false"}">
+              <span>Slices</span>
+              <span class="cedar-main-tab-count">${touched.length}</span>
+            </button>
+          </div>
+        </header>
+
+        <div class="cedar-main-tabpanels">
+          <div role="tabpanel" class="cedar-main-tabpanel space-y-6" data-review-panel="architecture" id="cedar-review-panel-architecture"${
+            defaultMainTab === "slices" ? " hidden" : ""
+          }>
+            ${
+              breakouts?.architectureSummary
+                ? `<section class="cedar-glass-subtle px-5 py-4">
             <p class="cedar-label">Summary · ${escapeHtml(String(breakouts.strategy ?? partition?.mode ?? ""))}</p>
             <p class="mt-2 text-sm leading-relaxed text-zinc-400">${escapeHtml(breakouts.architectureSummary)}</p>
           </section>`
-            : ""
-        }
-        ${
-          showArchitectureRead
-            ? `<section class="cedar-glass p-6" id="architecture-read">
+                : ""
+            }
+            ${
+              showArchitectureRead
+                ? `<section class="cedar-glass p-6" id="architecture-read">
             <h2 class="text-sm font-semibold text-white">Architecture read</h2>
             ${
               architectureReadSummary
@@ -525,28 +953,69 @@ function renderResults(container, data) {
                 : ""
             }
           </section>`
-            : ""
-        }
-        <section class="space-y-6">
-          <div class="flex flex-wrap items-end justify-between gap-2">
-            <h2 class="text-sm font-semibold text-white">Review by slice</h2>
-            <span class="cedar-badge cedar-badge-muted">${touched.length} virtual micro-PRs</span>
+                : !breakouts?.architectureSummary
+                  ? `<p class="text-sm text-zinc-500">Architecture narrative and diagrams appear once partitioning finishes.</p>`
+                  : ""
+            }
           </div>
-          <div class="space-y-6">${slicePanels}</div>
-        </section>
-        <p id="approve-status" class="hidden text-sm font-medium text-emerald-400"></p>
+
+          <div role="tabpanel" class="cedar-main-tabpanel cedar-slices-tabpanel" data-review-panel="slices" id="cedar-review-panel-slices"${
+            defaultMainTab === "architecture" ? " hidden" : ""
+          }>
+            <div class="cedar-diff-focus-bar">
+              <button type="button" class="cedar-diff-focus-btn" data-toggle-pipeline-rail aria-pressed="false">
+                <span data-toggle-label>Hide pipeline</span>
+              </button>
+              <button type="button" class="cedar-diff-focus-btn" data-toggle-slice-rail aria-pressed="false">
+                <span data-toggle-label>Hide slices</span>
+              </button>
+            </div>
+            <div class="cedar-slices-shell">
+              <div class="cedar-slice-panels cedar-slice-review-pane min-w-0 flex-1">${slicePanels}</div>
+              <div
+                class="cedar-col-splitter cedar-slice-splitter"
+                data-slice-splitter
+                role="separator"
+                aria-orientation="vertical"
+                aria-label="Resize review pane"
+                tabindex="0"
+                title="Drag left for more diff space · double-click reset"
+              ></div>
+              <nav class="cedar-slice-rail-wrap cedar-slice-rail-right" aria-label="Micro slices">
+                <p class="cedar-rail-label mb-2 px-0.5">Slices</p>
+                <p class="cedar-rail-hint mb-2 hidden lg:block">drag grip left · [ ] keys</p>
+                <div class="cedar-slice-rail cedar-slice-tablist" role="tablist">${sliceTabBar}</div>
+              </nav>
+            </div>
+          </div>
+        </div>
+
+        <p id="approve-status" class="mt-6 hidden text-sm font-medium text-emerald-400"></p>
       </div>
     </div>
   `;
 
   container.querySelectorAll("[data-scroll-slice]").forEach((btn) => {
     btn.addEventListener("click", () => {
-      document.getElementById(`slice-${btn.getAttribute("data-scroll-slice")}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      const id = btn.getAttribute("data-scroll-slice");
+      if (id) activateSliceTab(container, id);
     });
   });
 
+  wireReviewTabs(container, defaultMainTab);
+  wireSliceTabs(container, firstSliceId);
+  wireSliceKeyboardNav(container);
+  wireReviewLayoutResize(container);
+  wireSliceRailResize(container);
+  wireDiffFocusToggles(container);
+  const layout = container.querySelector(".cedar-review-layout");
+  if (layout instanceof HTMLElement && defaultMainTab === "slices") {
+    layout.classList.add("cedar-review-slices-focus");
+  }
+
   document.getElementById("new-review-btn")?.addEventListener("click", () => {
     document.getElementById("hero")?.classList.remove("hidden");
+    document.getElementById("main-stage")?.classList.remove("cedar-review-wide");
     container.classList.add("hidden");
     container.innerHTML = "";
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -631,7 +1100,9 @@ async function approveSlice(btn) {
     if (!res.ok) throw new Error(githubApiErrorMessage(body, res.statusText));
     session.sliceApprovals.add(btn.dataset.approveSlice);
     showToast(
-      body.hint ? `Slice noted on GitHub · ${body.hint}` : `Slice approved · ${btn.dataset.componentName}`
+      body.hint
+        ? `Slice signed off on GitHub · ${body.hint}`
+        : `Slice signed off · ${btn.dataset.componentName}`
     );
     const results = document.getElementById("results");
     renderResults(results, session.data);
@@ -687,7 +1158,7 @@ async function approveFullPr() {
   } catch (err) {
     if (btn) {
       btn.disabled = false;
-      btn.textContent = "Approve on GitHub";
+      btn.textContent = "Approve full PR";
     }
     showToast(err instanceof Error ? err.message : String(err), "error");
   }

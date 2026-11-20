@@ -82,6 +82,33 @@ export async function fetchPullRequestFiles(octokit, pr) {
  * @param {{ owner: string, repo: string, pull_number: number }} pr
  * @param {string} login
  */
+/**
+ * @param {Octokit} octokit
+ * @param {{
+ *   owner: string,
+ *   repo: string,
+ *   pull_number: number,
+ *   commit_id: string,
+ *   path: string,
+ *   line: number,
+ *   side?: "LEFT" | "RIGHT",
+ *   body: string,
+ * }} opts
+ */
+export async function createPullRequestReviewComment(octokit, opts) {
+  const { data } = await octokit.pulls.createReviewComment({
+    owner: opts.owner,
+    repo: opts.repo,
+    pull_number: opts.pull_number,
+    body: opts.body,
+    commit_id: opts.commit_id,
+    path: opts.path,
+    line: opts.line,
+    side: opts.side ?? "RIGHT",
+  });
+  return data;
+}
+
 async function listPullReviews(octokit, pr, login) {
   const { data } = await octokit.pulls.listReviews({
     owner: pr.owner,
