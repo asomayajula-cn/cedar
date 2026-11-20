@@ -7,7 +7,7 @@ import { ARCHITECTURE_LAYER_STACK, ARCHITECTURE_MODEL_LABEL } from "../../src/ar
 import { renderSliceFileReviews, wireFileReviewToggles } from "./diff-view.js";
 import { setCommentToast } from "./diff-comments.js";
 import { initDiffFontFromServer } from "./diff-font.js";
-import { mountCompleteLayoutViews, activateDiagramUx } from "./diagram-ux.js";
+import { mountCompleteLayoutViews, activateDiagramUx, wireDiagramResizeListeners } from "./diagram-ux.js";
 import { applyReviewStreamEvent, postReviewStream } from "./review-stream.js";
 
 const statusDot = {
@@ -1121,6 +1121,7 @@ function renderResults(container, data) {
 
   if (hasLayoutViews && layoutViews) {
     wireCompleteLayoutViews(container, layoutViews);
+    wireDiagramResizeListeners(container);
   }
 
   if (archSliceCount > 0) {

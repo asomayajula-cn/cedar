@@ -314,18 +314,24 @@
     min-height: min(38rem, 62vh);
     height: min(44rem, 66vh);
     max-height: min(80vh, 820px);
+    @apply w-full overflow-x-hidden overflow-y-auto;
+  }
+
+  .cedar-layout-view-uml.cedar-mermaid-scroll,
+  .cedar-layout-view-uml .cedar-mermaid-scroll {
+    @apply w-full max-w-none text-left;
   }
 
   .cedar-layout-view-uml .mermaid-rendered {
-    @apply block h-full w-full;
+    @apply block w-full max-w-none;
   }
 
-  .cedar-layout-view-uml .mermaid-rendered svg,
-  .cedar-layout-view-uml .svg-pan-zoom_viewport {
+  .cedar-layout-view-uml .mermaid-rendered svg {
     display: block;
     width: 100% !important;
-    height: 100% !important;
-    max-width: 100%;
+    max-width: none !important;
+    height: auto !important;
+    margin: 0 !important;
   }
 
   #architecture-read-mermaid .diagram-complete-layout {
@@ -339,7 +345,7 @@
     max-height: min(88vh, 960px);
   }
 
-  #architecture-read-mermaid .cedar-mermaid-scroll .mermaid svg {
+  #architecture-read-mermaid .cedar-layout-view:not(.cedar-layout-view-uml) .cedar-mermaid-scroll .mermaid svg {
     min-height: 24rem;
     max-height: none;
   }

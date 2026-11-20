@@ -5,6 +5,8 @@ let mermaidApi = null;
 let mermaidBooted = false;
 
 const panZoomByWrap = new WeakMap();
+/** @type {WeakMap<HTMLElement, () => void>} */
+const umlFitByWrap = new WeakMap();
 
 async function ensureMermaid() {
   if (mermaidBooted && mermaidApi) return mermaidApi;
@@ -77,11 +79,18 @@ export async function renderArchitectureMermaid(source, pre) {
     pre.classList.add("mermaid-rendered");
     bindFunctions?.(pre);
     const svgEl = pre.querySelector("svg");
+    const isClassDiagram = graph.trimStart().startsWith("classDiagram");
     if (svgEl instanceof SVGSVGElement) {
       svgEl.style.display = "block";
-      svgEl.style.marginInline = "auto";
-      svgEl.style.maxWidth = "100%";
       svgEl.style.height = "auto";
+      if (isClassDiagram) {
+        svgEl.style.margin = "0";
+        svgEl.style.maxWidth = "none";
+        svgEl.setAttribute("preserveAspectRatio", "xMidYMid meet");
+      } else {
+        svgEl.style.marginInline = "auto";
+        svgEl.style.maxWidth = "100%";
+      }
     }
     return Boolean(svgEl);
   } catch (err) {
@@ -155,8 +164,12 @@ export async function mountCompleteLayoutViews(root, views) {
     const wrap = pre.closest("[data-diagram-wrap]");
     const svg = pre.querySelector("svg");
     if (ok && wrap instanceof HTMLElement && svg instanceof SVGSVGElement) {
-      queuePanFit(wrap, svg, { fillViewport: true, fillWidth: true });
-      wireDiagramStageResize(wrap, svg, { fillWidth: true });
+      if (key === "components") {
+        mountUmlDiagramFullWidth(wrap, pre);
+      } else {
+        queuePanFit(wrap, svg, { fillViewport: true, fillWidth: true });
+        wireDiagramStageResize(wrap, svg, { fillWidth: true });
+      }
       activateDiagramUx(wrap);
       drawn += 1;
     }
@@ -287,6 +300,103 @@ function fitDiagramInStage(wrap, svg, pz, opts = {}) {
   }
 }
 
+/**
+ * Refit pan/zoom for every Complete layout panel after layout changes.
+ * @param {ParentNode} root
+ */
+export function refitPanZoomDiagrams(root) {
+  root.querySelectorAll("[data-diagram-wrap]").forEach((wrap) => {
+    if (!(wrap instanceof HTMLElement)) return;
+    const umlFit = umlFitByWrap.get(wrap);
+    if (umlFit) {
+      umlFit();
+      return;
+    }
+    const pz = panZoomByWrap.get(wrap);
+    const svg = wrap.querySelector("svg");
+    if (pz && svg instanceof SVGSVGElement) {
+      fitDiagramInStage(wrap, svg, pz, { fill: true, fillWidth: true });
+    }
+  });
+}
+
+/**
+ * UML class diagrams: scale SVG to the full stage width (no pan/zoom shrinking the graph).
+ * @param {HTMLElement} wrap
+ * @param {HTMLElement} pre
+ */
+function mountUmlDiagramFullWidth(wrap, pre) {
+  const stage = wrap.querySelector(".diagram-complete-layout");
+  const svg = pre.querySelector("svg");
+  if (!(stage instanceof HTMLElement) || !(svg instanceof SVGSVGElement)) return;
+
+  const prevPz = panZoomByWrap.get(wrap);
+  if (prevPz) {
+    try {
+      prevPz.destroy();
+    } catch {
+      /* */
+    }
+    panZoomByWrap.delete(wrap);
+  }
+
+  const fit = () => {
+    const pad = 12;
+    const stageW = Math.max(stage.clientWidth - pad * 2, 280);
+    if (stageW < 50) return;
+
+    const vb = svg.viewBox?.baseVal;
+    const naturalW = vb?.width > 0 ? vb.width : svg.width?.baseVal?.value || 0;
+    const naturalH = vb?.height > 0 ? vb.height : svg.height?.baseVal?.value || 0;
+    if (naturalW > 0 && naturalH > 0) {
+      const scale = stageW / naturalW;
+      svg.setAttribute("width", String(Math.round(stageW)));
+      svg.setAttribute("height", String(Math.round(naturalH * scale)));
+    } else {
+      svg.setAttribute("width", "100%");
+      svg.removeAttribute("height");
+    }
+    svg.style.width = "100%";
+    svg.style.maxWidth = "none";
+    svg.style.display = "block";
+    svg.style.margin = "0";
+  };
+
+  umlFitByWrap.set(wrap, fit);
+  fit();
+
+  if (!resizeObserverByWrap.has(wrap)) {
+    const ro = new ResizeObserver(() => fit());
+    ro.observe(stage);
+    resizeObserverByWrap.set(wrap, ro);
+  }
+}
+
+/**
+ * Refit Mermaid diagrams when the review stage or window resizes (sidebar / slice rail drags).
+ * @param {ParentNode} root
+ */
+export function wireDiagramResizeListeners(root) {
+  if (!(root instanceof HTMLElement) || root.dataset.wiredDiagramResize) return;
+  root.dataset.wiredDiagramResize = "1";
+
+  let timer = 0;
+  const refit = () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => refitPanZoomDiagrams(root), 80);
+  };
+
+  window.addEventListener("resize", refit, { passive: true });
+
+  const layout = root.querySelector(".cedar-review-layout");
+  if (layout instanceof HTMLElement && typeof ResizeObserver !== "undefined") {
+    const ro = new ResizeObserver(refit);
+    ro.observe(layout);
+    const main = root.querySelector(".cedar-review-main");
+    if (main instanceof HTMLElement) ro.observe(main);
+  }
+}
+
 function wireDiagramToolbars(root) {
   root.querySelectorAll("[data-diagram-wrap]").forEach((wrap) => {
     const bar = wrap.querySelector("[data-diagram-toolbar]");
@@ -295,12 +405,22 @@ function wireDiagramToolbars(root) {
 
     bar.querySelectorAll("[data-diagram-action]").forEach((btn) => {
       btn.addEventListener("click", () => {
+        const umlFit = umlFitByWrap.get(wrap);
         const pz = panZoomByWrap.get(wrap);
-        if (!pz) return;
         const action = btn.getAttribute("data-diagram-action");
+        if (umlFit) {
+          if (action === "reset") umlFit();
+          return;
+        }
+        if (!pz) return;
         if (action === "in") pz.zoomIn();
         else if (action === "out") pz.zoomOut();
         else if (action === "reset") {
+          const umlFit = umlFitByWrap.get(wrap);
+          if (umlFit) {
+            umlFit();
+            return;
+          }
           pz.resetZoom();
           const sv = wrap.querySelector("svg");
           if (sv instanceof SVGSVGElement) {
