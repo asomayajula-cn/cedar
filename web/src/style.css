@@ -553,6 +553,23 @@
     @apply border-b-zinc-100 text-zinc-100;
   }
 
+  .cedar-main-tab-icon {
+    @apply h-[18px] w-[18px] shrink-0 text-zinc-500 transition duration-150;
+  }
+
+  .cedar-main-tab:hover .cedar-main-tab-icon,
+  .cedar-main-tab.is-active .cedar-main-tab-icon {
+    @apply text-zinc-300;
+  }
+
+  .cedar-rail-label-with-icon {
+    @apply inline-flex items-center gap-1.5;
+  }
+
+  .cedar-rail-icon {
+    @apply h-3.5 w-3.5 shrink-0 text-zinc-500;
+  }
+
   .cedar-main-tab-count {
     @apply rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-zinc-500;
   }

@@ -1,4 +1,5 @@
 import { cedarMarkSvg } from "./cedar-logo.js";
+import { architectureIconSvg, slicesIconSvg } from "./cedar-icons.js";
 import { mountArchitectureGraphs } from "./architecture-canvas.js";
 import { buildDiagramGraph } from "../../src/diagram-graph.js";
 import { buildArchitectureDiagramMermaid } from "../../src/architecture-diagram.js";
@@ -56,7 +57,7 @@ export function mountApp(root) {
             <span class="text-sm font-semibold tracking-tight text-white">cedar</span>
           </a>
           <nav class="hidden items-center gap-1 text-xs font-medium text-zinc-500 sm:flex">
-            <span class="rounded-lg px-3 py-1.5 text-zinc-300">Micro slices</span>
+            <span class="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-zinc-300">${slicesIconSvg("h-3.5 w-3.5 opacity-80")}<span>Micro slices</span></span>
             <span class="text-zinc-700">·</span>
             <span class="px-3 py-1.5">Architecture</span>
             <span class="text-zinc-700">·</span>
@@ -934,7 +935,7 @@ function renderResults(container, data) {
           <ul class="mt-2 space-y-2">${processList}</ul>
         </div>
         <div class="cedar-review-rail-card cedar-review-rail-slices lg:hidden">
-          <p class="cedar-rail-label">Slices</p>
+          <p class="cedar-rail-label cedar-rail-label-with-icon">${slicesIconSvg("cedar-rail-icon")}<span>Slices</span></p>
           <div class="mt-2 flex flex-col gap-0.5">${sidebarSlices}</div>
         </div>
         <p class="rounded-lg border px-3 py-2 text-xs ${gate.ready ? "border-emerald-500/20 bg-emerald-500/5 text-emerald-300/90" : "border-amber-500/20 bg-amber-500/5 text-amber-200/90"}">
@@ -957,10 +958,12 @@ function renderResults(container, data) {
           <div class="cedar-main-tablist" role="tablist" aria-label="Review views">
             <button type="button" role="tab" class="cedar-main-tab${defaultMainTab === "architecture" ? " is-active" : ""}" data-review-tab="architecture"
               aria-selected="${defaultMainTab === "architecture" ? "true" : "false"}">
+              ${architectureIconSvg("cedar-main-tab-icon")}
               <span>Architecture</span>
             </button>
             <button type="button" role="tab" class="cedar-main-tab${defaultMainTab === "slices" ? " is-active" : ""}" data-review-tab="slices"
               aria-selected="${defaultMainTab === "slices" ? "true" : "false"}">
+              ${slicesIconSvg("cedar-main-tab-icon")}
               <span>Slices</span>
               <span class="cedar-main-tab-count">${touched.length}</span>
             </button>
@@ -1088,7 +1091,7 @@ function renderResults(container, data) {
                 title="Drag left for more diff space · double-click reset"
               ></div>
               <nav class="cedar-slice-rail-wrap cedar-slice-rail-right" aria-label="Micro slices">
-                <p class="cedar-rail-label mb-2 px-0.5">Slices</p>
+                <p class="cedar-rail-label cedar-rail-label-with-icon mb-2 px-0.5">${slicesIconSvg("cedar-rail-icon")}<span>Slices</span></p>
                 <p class="cedar-rail-hint mb-2 hidden lg:block">drag grip left · [ ] keys</p>
                 <div class="cedar-slice-rail cedar-slice-tablist" role="tablist">${sliceTabBar}</div>
               </nav>
