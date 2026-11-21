@@ -62,6 +62,7 @@ Output JSON only: { "comments": [ {
 } ] }
 
 Rules:
+- Output MUST start with { on the first line — never lead with progress or narrative text.
 - ONLY comment on + lines present in files[]; every item needs exact filename + line.
 - Prefer **many specific** comments over few vague ones (up to ${maxSliceComments()}). Skip style-only nits unless they hide bugs.
 - Cover when relevant: correctness, edge cases, concurrency/async, error handling, API/typing contracts, security (injection/authz/secrets), perf hot paths, backward compatibility, missing tests for new behavior.
@@ -82,16 +83,34 @@ Rules:
     patch_bytes: Math.min(PATCH_LIMIT, micro.files.reduce((n, f) => n + (f.patch?.length ?? 0), 0)),
   });
 
-  const raw = await composerReviewChat({
-    messages: [
-      { role: "system", content: system },
-      { role: "user", content: user },
-    ],
-    json: true,
-    model,
-  });
-
-  const parsed = parseJsonFromModel(raw);
+  let lastError;
+  /** @type {ReturnType<typeof parseJsonFromModel> | null} */
+  let parsed = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const raw = await composerReviewChat({
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+        json: true,
+        model,
+      });
+      parsed = parseJsonFromModel(raw);
+      break;
+    } catch (err) {
+      lastError = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      const retryable =
+        attempt === 0 && (/Unexpected token/i.test(msg) || /progress text instead of json/i.test(msg) || /prose instead of json/i.test(msg));
+      if (retryable) {
+        await new Promise((r) => setTimeout(r, 500));
+        continue;
+      }
+      throw err;
+    }
+  }
+  if (!parsed) throw lastError ?? new Error("Composer slice review failed");
   const items = Array.isArray(parsed.comments) ? parsed.comments : parsed.findings;
   if (!Array.isArray(items)) return [];
 

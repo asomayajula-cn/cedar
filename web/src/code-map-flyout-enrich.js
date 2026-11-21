@@ -135,19 +135,14 @@ export function enrichFlyoutArtifact(artifact) {
   if (!structure.length) return artifact;
 
   const serverBehavior = artifact.behaviorElements ?? [];
-  const behaviorLooksDistinct =
-    serverBehavior.length > 1 &&
-    (serverBehavior.some((el) => el.data?.kind === "call" || el.data?.kind === "step") ||
-      serverBehavior.length < structure.length);
-  const behaviorElements = behaviorLooksDistinct ? serverBehavior : deriveBehaviorElements(structure);
+  const behaviorElements =
+    serverBehavior.length > 0 ? serverBehavior : deriveBehaviorElements(structure);
 
   const serverFn = artifact.functionalityElements ?? [];
-  const fnLooksDistinct =
-    serverFn.length > 1 &&
-    serverFn.some((el) => String(el.data?.id ?? "").startsWith("fn_") || String(el.data?.label ?? "").includes(" — "));
-  const functionalityElements = fnLooksDistinct
-    ? serverFn
-    : deriveFunctionalityElements({ ...artifact, behaviorElements });
+  const functionalityElements =
+    serverFn.length > 0
+      ? serverFn
+      : deriveFunctionalityElements({ ...artifact, behaviorElements });
 
   return {
     ...artifact,

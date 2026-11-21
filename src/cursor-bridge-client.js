@@ -1,5 +1,6 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { coalesceJsonModelText } from "./parse-model-json.js";
 import { resolveCursorModel } from "./default-model.js";
 import { ensureCursorBridge, bridgeBaseUrl } from "./cursor-bridge-spawn.js";
 import { emitBridgeSse } from "./review-progress.js";
@@ -134,19 +135,11 @@ async function collectSseText(res) {
 }
 
 /**
- * Prefer the payload that actually contains JSON (Composer often streams prose first).
  * @param {string} streamText
  * @param {string} summaryText
  */
 function pickBestModelText(streamText, summaryText) {
-  const streamHasJson = streamText.includes("{");
-  const summaryHasJson = summaryText.includes("{");
-  if (summaryHasJson && !streamHasJson) return summaryText;
-  if (streamHasJson && !summaryHasJson) return streamText;
-  if (summaryHasJson && streamHasJson) {
-    return summaryText.length > streamText.length ? summaryText : streamText;
-  }
-  return summaryText || streamText;
+  return coalesceJsonModelText(streamText, summaryText);
 }
 
 /**
@@ -186,13 +179,13 @@ export async function cursorBridgeChat(opts) {
     opts.reviewAgent && mode === "agent" && wantsJson
       ? `[Technical code review (Composer agent). You MAY use read/search tools to inspect callers, types, tests, and related modules in this repo.
 Do NOT create, edit, or delete files. Do NOT run destructive or mutating commands.
-Your ONLY output is raw JSON per SYSTEM INSTRUCTIONS — first character must be {. No markdown fences.]\n\n`
+Your ONLY output is raw JSON per SYSTEM INSTRUCTIONS — first character must be {. No markdown fences, no status/progress lines (e.g. "Reviewing", "Reading").]\n\n`
       : "";
   const jsonOnly =
     reviewAgentLead ||
     (!isQa && mode !== "agent"
       ? wantsJson
-        ? `[Plan mode — output raw JSON only: first character must be {. No prose, no fences. Do not edit files or run commands.]\n\n`
+        ? `[Plan mode — output raw JSON only: first character must be {. No prose, fences, or status lines. Do not edit files or run commands.]\n\n`
         : `[Plan mode — do not edit, create, or delete files, and do not run shell commands.]\n\n`
       : isQa
         ? "[Ask mode — answer questions only. Do not edit files or run commands.]\n\n"

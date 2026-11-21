@@ -186,7 +186,8 @@ const CODE_MAP_VIEW_ORDER = /** @type {const} */ (["structure", "behavior", "fun
 function syncCodeMapViewTabButtons(activeKey) {
   for (const btn of document.querySelectorAll("[data-code-map-view-tab]")) {
     if (!(btn instanceof HTMLElement)) continue;
-    const on = btn.dataset.codeMapViewTab === activeKey;
+    const tabKey = btn.getAttribute("data-code-map-view-tab") ?? "";
+    const on = tabKey === activeKey;
     btn.setAttribute("aria-selected", on ? "true" : "false");
     btn.setAttribute("tabindex", on ? "0" : "-1");
     btn.classList.toggle("is-active", on);
@@ -313,7 +314,7 @@ export function switchCodeMapFlyoutView(view) {
   if (!(stage instanceof HTMLElement)) return;
   const allowed = new Set(["structure", "behavior", "functionality"]);
   const key = allowed.has(view) ? view : "structure";
-  if (stage.dataset.cedarActiveCodeMapView === key) return;
+  const sameTab = stage.dataset.cedarActiveCodeMapView === key;
   stage.dataset.cedarActiveCodeMapView = key;
   for (const panel of stage.querySelectorAll(".cedar-code-map-view-stage")) {
     if (!(panel instanceof HTMLElement)) continue;
@@ -331,13 +332,37 @@ export function switchCodeMapFlyoutView(view) {
     syncActiveCodeMapEngine(stage);
     if (panel2 instanceof HTMLElement && host2 instanceof HTMLElement) {
       layoutViewPanelHost(panel2, host2);
-      fitCodeMapCy(stage, host2);
+      const rect = host2.getBoundingClientRect();
+      if (rect.width >= 8 && rect.height >= 8) {
+        fitCodeMapCy(stage, host2);
+      } else {
+        requestAnimationFrame(() => {
+          layoutViewPanelHost(panel2, host2);
+          fitCodeMapCy(stage, host2);
+        });
+      }
     }
     delete stage.dataset.cedarMapTabSwitching;
   };
 
+  if (sameTab) {
+    finishSwitch();
+    return;
+  }
+
   const jobs = triptychViewJobs.get(stage);
-  const needsMount = jobs?.get(key) && !jobs.get(key)?.mounted;
+  const job = jobs?.get(key);
+  const needsRemount =
+    job?.mounted &&
+    job.host instanceof HTMLElement &&
+    job.host.getBoundingClientRect().width < 8;
+  if (needsRemount && job) {
+    job.mounted = false;
+    unmountCodeMapCy(job.host);
+    cyByHost.delete(job.host);
+  }
+
+  const needsMount = job && !job.mounted;
   if (needsMount) {
     stage.dataset.cedarMapTabSwitching = "1";
     requestAnimationFrame(() => {
@@ -359,6 +384,14 @@ function ensureCodeMapViewMounted(stage, viewKey) {
   const jobs = triptychViewJobs.get(stage);
   const job = jobs?.get(viewKey);
   if (!job) return;
+
+  const panelHidden =
+    job.panel.hidden ||
+    job.panel.getAttribute("hidden") !== null ||
+    getComputedStyle(job.panel).display === "none";
+  if (panelHidden && viewKey !== getActiveCodeMapViewKey(stage)) {
+    return;
+  }
 
   const registerJobCy = (api) => {
     if (!api) return;
@@ -985,18 +1018,6 @@ export async function mountFileCodeMap(stage, artifact, filePath = "") {
     stage.addEventListener("cedar-file-flow-resize", reflow);
     requestAnimationFrame(() => requestAnimationFrame(reflow));
 
-    const prefetch = () => {
-      for (const viewKey of CODE_MAP_VIEW_ORDER) {
-        if (viewKey === allowedActive) continue;
-        ensureCodeMapViewMounted(stage, viewKey);
-      }
-    };
-    if (typeof requestIdleCallback === "function") {
-      requestIdleCallback(() => prefetch(), { timeout: 2500 });
-    } else {
-      window.setTimeout(prefetch, 400);
-    }
-
     return true;
   }
 
@@ -1047,7 +1068,7 @@ export function refitActiveCodeMap() {
   const run = () => {
     reflow?.();
     if (!reflow && activeCyApi) {
-      const host = stage.querySelector(".cedar-code-map-cy");
+      const host = activeCodeMapCyHost(stage);
       if (host instanceof HTMLElement) fitCodeMapCy(stage, host);
     }
     if (forceFit) stage.dataset.cedarMapNeedsFlyoutFit = "0";
@@ -1066,7 +1087,7 @@ export function refitActiveCodeMap() {
 export function resizeActiveCodeMapViewport() {
   const stage = document.getElementById("cedar-file-flow-stage");
   if (!(stage instanceof HTMLElement) || !stage.classList.contains("is-code-map-active")) return;
-  const cyHost = stage.querySelector(".cedar-code-map-cy");
+  const cyHost = activeCodeMapCyHost(stage);
   if (cyHost instanceof HTMLElement) {
     layoutCodeMapViewport(stage, cyHost);
     const api = cyByHost.get(cyHost) ?? activeCyApi;
@@ -1085,7 +1106,7 @@ export function resizeActiveCodeMapViewport() {
 export function layoutCodeMapForVisibleFlyout() {
   const stage = document.getElementById("cedar-file-flow-stage");
   if (!(stage instanceof HTMLElement) || !stage.classList.contains("is-code-map-active")) return;
-  const cyHost = stage.querySelector(".cedar-code-map-cy");
+  const cyHost = activeCodeMapCyHost(stage);
   const svgHost = stage.querySelector(".cedar-code-map-svg-host");
   const host =
     cyHost instanceof HTMLElement ? cyHost : svgHost instanceof HTMLElement ? svgHost : null;
@@ -1109,8 +1130,7 @@ export async function stabilizeCodeMapForFlyout(opts = {}) {
   if (!artifact) return;
 
   const host =
-    stage.querySelector(".cedar-code-map-view-stage .cedar-code-map-cy") ??
-    stage.querySelector(".cedar-code-map-cy, .cedar-code-map-svg-host");
+    activeCodeMapCyHost(stage) ?? stage.querySelector(".cedar-code-map-svg-host");
   const box = host instanceof HTMLElement ? host.getBoundingClientRect() : null;
   const needsMount =
     !stage.classList.contains("is-code-map-active") ||

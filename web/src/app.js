@@ -797,26 +797,21 @@ function patchPrHeaderMetrics(data) {
   const allSlicesApproved = touched.length > 0 && approvedCount === touched.length;
   const canApprovePr = gate.ready && allSlicesApproved;
   const approvePct = touched.length ? Math.round((approvedCount / touched.length) * 100) : 0;
-  const confidence = mergeConfidence(gate, microResults);
+  const approvalCopy = sliceApprovalHeaderCopy(approvedCount, touched.length, canApprovePr, gate.ready);
 
-  const statValues = document.querySelectorAll(".cedar-pr-header-metrics .cedar-pr-stat-value");
-  const confVal = statValues[0];
-  const approvedVal = statValues[1];
-  if (confVal) {
-    const num = confVal.querySelector(".cedar-pr-stat-num");
-    if (num) num.textContent = String(confidence.score);
-    confVal.className = `cedar-pr-stat-value tabular-nums ${confidence.color}`;
-    const caption = document.querySelector(".cedar-pr-stat-caption");
-    if (caption) caption.textContent = confidence.label;
+  const num = document.querySelector("[data-pr-approved-count]");
+  const denom = document.querySelector("[data-pr-approved-total]");
+  const caption = document.querySelector("[data-pr-approve-caption]");
+  const valueEl = document.querySelector(".cedar-pr-stat-value--approval");
+  if (num) num.textContent = String(approvedCount);
+  if (denom) denom.textContent = ` / ${touched.length}`;
+  if (caption) caption.textContent = approvalCopy.caption;
+  if (valueEl) {
+    valueEl.className = `cedar-pr-stat-value cedar-pr-stat-value--approval tabular-nums ${approvalCopy.tone}`;
   }
-  if (approvedVal) {
-    const num = approvedVal.querySelector(".cedar-pr-stat-num");
-    const denom = approvedVal.querySelector(".cedar-pr-stat-denom");
-    if (num) num.textContent = String(approvedCount);
-    if (denom) denom.textContent = `/${touched.length}`;
-  }
-  const progress = document.querySelector(".cedar-pr-stat-progress");
-  const fill = document.querySelector(".cedar-pr-stat-progress-fill");
+
+  const progress = document.querySelector(".cedar-pr-approval-progress");
+  const fill = document.querySelector("[data-pr-approve-fill]");
   if (progress) progress.setAttribute("aria-valuenow", String(approvePct));
   if (fill) fill.style.width = `${approvePct}%`;
 
@@ -865,15 +860,33 @@ function patchSliceApprovalState(componentId) {
   if (window.__cedarSession?.data) patchPrHeaderMetrics(window.__cedarSession.data);
 }
 
-function mergeConfidence(gate, microResults) {
-  const session = window.__cedarSession;
-  const blockers = countActiveFindings(microResults, "blocker", session);
-  const warnings = countActiveFindings(microResults, "warning", session);
-  if (blockers > 0) return { score: 1, label: "High risk", color: "text-rose-400" };
-  if (!gate.ready) return { score: 2, label: "In progress", color: "text-amber-300" };
-  if (warnings > 3) return { score: 3, label: "Review carefully", color: "text-amber-200" };
-  if (warnings > 0) return { score: 4, label: "Likely safe", color: "text-emerald-300" };
-  return { score: 5, label: "Safe to merge", color: "text-emerald-400" };
+/**
+ * @param {number} approvedCount
+ * @param {number} total
+ * @param {boolean} canApprovePr
+ * @param {boolean} gateReady
+ */
+function sliceApprovalHeaderCopy(approvedCount, total, canApprovePr, gateReady) {
+  if (total === 0) {
+    return { caption: "No slices in this review", tone: "text-zinc-400" };
+  }
+  if (canApprovePr && gateReady) {
+    return { caption: "Every slice approved — ready for GitHub", tone: "text-emerald-400" };
+  }
+  const remaining = total - approvedCount;
+  if (approvedCount === 0) {
+    return {
+      caption: `Mark each slice in the Slices tab (${total} total)`,
+      tone: "text-zinc-200",
+    };
+  }
+  if (remaining === 1) {
+    return { caption: "1 slice left — mark approved on its review page", tone: "text-amber-200" };
+  }
+  return {
+    caption: `${remaining} slices left — mark approved as you review`,
+    tone: "text-amber-200",
+  };
 }
 
 function cyToolbar(targetId, badge = "") {
@@ -1634,12 +1647,12 @@ function renderResults(container, data, opts = {}) {
   ensureFindingSession(window.__cedarSession);
   setFileFlowCatalog(buildFileFlowCatalogFromMicroPrs(microPrs));
 
-  const confidence = mergeConfidence(gate, microResults);
   const touched = microResults.filter((r) => r.status !== "skipped");
   const approvedCount = touched.filter((r) => sliceApprovals.has(r.componentId)).length;
   const allSlicesApproved = touched.length > 0 && approvedCount === touched.length;
   const canApprovePr = gate.ready && allSlicesApproved;
   const approvePct = touched.length ? Math.round((approvedCount / touched.length) * 100) : 0;
+  const approvalCopy = sliceApprovalHeaderCopy(approvedCount, touched.length, canApprovePr, gate.ready);
   const archSliceCount = microPrs.filter((m) => (m.files?.length ?? m.fileCount ?? 0) > 0).length;
   const diagramMicroPrs = microPrsForDiagram(microPrs).map((m) => ({
       componentId: m.componentId,
@@ -1865,20 +1878,17 @@ function renderResults(container, data, opts = {}) {
         <p class="cedar-pr-header-meta">#${pull.number} · ${gate.headSha.slice(0, 7)} · ${prFileCount} files · ${escapeHtml(breakouts?.strategy ?? partition?.mode ?? "review")}</p>
       </div>
       <div class="cedar-pr-header-metrics">
-        <div class="cedar-pr-stats" role="group" aria-label="Review progress">
-          <p class="cedar-pr-stat-label">Confidence</p>
-          <div class="cedar-pr-stat-divider" aria-hidden="true"></div>
-          <p class="cedar-pr-stat-label">Slices approved</p>
-          <p class="cedar-pr-stat-value tabular-nums ${confidence.color}">
-            <span class="cedar-pr-stat-num">${confidence.score}</span><span class="cedar-pr-stat-denom">/5</span>
-          </p>
-          <p class="cedar-pr-stat-value tabular-nums text-zinc-100">
-            <span class="cedar-pr-stat-num">${approvedCount}</span><span class="cedar-pr-stat-denom">/${touched.length}</span>
-          </p>
-          <p class="cedar-pr-stat-caption">${confidence.label}</p>
-          <div class="cedar-pr-stat-progress" role="progressbar" aria-valuenow="${approvePct}" aria-valuemin="0" aria-valuemax="100" aria-label="Slices approved">
-            <div class="cedar-pr-stat-progress-fill" style="width:${approvePct}%"></div>
+        <div class="cedar-pr-stats cedar-pr-stats--approval" role="group" aria-label="Slices approved">
+          <div class="cedar-pr-approval-head">
+            <p class="cedar-pr-stat-label cedar-pr-approval-label">Slices approved</p>
+            <p class="cedar-pr-stat-value cedar-pr-stat-value--approval tabular-nums ${approvalCopy.tone}">
+              <span class="cedar-pr-stat-num" data-pr-approved-count>${approvedCount}</span><span class="cedar-pr-stat-denom" data-pr-approved-total> / ${touched.length}</span>
+            </p>
           </div>
+          <div class="cedar-pr-stat-progress cedar-pr-approval-progress" role="progressbar" aria-valuenow="${approvePct}" aria-valuemin="0" aria-valuemax="100" aria-label="Slices approved">
+            <div class="cedar-pr-stat-progress-fill cedar-pr-approval-progress-fill" data-pr-approve-fill style="width:${approvePct}%"></div>
+          </div>
+          <p class="cedar-pr-stat-caption cedar-pr-approval-caption" data-pr-approve-caption>${escapeHtml(approvalCopy.caption)}</p>
         </div>
         <div class="cedar-pr-header-actions">
           ${renderPrRefreshReviewButtonHtml()}

@@ -507,7 +507,8 @@ html[data-theme="day"] .cedar-pr-stale-banner-shas {
 
 html[data-theme="day"] .cedar-pr-header-meta,
 html[data-theme="day"] .cedar-pr-stat-label,
-html[data-theme="day"] .cedar-pr-stat-caption {
+html[data-theme="day"] .cedar-pr-stat-caption,
+html[data-theme="day"] .cedar-pr-approval-caption {
   @apply text-zinc-600;
 }
 

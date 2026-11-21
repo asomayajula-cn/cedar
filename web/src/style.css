@@ -201,71 +201,78 @@
   }
 
   .cedar-pr-stats {
-    display: grid;
-    grid-template-columns: minmax(4.75rem, auto) 1px minmax(4.75rem, auto);
-    grid-template-rows: auto auto auto;
-    align-items: center;
-    column-gap: 0.875rem;
-    row-gap: 0.35rem;
     @apply rounded-xl border border-white/[0.07] bg-black/35 px-3.5 py-2.5 sm:px-4;
+  }
+
+  .cedar-pr-stats--approval {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-width: min(100%, 13.5rem);
+    max-width: 16rem;
+  }
+
+  .cedar-pr-approval-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .cedar-pr-approval-label {
+    @apply text-[9px];
   }
 
   .cedar-pr-stat-label {
     @apply m-0 text-[8px] font-semibold uppercase leading-none tracking-[0.12em] text-zinc-500;
   }
 
-  .cedar-pr-stats > .cedar-pr-stat-label:nth-child(1) {
-    grid-column: 1;
-    grid-row: 1;
-  }
-
-  .cedar-pr-stats > .cedar-pr-stat-label:nth-child(3) {
-    grid-column: 3;
-    grid-row: 1;
-  }
-
   .cedar-pr-stat-value {
-    @apply m-0 text-base font-semibold leading-none tracking-tight;
-    grid-row: 2;
+    @apply m-0 font-semibold leading-none tracking-tight;
   }
 
-  .cedar-pr-stats > .cedar-pr-stat-value:nth-child(4) {
-    grid-column: 1;
-  }
-
-  .cedar-pr-stats > .cedar-pr-stat-value:nth-child(5) {
-    grid-column: 3;
+  .cedar-pr-stat-value--approval {
+    @apply text-xl font-semibold text-zinc-100 sm:text-2xl;
   }
 
   .cedar-pr-stat-num {
-    @apply text-base font-semibold;
+    @apply font-semibold;
+  }
+
+  .cedar-pr-stat-value--approval .cedar-pr-stat-num {
+    @apply text-xl sm:text-2xl;
   }
 
   .cedar-pr-stat-denom {
-    @apply ml-0.5 text-[11px] font-medium text-zinc-600;
+    @apply ml-0.5 text-sm font-medium text-zinc-500;
   }
 
   .cedar-pr-stat-caption {
-    @apply m-0 min-h-[0.625rem] text-[8px] leading-snug text-zinc-500;
-    grid-column: 1;
-    grid-row: 3;
+    @apply m-0 text-[10px] leading-snug text-zinc-400;
   }
 
-  .cedar-pr-stat-divider {
-    grid-column: 2;
-    grid-row: 1 / -1;
-    @apply w-px justify-self-center bg-white/10;
+  .cedar-pr-approval-caption {
+    text-wrap: balance;
   }
 
   .cedar-pr-stat-progress {
-    @apply m-0 h-1 w-full min-w-[4.75rem] overflow-hidden rounded-full bg-white/10;
-    grid-column: 3;
-    grid-row: 3;
-    align-self: center;
+    @apply m-0 h-2 w-full overflow-hidden rounded-full bg-white/10;
+  }
+
+  .cedar-pr-approval-progress {
+    @apply h-2.5;
   }
 
   .cedar-pr-stat-progress-fill {
     @apply h-full rounded-full bg-emerald-500 transition-all duration-300;
+  }
+
+  .cedar-pr-approval-progress-fill {
+    @apply bg-gradient-to-r from-emerald-600 to-emerald-400;
+  }
+
+  .cedar-pr-stats--approval:has(.cedar-pr-stat-value--approval.text-amber-200) .cedar-pr-approval-progress-fill {
+    @apply from-amber-600 to-amber-400;
   }
 
   @media (max-width: 639px) {
@@ -1030,9 +1037,14 @@
     @apply text-base;
   }
 
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted > .cedar-pr-header {
+    flex: 0 0 auto;
+  }
+
   #main-stage.cedar-review-wide #results.cedar-review-results--mounted .cedar-review-layout--three-col {
-    flex: 1 1 auto;
+    flex: 1 1 0%;
     min-height: 0;
+    max-height: 100%;
     overflow: hidden;
   }
 
@@ -1051,9 +1063,21 @@
   #main-stage.cedar-review-wide #results.cedar-review-results--mounted .cedar-review-left-nav {
     display: flex;
     flex-direction: column;
+    align-self: stretch;
     min-height: 0;
+    max-height: 100%;
     overflow-x: hidden;
     overflow-y: hidden;
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted .cedar-review-left-nav > .cedar-review-rail-body {
+    flex: 1 1 0%;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-gutter: stable;
   }
 
   #main-stage.cedar-review-wide #results.cedar-review-results--mounted .cedar-review-tabs-head {
@@ -1558,8 +1582,12 @@
   }
 
   .cedar-review-layout--three-col .cedar-review-rail-section--slices {
-    flex: 1 1 8rem;
-    min-height: 6.5rem;
+    flex: 0 0 auto;
+    min-height: 0;
+    overflow: visible;
+    border: 0;
+    background: transparent;
+    padding: 0;
   }
 
   .cedar-review-rail-section--rollup {
@@ -1575,6 +1603,10 @@
   .cedar-review-rail-footer {
     @apply mt-auto flex shrink-0 flex-col gap-2 border-t pt-2;
     border-color: var(--cedar-review-border);
+  }
+
+  .cedar-review-layout--three-col .cedar-review-left-rail-footer {
+    margin-top: 0;
   }
 
   .cedar-left-rail-chat {
@@ -1703,6 +1735,7 @@
     order: 1;
     width: var(--cedar-slices-nav-rail-width);
     flex: 0 0 var(--cedar-slices-nav-rail-width);
+    align-self: stretch;
     min-width: 15rem;
     max-width: 22.5rem;
     max-height: calc(100vh - 5.5rem);
@@ -2350,7 +2383,9 @@
   }
 
   .cedar-review-layout--three-col .cedar-slices-nav-rail {
-    @apply flex min-h-0 w-full min-w-0 flex-1 flex-col;
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
     gap: var(--cedar-review-rail-gap);
   }
 
@@ -2358,30 +2393,19 @@
     @apply mt-0.5 w-full shrink-0;
   }
 
-  .cedar-review-layout--three-col .cedar-slices-nav-slices {
-    flex: 1 1 auto;
+  .cedar-review-layout--three-col .cedar-review-rail-section--slices.cedar-slices-nav-slices {
     display: flex;
     flex-direction: column;
-    min-height: 9rem;
+    flex: 0 0 auto;
+    min-height: 0;
     max-height: none;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .cedar-review-layout--three-col .cedar-slices-nav-slices .cedar-pipeline-slice-list {
-    flex: 1 1 auto;
-    min-height: 3.5rem;
+    flex: 0 0 auto;
     max-height: none;
-    overflow-x: hidden;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .cedar-review-layout--three-col .cedar-slices-nav-rail {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow: hidden;
-    overscroll-behavior: contain;
+    overflow: visible;
   }
 
   .cedar-review-layout--three-col .cedar-review-left-nav > .cedar-review-rail-toolbar {
@@ -2389,9 +2413,15 @@
   }
 
   .cedar-review-layout--three-col .cedar-review-left-nav > .cedar-review-rail-body {
-    flex: 1 1 auto;
+    flex: 1 1 0%;
     min-height: 0;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-gutter: stable;
+    display: flex;
+    flex-direction: column;
   }
 
   .cedar-review-layout--three-col .cedar-review-left-rail-footer {
@@ -3137,10 +3167,21 @@
     position: absolute;
     inset: 0;
     min-height: 14rem;
+    z-index: 1;
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .cedar-code-map-view-stage.is-active {
+    z-index: 3;
+    visibility: visible;
+    pointer-events: auto;
   }
 
   .cedar-code-map-view-stage[hidden] {
     display: none !important;
+    visibility: hidden;
+    pointer-events: none;
   }
 
   html[data-theme="day"] .cedar-code-map-view-tabs {
