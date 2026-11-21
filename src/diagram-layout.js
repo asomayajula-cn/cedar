@@ -1,4 +1,5 @@
 import { compareSliceArchitectureOrder } from "./architecture-model.js";
+import { microPrsForDiagram } from "./test-path.js";
 
 /**
  * Deterministic slice ordering for diagrams and review (dependency-first).
@@ -35,5 +36,5 @@ export function orderMicroPrsForLayout(microPrs) {
  * @param {MicroPr[]} microPrs
  */
 export function slicesForArchitectureDiagram(microPrs) {
-  return orderMicroPrsForLayout(microPrs).filter((m) => m.files.length > 0);
+  return orderMicroPrsForLayout(microPrsForDiagram(microPrs));
 }

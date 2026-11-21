@@ -1,5 +1,6 @@
 import { minimatch } from "minimatch";
 import { compareSliceArchitectureOrder } from "./architecture-model.js";
+import { sliceIdForSqlPath } from "./sql-slice.js";
 
 /**
  * @typedef {import('./load-config.js').ComponentDef} ComponentDef
@@ -12,6 +13,11 @@ import { compareSliceArchitectureOrder } from "./architecture-model.js";
  * @returns {string} component id
  */
 export function assignFileToComponent(filename, components, defaultId) {
+  const sqlSlice = sliceIdForSqlPath(filename);
+  if (sqlSlice && components.some((c) => c.id === sqlSlice)) {
+    return sqlSlice;
+  }
+
   for (const c of components) {
     for (const pattern of c.paths) {
       if (minimatch(filename, pattern, { dot: true })) {

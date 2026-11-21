@@ -163,11 +163,11 @@ export function reviewMicroPr(micro, ctx = {}) {
       });
     }
 
-    if (/migrations?\//.test(name) && micro.componentId !== "persistence") {
+    if (/migrations?\//.test(name) && micro.componentId !== "migrations") {
       note({
         ruleId: "migration-outside-persistence",
         severity: "warning",
-        message: "Schema/migration change outside persistence component.",
+        message: "Schema/migration SQL outside the migrations slice.",
         filename: name,
       });
     }

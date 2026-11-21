@@ -7,6 +7,22 @@ export const REVIEW_STATUS_COLORS = {
   skipped: { fill: "#18181b", border: "#71717a", text: "#d4d4d4" },
 };
 
+/** Day theme — light node fills with dark label text. */
+export const REVIEW_STATUS_COLORS_DAY = {
+  passed: { fill: "#d1fae5", border: "#059669", text: "#065f46" },
+  failed: { fill: "#fee2e2", border: "#dc2626", text: "#991b1b" },
+  warning: { fill: "#fef3c7", border: "#d97706", text: "#92400e" },
+  pending: { fill: "#fef9c3", border: "#ca8a04", text: "#713f12" },
+  skipped: { fill: "#f4f4f5", border: "#71717a", text: "#3f3f46" },
+};
+
+/**
+ * @param {"day" | "night"} [theme]
+ */
+export function reviewStatusColorsForTheme(theme = "night") {
+  return theme === "day" ? REVIEW_STATUS_COLORS_DAY : REVIEW_STATUS_COLORS;
+}
+
 /** Canonical layer accents for flow / layer chips. */
 export const LAYER_ACCENT_COLORS = {
   web: { fill: "#172554", stroke: "#60a5fa", text: "#dbeafe" },
@@ -25,8 +41,33 @@ export const LAYER_ACCENT_COLORS = {
 
 /** @param {string} layerId */
 export function layerAccent(layerId) {
+  return layerAccentForTheme(layerId, "night");
+}
+
+/** Pastel layer fills for day theme diagrams and chips. */
+export const LAYER_ACCENT_COLORS_DAY = {
+  web: { fill: "#dbeafe", stroke: "#2563eb", text: "#1e3a8a" },
+  api: { fill: "#ede9fe", stroke: "#7c3aed", text: "#4c1d95" },
+  application: { fill: "#ccfbf1", stroke: "#0d9488", text: "#134e4a" },
+  domain: { fill: "#ffedd5", stroke: "#ea580c", text: "#9a3412" },
+  repository: { fill: "#e0f2fe", stroke: "#0284c7", text: "#0c4a6e" },
+  infrastructure: { fill: "#e4e4e7", stroke: "#52525b", text: "#27272a" },
+  persistence: { fill: "#e0e7ff", stroke: "#4f46e5", text: "#312e81" },
+  config: { fill: "#f3f4f6", stroke: "#6b7280", text: "#1f2937" },
+  build_deploy: { fill: "#fae8ff", stroke: "#c026d3", text: "#86198f" },
+  integration: { fill: "#cffafe", stroke: "#0891b2", text: "#164e63" },
+  migrations: { fill: "#ecfccb", stroke: "#65a30d", text: "#365314" },
+  misc: { fill: "#f4f4f5", stroke: "#71717a", text: "#27272a" },
+};
+
+/**
+ * @param {string} layerId
+ * @param {"day" | "night"} [theme]
+ */
+export function layerAccentForTheme(layerId, theme = "night") {
   const key = String(layerId ?? "").toLowerCase();
-  return LAYER_ACCENT_COLORS[key] ?? LAYER_ACCENT_COLORS.misc;
+  const table = theme === "day" ? LAYER_ACCENT_COLORS_DAY : LAYER_ACCENT_COLORS;
+  return table[key] ?? table.misc;
 }
 
 /** Slice index palette for badge #n (1-based). */
@@ -53,7 +94,15 @@ export function sliceIndexColor(index1) {
  * @param {string} [status]
  */
 export function sliceStatusVisual(status) {
-  const key =
-    status && Object.prototype.hasOwnProperty.call(REVIEW_STATUS_COLORS, status) ? status : "pending";
-  return REVIEW_STATUS_COLORS[key];
+  return sliceStatusVisualForTheme(status, "night");
+}
+
+/**
+ * @param {string} [status]
+ * @param {"day" | "night"} [theme]
+ */
+export function sliceStatusVisualForTheme(status, theme = "night") {
+  const colors = reviewStatusColorsForTheme(theme);
+  const key = status && Object.prototype.hasOwnProperty.call(colors, status) ? status : "pending";
+  return colors[key];
 }

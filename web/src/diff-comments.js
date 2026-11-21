@@ -2,9 +2,33 @@ import { collectCursorDraftCommentsForDiff } from "./cursor-diff-comments.js";
 
 export { collectCursorDraftCommentsForDiff };
 
+import { renderReviewCommentHtml } from "./comment-html.js";
+
 /** @typedef {{ id: number, path: string, line: number, side: string, body: string, html_url?: string, user?: string | null, created_at?: string, source?: "github" | "cursor" | "cursor-macro", findingKey?: string }} ReviewComment */
 
 /** @typedef {{ prUrl: string, token?: string, reviewComments?: ReviewComment[], data: { target?: { owner?: string, repo?: string, pr?: number }, pull?: { headSha?: string } } }} CedarSession */
+
+const INLINE_COMMENTS_VISIBLE_KEY = "cedar-inline-comments-visible";
+
+/** @returns {boolean} */
+export function defaultInlineCommentsVisible() {
+  try {
+    return sessionStorage.getItem(INLINE_COMMENTS_VISIBLE_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * @param {boolean} visible
+ */
+function persistInlineCommentsVisible(visible) {
+  try {
+    sessionStorage.setItem(INLINE_COMMENTS_VISIBLE_KEY, visible ? "true" : "false");
+  } catch {
+    /* ignore */
+  }
+}
 
 /** @type {HTMLElement | null} */
 let popover = null;
@@ -256,15 +280,43 @@ function commentsByAnchor(comments) {
 /**
  * @param {ReviewComment[]} items
  */
-function renderCommentThreadSlide(items) {
+function isCursorInlineThread(items) {
+  return items.length > 0 && items.every((c) => c.source === "cursor" || c.source === "cursor-macro");
+}
+
+/**
+ * @param {HTMLElement} body
+ * @param {string} path
+ */
+function expandedInlineThreadKeys(body, path) {
+  /** @type {Set<string>} */
+  const keys = new Set();
+  body.querySelectorAll("tr.cedar-diff-comment-thread-row").forEach((threadRow) => {
+    if (!(threadRow instanceof HTMLElement)) return;
+    if (threadRow.classList.contains("is-collapsed") || threadRow.hidden) return;
+    const codeRow = threadRow.previousElementSibling;
+    if (!(codeRow instanceof HTMLElement) || !codeRow.classList.contains("cedar-diff-comment-row")) return;
+    const resolved = resolveLineFromRow(codeRow);
+    if (!resolved) return;
+    keys.add(commentAnchorKey(path, resolved.line, resolved.side));
+  });
+  return keys;
+}
+
+/**
+ * @param {ReviewComment[]} items
+ * @param {{ startCollapsed?: boolean }} [opts]
+ */
+function renderCommentThreadSlide(items, opts = {}) {
+  const startCollapsed = opts.startCollapsed === true;
   const cards = items
     .map((c) => {
       const isMacro = c.source === "cursor-macro";
       const isCursorDraft = c.source === "cursor" || isMacro;
       const who = isMacro
-        ? `<span class="cedar-diff-comment-card-user"><span class="cedar-badge cedar-badge-ok text-[9px]">Macro review</span></span>`
+        ? `<span class="cedar-diff-comment-card-user"><span class="cedar-badge cedar-badge-ok cedar-badge-compact">Macro review</span></span>`
         : isCursorDraft
-          ? `<span class="cedar-diff-comment-card-user"><span class="cedar-badge cedar-badge-ok text-[9px]">Cursor</span> Draft</span>`
+          ? `<span class="cedar-diff-comment-card-user"><span class="cedar-badge cedar-badge-ok cedar-badge-compact">Cursor</span> Draft</span>`
           : c.user
             ? `<span class="cedar-diff-comment-card-user">@${escapeHtml(c.user)}</span>`
             : `<span class="cedar-diff-comment-card-user">Reviewer</span>`;
@@ -283,16 +335,18 @@ function renderCommentThreadSlide(items) {
           ${when ? `<span class="cedar-diff-comment-card-time">${when}</span>` : ""}
           ${link}
         </header>
-        <p class="cedar-diff-comment-card-body">${escapeHtml(c.body).replace(/\n/g, "<br>")}</p>
+        <div class="cedar-diff-comment-card-body cedar-comment-html">${renderReviewCommentHtml(c.body)}</div>
       </article>`;
     })
     .join("");
   const count = items.length;
   const noun = count === 1 ? "comment" : "comments";
+  const verb = startCollapsed ? "Show" : "Hide";
   return `<div class="cedar-diff-comment-thread-wrap">
-    <button type="button" class="cedar-diff-comment-thread-toggle" aria-expanded="true" aria-label="Hide ${count} review ${noun} on this line">
+    <button type="button" class="cedar-diff-comment-thread-toggle" aria-expanded="${startCollapsed ? "false" : "true"}" aria-label="${verb} ${count} review ${noun} on this line">
+      <span class="cedar-comment-marker-chip" aria-hidden="true" title="Review comment"></span>
       <span class="cedar-diff-comment-thread-toggle-count">${count}</span>
-      <span class="cedar-diff-comment-thread-toggle-label">Hide ${noun}</span>
+      <span class="cedar-diff-comment-thread-toggle-label">${verb} ${noun}</span>
     </button>
     <div class="cedar-diff-comment-thread" role="region" aria-label="Review comments on this line">${cards}</div>
   </div>`;
@@ -315,11 +369,15 @@ function commentsHostVisible(host) {
  */
 function setCommentsHostVisible(host, visible) {
   host.dataset.commentsHidden = visible ? "false" : "true";
+  persistInlineCommentsVisible(visible);
   host.classList.toggle("cedar-diff-comments-off", !visible);
   host.querySelectorAll(".cedar-diff-comment-thread-row").forEach((threadRow) => {
     if (!(threadRow instanceof HTMLElement)) return;
     threadRow.classList.toggle("cedar-diff-comments-off", !visible);
-    if (visible) setThreadRowExpanded(threadRow, true);
+    if (!visible) {
+      threadRow.classList.remove("cedar-diff-line-expanded");
+      setThreadRowExpanded(threadRow, false);
+    }
   });
   const btn = host.querySelector("[data-comments-toggle]");
   if (btn instanceof HTMLButtonElement) {
@@ -416,15 +474,18 @@ function setThreadRowExpanded(threadRow, expand) {
   const host = threadRow.closest(".cedar-gh-files-changed");
   const globalOn = !(host instanceof HTMLElement) || commentsHostVisible(host);
 
-  const hiddenNow =
-    threadRow.classList.contains("is-collapsed") ||
-    threadRow.hidden ||
-    threadRow.classList.contains("cedar-diff-comments-off");
-  const on = expand === undefined ? hiddenNow : expand;
+  const isShown =
+    !threadRow.classList.contains("is-collapsed") &&
+    !threadRow.hidden &&
+    !threadRow.classList.contains("cedar-diff-comments-off");
+  const on = expand === undefined ? !isShown : expand;
   threadRow.classList.toggle("is-collapsed", !on);
-  threadRow.hidden = !on;
+  threadRow.hidden = false;
+  threadRow.classList.toggle("cedar-diff-line-expanded", on);
   if (!globalOn) {
     threadRow.classList.toggle("cedar-diff-comments-off", !on);
+  } else {
+    threadRow.classList.remove("cedar-diff-comments-off");
   }
   const codeRow = threadRow.previousElementSibling;
   if (codeRow instanceof HTMLElement && codeRow.classList.contains("cedar-diff-comment-row")) {
@@ -487,11 +548,31 @@ function wireCommentVisibilityOnce() {
 }
 
 /**
+ * @param {HTMLElement} row
+ */
+function diffTableColCount(row) {
+  const table = row.closest("table");
+  if (!(table instanceof HTMLTableElement)) {
+    return Math.max(row.querySelectorAll("td").length, 4);
+  }
+  let max = 0;
+  table.querySelectorAll("tr").forEach((tr) => {
+    let span = 0;
+    tr.querySelectorAll("td, th").forEach((cell) => {
+      span += Number(cell.colSpan) || 1;
+    });
+    if (span > max) max = span;
+  });
+  return Math.max(max, row.querySelectorAll("td").length, 4);
+}
+
+/**
  * @param {HTMLElement} body
  * @param {ReviewComment[]} comments
  * @param {string} path
  */
 function paintCommentsForBody(body, comments, path) {
+  const expandedKeys = expandedInlineThreadKeys(body, path);
   body.querySelectorAll(".cedar-diff-comment-thread-row").forEach((el) => el.remove());
 
   const byAnchor = commentsByAnchor(comments.filter((c) => c.path === path));
@@ -506,18 +587,26 @@ function paintCommentsForBody(body, comments, path) {
     if (!items?.length) return;
 
     row.classList.add("cedar-diff-line-commented");
-    const colCount = row.querySelectorAll("td").length || 4;
+    const colCount = diffTableColCount(row);
     const threadRow = document.createElement("tr");
     threadRow.className = "cedar-diff-comment-thread-row";
     const td = document.createElement("td");
     td.colSpan = Math.max(colCount, 4);
     td.className = "cedar-diff-comment-thread-cell";
-    td.innerHTML = renderCommentThreadSlide(items);
+    const cursorOnly = isCursorInlineThread(items);
+    const startCollapsed = !expandedKeys.has(key);
+    td.innerHTML = renderCommentThreadSlide(items, { startCollapsed });
+    if (cursorOnly) threadRow.dataset.cursorThread = "1";
+    threadRow.dataset.cedarCommentMarker = "1";
     threadRow.appendChild(td);
     threadRow.dataset.sourceRow = "1";
     row.insertAdjacentElement("afterend", threadRow);
     setGutterCommentCount(row, items.length);
-    syncGutterBadgeForRow(row, threadRow, body.closest(".cedar-gh-files-changed"));
+    if (startCollapsed) {
+      setThreadRowExpanded(threadRow, false);
+    } else {
+      syncGutterBadgeForRow(row, threadRow, body.closest(".cedar-gh-files-changed"));
+    }
   });
 
   wireCommentThreads(body);

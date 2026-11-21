@@ -27,6 +27,8 @@ import { resolveDiffFontConfig } from "./diff-font-config.js";
 import { ENV_FILE_PATH, envFileExists, upsertProjectEnv } from "./env-file.js";
 import { runWithReviewCredentials } from "./review-credentials.js";
 import { hydrateMicroPrsFromReport, runBackgroundCursorReview } from "./cursor-review-background.js";
+import { buildFlyoutModuleDeps } from "./dependency-cruiser-flyout.js";
+import { createClient, fetchPullRequest } from "./github.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, "..");
@@ -437,6 +439,61 @@ app.post("/api/approve", async (req, res) => {
     const errStatus = /** @type {{ status?: number }} */ (err)?.status;
     const status = errStatus === 403 ? 403 : errStatus === 422 ? 422 : 500;
     res.status(status).json(explained);
+  }
+});
+
+app.post("/api/pr/head", async (req, res) => {
+  const { prUrl, reviewedSha, token: bodyToken } = req.body ?? {};
+  const token = (typeof bodyToken === "string" && bodyToken.trim()) || process.env.GITHUB_TOKEN;
+  if (!token) {
+    res.status(400).json({ error: "Set GITHUB_TOKEN on the server or pass token in the request" });
+    return;
+  }
+  if (!prUrl) {
+    res.status(400).json({ error: "prUrl is required" });
+    return;
+  }
+  try {
+    const target = resolvePrTarget({ prUrl });
+    const octokit = createClient(token);
+    const pull = await fetchPullRequest(octokit, {
+      owner: target.owner,
+      repo: target.repo,
+      pull_number: target.pr,
+    });
+    const headSha = pull.head.sha;
+    const reviewed = typeof reviewedSha === "string" ? reviewedSha.trim() : "";
+    res.json({
+      headSha,
+      headRef: pull.head.ref,
+      headShort: headSha.slice(0, 7),
+      reviewedSha: reviewed || null,
+      reviewedShort: reviewed ? reviewed.slice(0, 7) : null,
+      stale: Boolean(reviewed && headSha !== reviewed),
+    });
+  } catch (err) {
+    const explained = explainGithubError(err, { action: "read this pull request" });
+    res.status(/** @type {{ status?: number }} */ (err)?.status ?? 500).json(explained);
+  }
+});
+
+/** Flyout-only: lazy module graph when AST map exists but file was not on disk at review time. */
+app.get("/api/code-map/module-deps", async (req, res) => {
+  const filePath = typeof req.query.path === "string" ? req.query.path.trim() : "";
+  if (!filePath) {
+    res.status(400).json({ error: "path query parameter is required" });
+    return;
+  }
+  if (filePath.includes("..") || path.isAbsolute(filePath)) {
+    res.status(400).json({ error: "path must be repository-relative" });
+    return;
+  }
+  try {
+    const layer = await buildFlyoutModuleDeps(root, filePath);
+    res.json(layer ?? { meta: { skipped: true, reason: "empty" } });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: message });
   }
 });
 

@@ -8,6 +8,19 @@
 @layer base {
   html {
     @apply scroll-smooth;
+    /* Review workspace (night default; day overrides in theme-day.css) */
+    --cedar-review-canvas: #060606;
+    --cedar-review-shell: #0c0c0e;
+    --cedar-review-surface: #111113;
+    --cedar-review-rail: #09090b;
+    --cedar-review-card: rgb(255 255 255 / 0.035);
+    --cedar-review-inset: rgb(0 0 0 / 0.4);
+    --cedar-review-border: rgb(255 255 255 / 0.08);
+    --cedar-review-border-strong: rgb(255 255 255 / 0.12);
+    --cedar-review-shadow-sm: 0 4px 28px -10px rgb(0 0 0 / 0.9);
+    --cedar-review-foreground: rgb(244 244 245);
+    --cedar-review-muted: rgb(161 161 170);
+    --cedar-review-stage-grid: rgb(255 255 255 / 0.04);
   }
 
   body {
@@ -129,8 +142,62 @@
     @apply mt-1 font-mono text-[10px] leading-snug text-zinc-500;
   }
 
+  .cedar-pr-stale-banner {
+    @apply mb-4 rounded-lg border border-amber-500/35 bg-amber-500/10 px-4 py-3 text-sm text-amber-100;
+  }
+
+  .cedar-pr-stale-banner[hidden] {
+    display: none !important;
+  }
+
+  .cedar-pr-stale-banner-inner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem 1rem;
+  }
+
+  .cedar-pr-stale-banner-text {
+    @apply m-0 min-w-0 text-xs leading-snug sm:text-sm;
+  }
+
+  .cedar-pr-stale-banner-label {
+    @apply font-semibold text-amber-50;
+  }
+
+  .cedar-pr-stale-banner-shas {
+    @apply ml-1.5 text-[11px] text-amber-200/90;
+  }
+
   .cedar-pr-header-metrics {
     @apply flex w-full min-w-0 flex-col items-stretch gap-2.5 sm:w-auto sm:flex-row sm:items-stretch;
+  }
+
+  .cedar-pr-header-actions {
+    @apply flex min-w-0 flex-col gap-2 sm:min-w-[9.5rem];
+  }
+
+  .cedar-pr-refresh-btn {
+    @apply h-7 w-full justify-center gap-1.5 px-2.5 text-[10px] font-semibold tracking-tight;
+  }
+
+  .cedar-pr-refresh-icon.is-spinning svg {
+    animation: cedar-refresh-spin 0.85s linear infinite;
+  }
+
+  @keyframes cedar-refresh-spin {
+    to {
+      transform: rotate(-360deg);
+    }
+  }
+
+  .cedar-pr-header--stale .cedar-pr-refresh-btn {
+    @apply border-amber-400/45 bg-amber-500/15 text-amber-100;
+  }
+
+  .cedar-pr-refresh-btn--banner {
+    @apply shrink-0;
   }
 
   .cedar-pr-stats {
@@ -247,13 +314,228 @@
     animation: cedar-fade 0.45s ease-out both;
   }
 
+  .cedar-hero {
+    @apply mx-auto w-full max-w-[26.5rem] sm:max-w-[28rem];
+  }
+
+  header.cedar-hero-intro {
+    position: static;
+    z-index: auto;
+    backdrop-filter: none;
+  }
+
+  .cedar-hero-intro {
+    @apply mx-auto w-full max-w-[28rem] px-0 text-center;
+    background: none;
+    border: none;
+    box-shadow: none;
+  }
+
+  .cedar-hero-mark {
+    @apply mx-auto mb-6 flex h-9 w-9 items-center justify-center text-white;
+    background: none;
+    border: none;
+    box-shadow: none;
+  }
+
+  .cedar-hero-eyebrow {
+    @apply m-0 text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500;
+  }
+
+  .cedar-hero-title {
+    @apply mt-3 text-[1.875rem] font-semibold leading-[1.12] tracking-[-0.03em] text-white sm:text-[2.125rem];
+  }
+
+  .cedar-hero-title-break {
+    @apply hidden sm:inline;
+  }
+
+  .cedar-hero-lede {
+    @apply mx-auto mt-4 max-w-[22rem] text-[0.9375rem] leading-relaxed text-zinc-400;
+  }
+
+  #hero .cedar-hero-intro {
+    @apply rounded-none;
+  }
+
+  #hero .cedar-glass {
+    @apply rounded-2xl;
+  }
+
+  .cedar-hero-form {
+    @apply relative mt-10 overflow-hidden p-0;
+    box-shadow:
+      0 0 0 1px rgb(255 255 255 / 0.04) inset,
+      0 24px 60px -36px rgb(0 0 0 / 0.9);
+  }
+
+  .cedar-hero-form::before {
+    content: "";
+    pointer-events: none;
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.14), transparent);
+  }
+
+  .cedar-hero-form-block {
+    @apply px-6 py-6 sm:px-8 sm:py-7;
+  }
+
+  .cedar-hero-form-block--credentials {
+    @apply bg-white/[0.02];
+  }
+
+  .cedar-hero-form-block--primary {
+    @apply pb-5 pt-6 sm:pb-6;
+  }
+
+  .cedar-hero-form-block-head {
+    @apply mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between;
+  }
+
+  .cedar-hero-form-title {
+    @apply m-0 text-sm font-semibold tracking-tight text-zinc-100;
+  }
+
+  .cedar-hero-form-hint {
+    @apply mt-1 text-[11px] leading-relaxed text-zinc-600;
+  }
+
+  .cedar-hero-save-btn {
+    @apply w-full shrink-0 sm:w-auto;
+  }
+
+  .cedar-hero-form-divider {
+    @apply h-px bg-white/[0.06];
+  }
+
+  .cedar-hero-field-grid {
+    @apply grid gap-4 sm:grid-cols-1;
+  }
+
+  .cedar-hero-field {
+    @apply block;
+  }
+
+  .cedar-hero-field-label {
+    @apply mb-2 flex items-center justify-between gap-2 text-[11px] font-medium text-zinc-400;
+  }
+
+  .cedar-hero-field-label--primary {
+    @apply text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500;
+  }
+
+  .cedar-hero-field-status {
+    @apply font-mono text-[9px] font-normal tabular-nums text-zinc-600;
+  }
+
+  .cedar-hero-input {
+    @apply rounded-lg border-white/[0.12] bg-black/50 px-3.5 py-2.5 text-[13px] shadow-none;
+  }
+
+  .cedar-hero-input--url {
+    @apply py-3 text-[13px] tracking-tight;
+  }
+
+  .cedar-hero-input:focus {
+    @apply border-white/25 bg-black/70 ring-2 ring-white/10;
+  }
+
+  .cedar-hero-form-status {
+    @apply mt-3 text-[11px] leading-relaxed text-zinc-500;
+  }
+
+  .cedar-hero-advanced {
+    @apply border-t border-white/[0.06];
+  }
+
+  .cedar-hero-advanced-summary {
+    @apply flex cursor-pointer list-none items-center justify-between gap-2 px-6 py-3.5 text-[11px] font-medium text-zinc-500 transition hover:bg-white/[0.02] hover:text-zinc-300 sm:px-8;
+  }
+
+  .cedar-hero-advanced-summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .cedar-hero-advanced-summary::after {
+    content: "▸";
+    @apply text-[10px] text-zinc-600 transition;
+  }
+
+  .cedar-hero-advanced[open] .cedar-hero-advanced-summary::after {
+    transform: rotate(90deg);
+  }
+
+  .cedar-hero-advanced-label-open {
+    @apply hidden;
+  }
+
+  .cedar-hero-advanced[open] .cedar-hero-advanced-label-closed {
+    @apply hidden;
+  }
+
+  .cedar-hero-advanced[open] .cedar-hero-advanced-label-open {
+    @apply inline;
+  }
+
+  .cedar-hero-advanced-body {
+    @apply space-y-4 border-t border-white/[0.06] bg-black/20 px-6 pb-6 pt-5 sm:px-8;
+  }
+
+  .cedar-hero-checks {
+    @apply m-0 flex flex-col gap-3 border-0 p-0;
+  }
+
+  .cedar-hero-check {
+    @apply flex cursor-pointer items-center gap-2.5 text-[11px] text-zinc-400;
+  }
+
+  .cedar-hero-check input[type="checkbox"] {
+    @apply h-3.5 w-3.5 shrink-0 rounded border border-white/20 bg-black/60 text-white accent-white;
+  }
+
+  .cedar-hero-form-footer {
+    @apply flex flex-col gap-3 border-t border-white/[0.06] bg-white/[0.02] px-6 py-6 sm:px-8;
+  }
+
+  .cedar-hero-submit {
+    @apply w-full px-5 py-3 text-[13px] font-semibold shadow-[0_1px_2px_rgb(0_0_0_/_0.35)];
+  }
+
+  .cedar-hero-form-footnote {
+    @apply m-0 text-center text-[10px] leading-snug text-zinc-600;
+  }
+
+  .cedar-hero-error {
+    @apply mt-4 text-center text-sm text-rose-400;
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
   .cedar-spinner {
     @apply inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white;
   }
 
   .cedar-cy-host {
+    --cedar-diagram-dot: rgb(255 255 255 / 0.045);
+  background-color: #050505;
+  background-image:
+    radial-gradient(120% 85% at 50% -10%, rgb(30 58 138 / 0.22) 0%, transparent 52%),
+    radial-gradient(90% 70% at 100% 100%, rgb(13 148 136 / 0.12) 0%, transparent 45%),
+    radial-gradient(circle at 50% 50%, rgb(255 255 255 / 0.02) 1px, transparent 1px);
+  background-size: auto, auto, 20px 20px;
     @apply relative w-full min-w-0 overflow-hidden rounded-2xl border border-white/[0.08];
-    background: radial-gradient(120% 80% at 50% 0%, #171717 0%, #050505 55%);
     box-shadow:
       inset 0 1px 0 rgb(255 255 255 / 0.06),
       0 24px 48px -24px rgb(0 0 0 / 0.85);
@@ -265,26 +547,48 @@
   }
 
   .diagram-slices {
-    height: min(26rem, 48vh);
-    min-height: 18rem;
+    height: min(32rem, 58vh);
+    min-height: 22rem;
   }
 
   .diagram-overview-read {
-    min-height: min(32rem, 62vh);
-    max-height: min(88vh, 960px);
-    height: min(42rem, 58vh);
+    min-height: min(40rem, 72vh);
+    max-height: min(94vh, 1400px);
+    height: min(56rem, 80vh);
   }
 
   #architecture-read-overview .architecture-read-mermaid-head,
   #architecture-read-mermaid .architecture-read-mermaid-head,
-  #architecture-read-layout .architecture-read-mermaid-head {
-    @apply sticky top-16 z-10 -mx-1 rounded-lg bg-black/50 px-1 py-2 backdrop-blur-md;
+  #architecture-read-layout .architecture-read-mermaid-head,
+  .architecture-read-mermaid-head {
+    position: static;
+    top: auto;
+    z-index: auto;
+    @apply mb-2 flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-white/[0.08] pb-2.5;
+  }
+
+  .architecture-read-mermaid-head .cedar-label {
+    @apply min-w-0 shrink-0;
+  }
+
+  .architecture-read-mermaid-head .diagram-toolbar {
+    @apply ml-auto flex min-w-0 flex-wrap items-center justify-end gap-1.5;
+  }
+
+  .diagram-mermaid-sleek,
+  .diagram-complete-layout.diagram-stage-canvas {
+    background-color: #050505;
+    background-image:
+      radial-gradient(120% 85% at 50% -10%, rgb(30 58 138 / 0.18) 0%, transparent 52%),
+      radial-gradient(circle at 50% 50%, rgb(255 255 255 / 0.035) 1px, transparent 1px);
+    background-size: auto, 20px 20px;
   }
 
   .diagram-mermaid-sleek {
-    @apply border-white/[0.06] bg-gradient-to-b from-black/30 to-black/60;
-    min-height: 14rem;
-    max-height: min(50vh, 480px);
+    @apply border-white/[0.06];
+    min-height: 20rem;
+    max-height: min(78vh, 960px);
+    height: min(44rem, 72vh);
   }
 
   .cedar-diagram-stage {
@@ -292,7 +596,11 @@
   }
 
   #architecture-read-mermaid .cedar-cy-host.diagram-stage-canvas {
-    @apply p-3 sm:p-4;
+    @apply p-2 sm:p-2.5;
+  }
+
+  #architecture-read-overview .cedar-cy-host.diagram-overview-read {
+    @apply p-1 sm:p-1.5;
   }
 
   .cedar-complete-layout-views .cedar-mermaid-scroll .mermaid-rendered,
@@ -316,15 +624,44 @@
     opacity: 1 !important;
   }
 
-  .cedar-complete-layout-views .cedar-layout-view .diagram-overview-read.diagram-stage-canvas {
-    overflow: auto;
-    overscroll-behavior: contain;
+  .cedar-complete-layout-views .cedar-layout-view .diagram-overview-read.diagram-stage-canvas.diagram-stage-panzoom,
+  #architecture-read-overview .cedar-cy-host.diagram-overview-read {
+    overflow: hidden;
+    overscroll-behavior: none;
     cursor: grab;
   }
 
-  .cedar-complete-layout-views .cedar-layout-view .diagram-overview-read.diagram-stage-canvas:active,
-  .cedar-complete-layout-views .cedar-layout-view .diagram-overview-read.diagram-stage-canvas.is-diagram-panning {
+  .cedar-complete-layout-views .cedar-layout-view .diagram-overview-read.diagram-stage-canvas.diagram-stage-panzoom:active {
     cursor: grabbing;
+  }
+
+  .diagram-complete-layout.diagram-stage-panzoom {
+    position: relative;
+    display: block;
+    overflow: hidden !important;
+    box-sizing: border-box;
+    @apply p-2 sm:p-2.5;
+  }
+
+  .cedar-complete-layout-views .diagram-stage-panzoom .cedar-mermaid-source,
+  .cedar-complete-layout-views .diagram-stage-panzoom .mermaid-rendered,
+  .cedar-complete-layout-views .cedar-layout-view .diagram-stage-panzoom .cedar-mermaid-source,
+  .cedar-complete-layout-views .cedar-layout-view .diagram-stage-panzoom .mermaid-rendered {
+    width: 100% !important;
+    height: 100% !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    max-width: none !important;
+    max-height: none !important;
+  }
+
+  .cedar-complete-layout-views .cedar-layout-view .diagram-stage-panzoom .mermaid-rendered svg,
+  .cedar-complete-layout-views .cedar-layout-view .diagram-stage-panzoom .cedar-mermaid-source svg,
+  .diagram-stage-panzoom .mermaid-rendered svg,
+  .diagram-stage-panzoom .cedar-mermaid-source svg {
+    width: auto !important;
+    height: auto !important;
+    max-width: none !important;
   }
 
   .cedar-cy-host .mermaid-rendered,
@@ -335,10 +672,15 @@
   .cedar-cy-host .mermaid-rendered svg text,
   .cedar-cy-host .cedar-mermaid-source svg text {
     font-family: Inter, ui-sans-serif, system-ui, sans-serif !important;
+    font-size: calc(var(--cedar-diagram-font-size, 11px)) !important;
   }
 
-  .cedar-complete-layout-views .cedar-layout-view .cedar-mermaid-source,
-  .cedar-complete-layout-views .cedar-layout-view .mermaid-rendered {
+  :root {
+    --cedar-diagram-font-size: 11px;
+  }
+
+  .cedar-complete-layout-views .cedar-layout-view:not(:has(.diagram-stage-panzoom)) .cedar-mermaid-source,
+  .cedar-complete-layout-views .cedar-layout-view:not(:has(.diagram-stage-panzoom)) .mermaid-rendered {
     @apply w-max max-w-none min-w-full text-left;
   }
 
@@ -351,7 +693,9 @@
   }
 
   .cedar-complete-layout-views .diagram-stage-sequence {
-    min-height: min(75vh, 720px);
+    min-height: min(82vh, 960px);
+    height: min(88vh, 1100px);
+    max-height: min(96vh, 1500px);
   }
 
   .cedar-complete-layout-views .diagram-stage-sequence .mermaid-rendered svg,
@@ -362,21 +706,45 @@
   }
 
   .cedar-complete-layout-views .cedar-layout-view.is-diagram-maximized .diagram-overview-read.diagram-stage-canvas {
-    min-height: min(64vh, 780px);
-    height: min(78vh, 1000px);
-    max-height: min(92vh, 1120px);
-  }
-
-  .architecture-read-mermaid-head {
-    @apply sticky top-16 z-10 -mx-1 rounded-lg bg-black/50 px-1 py-2 backdrop-blur-md;
+    min-height: min(78vh, 960px);
+    height: min(88vh, 1200px);
+    max-height: min(96vh, 1400px);
   }
 
   .cedar-complete-layout-views {
-    @apply w-full min-w-0 max-w-none;
+    @apply flex w-full min-w-0 max-w-none flex-col gap-6;
   }
 
   .cedar-complete-layout-views .cedar-layout-view {
-    @apply w-full min-w-0 max-w-none;
+    @apply flex w-full min-w-0 max-w-none flex-col overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.02];
+  }
+
+  .cedar-complete-layout-views .cedar-layout-view > .architecture-read-mermaid-head {
+    @apply mb-0 border-b border-white/[0.08] bg-white/[0.02] px-3 py-2.5;
+  }
+
+  .cedar-complete-layout-views .cedar-layout-view > .diagram-overview-read,
+  .cedar-complete-layout-views .cedar-layout-view > .cedar-cy-host {
+    @apply rounded-none border-0 shadow-none;
+  }
+
+  #architecture-read-overview.cedar-layout-view {
+    @apply overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.02];
+  }
+
+  #architecture-read-overview > .architecture-read-mermaid-head {
+    @apply mb-0 px-3 py-2.5;
+  }
+
+  #architecture-read-overview > .cedar-cy-host {
+    @apply rounded-none border-0;
+  }
+
+  #main-stage.cedar-review-wide .cedar-complete-layout-views .cedar-layout-view > .architecture-read-mermaid-head,
+  #main-stage.cedar-review-wide #architecture-read-overview > .architecture-read-mermaid-head {
+    position: static;
+    top: auto;
+    z-index: auto;
   }
 
   .diagram-overview .diagram-host {
@@ -414,13 +782,20 @@
   }
 
   .diagram-complete-layout {
-    min-height: 22rem;
-    max-height: min(75vh, 720px);
-    @apply overflow-auto rounded-xl border border-white/[0.06] bg-black/45 p-4 sm:p-6;
+    min-height: 28rem;
+    max-height: min(92vh, 1400px);
+    @apply overflow-auto rounded-xl border border-white/[0.06] p-4 sm:p-6;
   }
 
-  .cedar-complete-layout-views .diagram-complete-layout.diagram-stage-canvas {
-    max-height: min(88vh, 960px);
+  .diagram-complete-layout:not(.diagram-stage-canvas) {
+    @apply bg-black/45;
+  }
+
+  .cedar-complete-layout-views .diagram-complete-layout.diagram-stage-canvas,
+  .cedar-complete-layout-views .cedar-layout-view .diagram-overview-read.diagram-stage-canvas {
+    min-height: min(44rem, 74vh);
+    height: min(58rem, 82vh);
+    max-height: min(94vh, 1400px);
   }
 
   .cedar-mermaid-scroll .mermaid,
@@ -574,9 +949,16 @@
   }
 
   .cedar-layout-view.is-diagram-maximized .diagram-stage-canvas {
-    min-height: min(56vh, 720px);
-    height: min(72vh, 960px);
-    max-height: min(88vh, 1040px);
+    min-height: min(78vh, 960px);
+    height: min(88vh, 1280px);
+    max-height: min(96vh, 1500px);
+  }
+
+  #architecture-read-overview.is-diagram-maximized .diagram-overview-read,
+  .cedar-layout-view.is-diagram-maximized .diagram-overview-read {
+    min-height: min(78vh, 960px);
+    height: min(88vh, 1280px);
+    max-height: min(96vh, 1500px);
   }
 
   .cedar-layout-view.is-diagram-maximized {
@@ -589,15 +971,140 @@
 
   .cedar-shell:has(#main-stage.cedar-review-wide) header > div {
     @apply max-w-none px-3 sm:px-4 lg:px-5;
+    width: 100%;
+    margin-inline: 0;
   }
 
   #main-stage.cedar-review-wide {
     width: 100%;
     max-width: none;
-    padding-left: 0.75rem;
-    padding-right: 0.75rem;
-    padding-top: 1.5rem;
-    padding-bottom: 2rem;
+    margin-inline: 0;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+    padding-top: 1rem;
+    padding-bottom: 1.25rem;
+    box-sizing: border-box;
+    background: var(--cedar-review-canvas);
+  }
+
+  #main-stage.cedar-review-wide #results {
+    @apply w-full max-w-none;
+    width: 100%;
+    max-width: none;
+    margin-inline: 0;
+  }
+
+  body.cedar-review-stage-active {
+    overflow: hidden;
+  }
+
+  #main-stage.cedar-review-wide {
+    display: flex;
+    flex-direction: column;
+    min-height: calc(100vh - 3.75rem);
+    max-height: calc(100vh - 3.75rem);
+    overflow: hidden;
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+    gap: 0.75rem;
+    background: transparent;
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted .cedar-pr-header.cedar-glass {
+    border-color: var(--cedar-review-border);
+    background: var(--cedar-review-shell);
+    box-shadow: var(--cedar-review-shadow-sm);
+  }
+
+  #main-stage.cedar-review-wide .cedar-pr-header--pending {
+    @apply mb-3 py-4;
+  }
+
+  #main-stage.cedar-review-wide .cedar-pr-header--pending .cedar-pr-header-title {
+    @apply text-base;
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted .cedar-review-layout--three-col {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted .cedar-review-center {
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted .cedar-review-right-nav,
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted .cedar-review-left-nav {
+    min-height: 0;
+    max-height: none;
+    overflow-x: hidden;
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted .cedar-review-left-nav {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: hidden;
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted .cedar-review-tabs-head {
+    @apply shrink-0 px-0;
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted .cedar-file-flow-rail {
+    min-height: 0;
+    max-height: none;
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted .cedar-file-flow-stage {
+    flex: 1 1 0;
+    min-height: min(70vh, 38rem);
+    max-height: none;
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted .cedar-file-flow-stage.is-code-map-active {
+    flex: 1 1 0;
+    min-height: min(72vh, 40rem);
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted .cedar-slices-stage,
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted .cedar-main-tabpanel--architecture {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted .cedar-slice-review-pane {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .cedar-review-tabs-head--placeholder .cedar-main-tab {
+    @apply pointer-events-none;
+    cursor: default;
+  }
+
+  .cedar-review-tabs-head--placeholder .cedar-main-tab:not(.is-active) {
+    @apply opacity-80;
+  }
+
+  .cedar-review-tabs-head--placeholder .cedar-main-tab-icon {
+    @apply block shrink-0 opacity-100;
+  }
+
+  .cedar-review-tabs-head--placeholder .cedar-main-tab.is-active .cedar-main-tab-icon {
+    @apply text-zinc-300;
   }
 
   @media (min-width: 640px) {
@@ -612,11 +1119,1537 @@
       padding-left: 1.25rem;
       padding-right: 1.25rem;
     }
+
+    #main-stage.cedar-review-wide.cedar-review-slices-focus {
+      padding-right: 0.35rem;
+    }
+  }
+
+  #main-stage.cedar-review-wide.cedar-review-slices-focus {
+    padding-right: 0.5rem;
+  }
+
+  .cedar-review-layout,
+  .cedar-review-stage {
+    --cedar-review-prose: 0.75rem;
+    --cedar-review-prose-leading: 1.625;
+    --cedar-review-meta: 0.625rem;
+    --cedar-review-caption: 0.625rem;
+    --cedar-review-section: 0.75rem;
+    --cedar-comment-cursor-accent: 161 161 170;
+    --cedar-comment-cursor-accent-muted: 212 212 216;
+    --cedar-comment-github-accent: 113 113 122;
+    --cedar-comment-arch-accent: 113 113 122;
+    --cedar-comment-surface: 24 24 27;
+    --cedar-comment-surface-elevated: 39 39 42;
+  }
+
+  .cedar-review-layout .cedar-gh-files-changed,
+  .cedar-review-layout .cedar-slice-panel,
+  .cedar-review-layout .cedar-findings-panel {
+    --cedar-review-prose: 0.75rem;
+    --cedar-review-prose-leading: 1.625;
+    --cedar-review-meta: 0.625rem;
+    --cedar-review-caption: 0.625rem;
+    --cedar-review-section: 0.75rem;
+  }
+
+  .cedar-review-layout :is(
+      .cedar-review-comment-body,
+      .cedar-diff-comment-card-body,
+      .cedar-review-comment-lead,
+      .cedar-suggested-change-body,
+      .cedar-diff-comment-thread
+    ) {
+    font-family: var(--font-sans);
+    font-size: var(--cedar-review-prose);
+    line-height: var(--cedar-review-prose-leading);
+  }
+
+  .cedar-review-layout .cedar-comment-html,
+  .cedar-review-layout .cedar-comment-html :is(p, li, blockquote, td, th, dd, dt) {
+    font-size: inherit;
+    line-height: inherit;
+  }
+
+  .cedar-review-layout .cedar-comment-html :is(h1, h2, h3, h4, h5, h6) {
+    margin: 0.35em 0 0.2em;
+    font-size: var(--cedar-review-section);
+    line-height: 1.35;
+    font-weight: 600;
+  }
+
+  .cedar-review-layout .cedar-comment-html .cedar-comment-html {
+    font-size: inherit;
+    line-height: inherit;
+  }
+
+  .cedar-badge-compact {
+    font-size: var(--cedar-review-meta);
+    @apply px-1.5 py-px font-medium leading-none;
+  }
+
+  .cedar-slice-panel-title {
+    font-size: var(--cedar-review-section);
+    @apply mt-2 font-semibold text-zinc-100;
+  }
+
+  .cedar-review-muted-prose {
+    font-size: var(--cedar-review-prose);
+    line-height: var(--cedar-review-prose-leading);
+    @apply text-zinc-500;
+  }
+
+  .cedar-findings-panel > summary,
+  .cedar-findings-panel-summary {
+    font-size: var(--cedar-review-meta);
+    line-height: 1.35;
+    letter-spacing: 0.06em;
+    @apply cursor-pointer font-semibold uppercase text-zinc-500 hover:text-zinc-300;
+  }
+
+  .cedar-slice-findings-panel .cedar-findings-list {
+    font-size: var(--cedar-review-prose);
+    line-height: var(--cedar-review-prose-leading);
+  }
+
+  .cedar-slice-findings-panel .cedar-findings-list .cedar-review-comment-card {
+    @apply px-2.5 py-2;
+  }
+
+  .cedar-slice-findings-panel .cedar-findings-list :is(
+      .cedar-review-comment-summary-label,
+      .cedar-finding-priority,
+      .cedar-finding-tag,
+      .cedar-badge
+    ) {
+    font-size: var(--cedar-review-meta);
+    line-height: 1.35;
+  }
+
+  .cedar-slice-findings-panel .cedar-findings-list .cedar-review-comment-body,
+  .cedar-slice-findings-panel .cedar-findings-list .cedar-comment-html {
+    font-size: var(--cedar-review-prose);
+    line-height: var(--cedar-review-prose-leading);
+  }
+
+  .cedar-slice-findings-panel .cedar-findings-list .cedar-findings-by-file > li > p {
+    font-size: var(--cedar-review-meta);
+    line-height: 1.35;
   }
 
   .cedar-review-layout {
-    --cedar-sidebar-width: 25rem;
-    @apply flex w-full min-w-0 max-w-none flex-col gap-4 lg:flex-row lg:items-stretch lg:gap-0;
+    --cedar-sidebar-width: 27rem;
+    @apply flex w-full min-w-0 max-w-none flex-col gap-4 lg:flex-row lg:items-start lg:gap-0;
+  }
+
+  .cedar-review-layout.cedar-review-layout--three-col {
+    --cedar-slices-nav-rail-width: 17.5rem;
+    --cedar-file-flow-rail-width: 32.5rem;
+    --cedar-review-rail-pad-x: 0.875rem;
+    --cedar-review-rail-pad-y: 0.75rem;
+    --cedar-review-rail-gap: 0.75rem;
+    --cedar-review-rail-card-pad: 1rem;
+    --cedar-review-center-pad-x: 0.875rem;
+    --cedar-review-center-pad-y: 0.625rem;
+    --cedar-review-rail-edge-size: 2.25rem;
+    --cedar-review-rail-edge-gutter: 0.75rem;
+    --cedar-review-rail-edge-reserve: calc(
+      var(--cedar-review-rail-edge-size) + var(--cedar-review-rail-edge-gutter) + 0.25rem
+    );
+    border: 1px solid var(--cedar-review-border-strong);
+    border-radius: 1rem;
+    background: var(--cedar-review-shell);
+    box-shadow: var(--cedar-review-shadow-sm);
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    min-height: 0;
+    gap: 0;
+    overflow-x: hidden;
+    overflow-y: hidden;
+    overscroll-behavior: contain;
+  }
+
+  .cedar-review-rail-toolbar {
+    @apply flex shrink-0 items-center gap-2 border-b pb-2.5 pt-0.5;
+    border-color: var(--cedar-review-border);
+    margin-bottom: 0.5rem;
+  }
+
+  .cedar-review-rail-toolbar--code-map {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem 0.5rem;
+  }
+
+  .cedar-code-map-view-tabs--toolbar {
+    @apply z-[2] shrink min-w-[12rem] max-w-full;
+    flex: 1 1 12rem;
+  }
+
+  .cedar-code-map-view-tabs--toolbar .cedar-code-map-view-tab {
+    @apply py-1 text-[10px];
+  }
+
+  body.cedar-code-map-expanded .cedar-code-map-view-tabs--toolbar {
+    pointer-events: auto;
+  }
+
+  body.cedar-code-map-expanded .cedar-review-rail-toolbar--code-map .cedar-review-rail-title {
+    text-align: left;
+    padding-left: 0.15rem;
+  }
+
+  .cedar-code-map-zoom-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    margin-right: 0.15rem;
+  }
+
+  .cedar-code-map-zoom-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.65rem;
+    height: 1.65rem;
+    border-radius: 0.45rem;
+    border: 1px solid var(--cedar-review-border);
+    background: var(--cedar-review-inset);
+    color: var(--cedar-review-foreground);
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .cedar-code-map-zoom-btn:hover {
+    border-color: var(--cedar-review-border-strong);
+    background: var(--cedar-review-surface);
+  }
+
+  .cedar-code-map-reset-btn {
+    width: auto;
+    min-width: 1.65rem;
+    padding: 0 0.35rem;
+    font-size: 0.95rem;
+    line-height: 1;
+  }
+
+  .cedar-code-map-expand-btn {
+    justify-self: end;
+  }
+
+  body.cedar-code-map-expanded #main-stage,
+  body.cedar-code-map-expanded #results,
+  body.cedar-code-map-expanded #cedar-review-workspace {
+    position: relative;
+    z-index: 56;
+    overflow: visible;
+  }
+
+  body.cedar-code-map-expanded .cedar-review-layout--code-map-flyout-only {
+    overflow: visible;
+  }
+
+  .cedar-code-map-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 55;
+    border: 0;
+    padding: 0;
+    margin: 0;
+    background: rgb(0 0 0 / 0.35);
+    cursor: default;
+  }
+
+  .cedar-code-map-backdrop[hidden] {
+    display: none;
+  }
+
+  /* Code map: icon opens right flyout — no persistent right column */
+  .cedar-review-layout--code-map-flyout-only .cedar-review-right-splitter {
+    display: none !important;
+  }
+
+  .cedar-review-layout--code-map-flyout-only .cedar-review-center {
+    border-top-right-radius: 0.75rem;
+    border-bottom-right-radius: 0.75rem;
+  }
+
+  #cedar-review-right-nav.cedar-code-map-flyout-panel {
+    display: none !important;
+    --cedar-code-map-flyout-width: min(56rem, 92vw);
+    --cedar-code-map-flyout-min-width: 22rem;
+    --cedar-code-map-flyout-top: 2.25rem;
+    --cedar-code-map-flyout-inset-bottom: 0.35rem;
+    --cedar-code-map-flyout-pad-left: 1.75rem;
+    margin: 0;
+    padding: var(--cedar-review-rail-pad-y) var(--cedar-review-rail-pad-x) var(--cedar-review-rail-pad-y)
+      var(--cedar-code-map-flyout-pad-left);
+    flex: none !important;
+    border-radius: 1rem 0 0 1rem;
+    border: 1px solid var(--cedar-review-border-strong);
+    border-right: 0;
+    box-shadow: -16px 0 48px rgb(0 0 0 / 0.45);
+    background: var(--cedar-review-rail);
+    overflow: hidden;
+  }
+
+  body.cedar-code-map-expanded #cedar-review-right-nav.cedar-code-map-flyout-panel {
+    display: flex !important;
+    position: fixed;
+    z-index: 58;
+    overscroll-behavior: contain;
+    top: var(--cedar-code-map-flyout-top);
+    right: 0;
+    bottom: var(--cedar-code-map-flyout-inset-bottom);
+    left: auto;
+    width: var(--cedar-code-map-flyout-width) !important;
+    min-width: var(--cedar-code-map-flyout-min-width) !important;
+    max-width: 98vw !important;
+    flex-direction: column;
+    pointer-events: auto;
+    animation: cedar-code-map-flyout-in 0.22s ease-out both;
+  }
+
+  .cedar-code-map-flyout-splitter {
+    display: none;
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 12px;
+    transform: translateX(-50%);
+    cursor: col-resize;
+    touch-action: none;
+    z-index: 8;
+    background: transparent;
+  }
+
+  body.cedar-code-map-expanded .cedar-code-map-flyout-splitter {
+    display: block;
+  }
+
+  .cedar-code-map-flyout-splitter::after {
+    content: "";
+    position: absolute;
+    inset: 12% 4px;
+    border-radius: 4px;
+    background: rgb(255 255 255 / 0.08);
+    transition: background 0.15s;
+  }
+
+  .cedar-code-map-flyout-splitter:hover::after,
+  .cedar-code-map-flyout-splitter:focus-visible::after,
+  body.cedar-is-resizing-code-map-flyout .cedar-code-map-flyout-splitter::after {
+    background: rgb(255 255 255 / 0.22);
+  }
+
+  body.cedar-code-map-expanded .cedar-review-left-nav,
+  body.cedar-code-map-expanded .cedar-review-left-splitter {
+    position: relative;
+    z-index: 57;
+  }
+
+  @keyframes cedar-code-map-flyout-in {
+    from {
+      transform: translateX(100%);
+      opacity: 0.6;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  body.cedar-code-map-expanded .cedar-review-rail-body,
+  body.cedar-code-map-expanded .cedar-file-flow-rail {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  body.cedar-code-map-expanded .cedar-review-rail-section--map {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  body.cedar-code-map-expanded .cedar-file-flow-stage,
+  body.cedar-code-map-expanded .cedar-file-flow-stage.is-code-map-active {
+    min-height: min(86vh, calc(100vh - 7.5rem)) !important;
+    flex: 1 1 auto;
+    overflow: hidden;
+    overscroll-behavior: none;
+    touch-action: none;
+    pointer-events: auto;
+  }
+
+  body.cedar-code-map-expanded .cedar-code-map-svg-host,
+  body.cedar-code-map-expanded .cedar-code-map-cy,
+  body.cedar-code-map-expanded .cedar-code-map-svg {
+    pointer-events: auto;
+    touch-action: none;
+  }
+
+  body.cedar-code-map-expanded .cedar-code-map-cy canvas {
+    cursor: grab;
+  }
+
+  body.cedar-code-map-expanded .cedar-code-map-cy:active canvas {
+    cursor: grabbing;
+  }
+
+  body.cedar-code-map-expanded .cedar-code-map-meta {
+    max-height: 9rem;
+    overflow-y: auto;
+    padding-left: 0.35rem;
+    padding-right: 0.15rem;
+  }
+
+  body.cedar-code-map-expanded .cedar-review-rail-toolbar--code-map {
+    padding-left: 0.35rem;
+    padding-right: 0.15rem;
+  }
+
+  body.cedar-code-map-expanded .cedar-file-flow-rail.cedar-review-rail-section--map {
+    padding-left: 0.25rem;
+    padding-right: 0.1rem;
+  }
+
+  body.cedar-code-map-expanded .cedar-file-flow-stage.is-code-map-triptych {
+    padding-left: 0.65rem;
+    padding-right: 0.45rem;
+  }
+
+  body.cedar-code-map-expanded .cedar-file-flow-stage.is-code-map-triptych .cedar-code-map-view-stack {
+    padding-left: 0.35rem;
+    padding-right: 0.15rem;
+    box-sizing: border-box;
+  }
+
+  .cedar-review-rail-title {
+    @apply min-w-0 flex-1 text-center text-[10px] font-semibold uppercase tracking-[0.12em];
+    color: var(--cedar-review-muted);
+  }
+
+  .cedar-review-rail-body {
+    @apply flex min-h-0 min-w-0 flex-1 flex-col gap-2;
+  }
+
+  .cedar-review-rail-section {
+  }
+
+  .cedar-review-rail-section--slices {
+    @apply flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border;
+    border-color: var(--cedar-review-border);
+    background: var(--cedar-review-inset);
+    padding: 0.5rem 0.45rem;
+  }
+
+  .cedar-review-layout--three-col .cedar-review-rail-section--slices {
+    flex: 1 1 8rem;
+    min-height: 6.5rem;
+  }
+
+  .cedar-review-rail-section--rollup {
+    @apply shrink-0 rounded-lg border p-2.5 text-[11px];
+    border-color: var(--cedar-review-border);
+    background: var(--cedar-review-card);
+  }
+
+  .cedar-review-rail-section--rollup[hidden] {
+    display: none;
+  }
+
+  .cedar-review-rail-footer {
+    @apply mt-auto flex shrink-0 flex-col gap-2 border-t pt-2;
+    border-color: var(--cedar-review-border);
+  }
+
+  .cedar-left-rail-chat {
+    @apply shrink-0 overflow-hidden rounded-lg border;
+    border-color: var(--cedar-review-border);
+    background: var(--cedar-review-card);
+  }
+
+  .cedar-left-rail-chat-summary {
+    @apply flex cursor-pointer list-none flex-col gap-0.5 px-3 py-2.5 text-left transition hover:bg-white/[0.03];
+    font-size: var(--cedar-review-meta, 0.6875rem);
+  }
+
+  .cedar-left-rail-chat-summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .cedar-left-rail-chat[open] .cedar-left-rail-chat-summary {
+    border-bottom: 1px solid var(--cedar-review-border);
+  }
+
+  .cedar-left-rail-chat-summary-label {
+    @apply text-[10px] font-semibold uppercase tracking-[0.12em];
+    color: var(--cedar-review-muted);
+  }
+
+  .cedar-left-rail-chat-summary-hint {
+    @apply text-[10px] leading-snug;
+    color: var(--cedar-review-muted);
+    opacity: 0.85;
+  }
+
+  .cedar-pr-chat-card--compact {
+    @apply flex flex-col gap-2 p-2.5 pt-2;
+    flex: 0 1 auto;
+    min-height: 0;
+    max-height: min(32vh, 18rem);
+  }
+
+  .cedar-pr-chat-card--compact .cedar-pr-chat-log {
+    min-height: 5.5rem;
+    max-height: min(22vh, 14rem);
+  }
+
+  .cedar-code-map-meta {
+    @apply shrink-0 space-y-1.5 border-b pb-2.5 pl-1 pr-0.5 text-[10px] leading-snug;
+    border-color: var(--cedar-review-border);
+    color: var(--cedar-review-muted);
+  }
+
+  .cedar-code-map-overview {
+    @apply rounded-lg border px-2.5 py-2;
+    border-color: var(--cedar-review-border);
+    background: var(--cedar-review-card);
+    color: var(--cedar-review-foreground);
+  }
+
+  .cedar-code-map-overview__grid {
+    @apply m-0 grid gap-2;
+    grid-template-columns: minmax(5.25rem, auto) 1fr;
+  }
+
+  .cedar-code-map-overview__row {
+    @apply contents;
+  }
+
+  .cedar-code-map-overview__row dt {
+    @apply text-[9px] font-semibold uppercase tracking-wider;
+    color: var(--cedar-review-muted);
+    padding-top: 0.1rem;
+  }
+
+  .cedar-code-map-overview__row dd {
+    @apply m-0 text-[11px] leading-snug;
+    color: var(--cedar-review-foreground);
+  }
+
+  .cedar-code-map-overview__value--mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 10px;
+    word-break: break-word;
+  }
+
+  .cedar-code-map-overview__details {
+    @apply mt-2 list-disc space-y-0.5 border-t pt-2 pl-4 text-[10px] leading-snug;
+    border-color: var(--cedar-review-border);
+    color: var(--cedar-review-muted);
+  }
+
+  .cedar-code-map-summary {
+    @apply text-left text-[11px] leading-relaxed;
+    color: var(--cedar-review-foreground);
+  }
+
+  .cedar-code-map-summary-lead {
+    @apply mb-1 font-medium;
+    color: var(--cedar-review-foreground);
+  }
+
+  .cedar-code-map-summary-list {
+    @apply ml-4 list-disc space-y-0.5 text-[10px];
+    color: var(--cedar-review-muted);
+  }
+
+  .cedar-review-rail-section--map {
+    @apply flex min-h-0 flex-1 flex-col gap-2;
+  }
+
+  .cedar-review-panel {
+    @apply rounded-xl border;
+    border-color: var(--cedar-review-border);
+    background: var(--cedar-review-surface);
+    box-shadow: var(--cedar-review-shadow-sm);
+  }
+
+  .cedar-review-progress-status {
+    color: var(--cedar-review-foreground);
+  }
+
+  .review-progress-log {
+    color: var(--cedar-review-muted);
+  }
+
+  .cedar-review-left-nav {
+    @apply flex min-h-0 shrink-0 flex-col;
+    order: 1;
+    width: var(--cedar-slices-nav-rail-width);
+    flex: 0 0 var(--cedar-slices-nav-rail-width);
+    min-width: 15rem;
+    max-width: 22.5rem;
+    max-height: calc(100vh - 5.5rem);
+    overflow-x: hidden;
+    overflow-y: hidden;
+    overscroll-behavior: contain;
+    padding: var(--cedar-review-rail-pad-y) var(--cedar-review-rail-pad-x);
+    border-right: 1px solid var(--cedar-review-border);
+    background: var(--cedar-review-rail);
+    --cedar-slice-nav-label-size: 11px;
+    --cedar-slice-nav-meta-size: 9px;
+    --cedar-slice-nav-files-size: 10px;
+    --cedar-slice-nav-line-height: 1.35;
+    --cedar-slice-nav-indent: 14px;
+  }
+
+  .cedar-review-left-splitter {
+    order: 2;
+    flex: 0 0 7px;
+  }
+
+  .cedar-review-center {
+    @apply relative isolate z-[2] flex min-h-0 min-w-0 flex-col;
+    order: 3;
+    flex: 1 1 0%;
+    width: 0;
+    min-width: 0;
+    max-width: none;
+    min-height: min(78vh, calc(100vh - 5.5rem));
+    padding: var(--cedar-review-center-pad-y) var(--cedar-review-center-pad-x);
+    box-sizing: border-box;
+    background: var(--cedar-review-surface);
+    color: var(--cedar-review-foreground);
+    overflow-x: hidden;
+  }
+
+  .cedar-review-right-splitter {
+    order: 4;
+    flex: 0 0 7px;
+  }
+
+  .cedar-review-layout--code-map-flyout-only .cedar-review-right-nav.cedar-code-map-flyout-panel {
+    order: unset;
+    width: auto;
+    flex: none;
+    min-width: 0;
+    max-width: none;
+    align-self: auto;
+    border-left: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .cedar-review-right-nav:not(.cedar-code-map-flyout-panel) {
+    order: 5;
+    width: var(--cedar-file-flow-rail-width);
+    flex: 0 0 var(--cedar-file-flow-rail-width);
+    min-width: 16rem;
+    max-width: 55rem;
+    align-self: stretch;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: hidden;
+    padding: var(--cedar-review-rail-pad-y) var(--cedar-review-rail-pad-x);
+    @apply flex flex-col;
+    border-left: 1px solid var(--cedar-review-border);
+    background: var(--cedar-review-rail);
+  }
+
+  .cedar-review-layout--three-col .cedar-file-flow-rail-wrap {
+    @apply min-h-0 flex-1;
+  }
+
+  .cedar-review-layout--three-col .cedar-file-flow-rail {
+    @apply min-h-0 flex-1;
+    max-height: none;
+  }
+
+  .cedar-review-layout--three-col .cedar-file-flow-path,
+  .cedar-review-layout--three-col .cedar-file-flow-what,
+  .cedar-review-layout--three-col .cedar-file-flow-hint {
+    @apply shrink-0;
+  }
+
+  .cedar-review-layout--three-col .cedar-file-flow-stage {
+    @apply mt-1 flex-1 rounded-xl border p-1 shadow-inner;
+    border-color: var(--cedar-review-border);
+    background: var(--cedar-review-inset);
+    flex: 1 1 0;
+    min-height: min(70vh, 38rem);
+    max-height: none;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .cedar-review-layout--three-col .cedar-file-flow-stage.is-code-map-active {
+    min-height: min(72vh, 40rem);
+    padding: 0.25rem;
+    background:
+      radial-gradient(circle at 50% 50%, var(--cedar-review-stage-grid) 1px, transparent 1px),
+      var(--cedar-review-inset);
+    background-size: 18px 18px, auto;
+  }
+
+  .cedar-review-rail-section--map:has(.is-code-map-active) .cedar-file-flow-hint {
+    display: none;
+  }
+
+  .cedar-review-rail-section--map:has(.is-code-map-active) .cedar-file-flow-path {
+    @apply mb-0 line-clamp-1 text-[10px];
+  }
+
+  .cedar-review-layout--three-col .cedar-file-flow-stage:has(> .cedar-file-flow-empty:only-child) {
+    @apply min-h-0 items-center justify-center p-4;
+  }
+
+  .cedar-review-layout--three-col .cedar-file-flow-stage > .cedar-code-map-svg-host,
+  .cedar-review-layout--three-col .cedar-file-flow-stage > .cedar-code-map-arborist-host,
+  .cedar-review-layout--three-col .cedar-file-flow-stage > .cedar-code-map-xyflow,
+  .cedar-review-layout--three-col .cedar-file-flow-stage > .cedar-code-map-cy,
+  .cedar-review-layout--three-col .cedar-file-flow-stage > .cedar-file-flow-mermaid {
+    @apply h-full min-h-0 flex-1;
+    height: 100%;
+    max-height: none;
+  }
+
+  .cedar-code-map-xyflow {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    border-radius: 0.5rem;
+    border: 1px solid rgb(148 163 184 / 0.22);
+    background: linear-gradient(165deg, rgb(15 23 42 / 0.55), rgb(2 6 23 / 0.92));
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04);
+  }
+
+  [data-theme="day"] .cedar-code-map-xyflow {
+    border-color: rgb(203 213 225 / 0.85);
+    background: linear-gradient(165deg, #f8fafc, #eef2ff);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.9);
+  }
+
+  .cedar-code-map-xyflow-shell {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+  }
+
+  .cedar-code-map-xyflow-canvas {
+    width: 100%;
+    height: 100%;
+  }
+
+  .cedar-code-map-xyflow .react-flow__node.selected .cedar-code-map-node {
+    box-shadow:
+      0 0 0 2px rgb(56 189 248 / 0.55),
+      0 6px 16px rgb(0 0 0 / 0.35);
+  }
+
+  .cedar-code-map-node {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.35rem;
+    border-radius: 0.5rem;
+    border: 1px solid rgb(148 163 184 / 0.45);
+    padding: 0.35rem 0.5rem 0.4rem;
+    font-size: var(--cedar-code-map-node-font-size, 11px);
+    line-height: 1.28;
+    max-width: 228px;
+    word-break: break-word;
+    background: rgb(30 41 59 / 0.94);
+    color: #e2e8f0;
+    box-shadow: 0 1px 0 rgb(0 0 0 / 0.2);
+    transition: box-shadow 0.12s ease, border-color 0.12s ease;
+  }
+
+  .cedar-code-map-node-badge {
+    flex: none;
+    margin-top: 0.05rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.72em;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: lowercase;
+    line-height: 1.2;
+    padding: 0.12rem 0.28rem;
+    border-radius: 0.3rem;
+    border: 1px solid rgb(148 163 184 / 0.35);
+    background: rgb(15 23 42 / 0.55);
+    color: #cbd5e1;
+  }
+
+  .cedar-code-map-node-label {
+    min-width: 0;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+
+  .cedar-code-map-node--entry {
+    border-color: rgb(148 163 184 / 0.5);
+    background: rgb(51 65 85 / 0.92);
+    font-weight: 600;
+  }
+  .cedar-code-map-node--entry .cedar-code-map-node-badge {
+    border-color: rgb(148 163 184 / 0.45);
+    color: #e2e8f0;
+  }
+
+  .cedar-code-map-node--symbol,
+  .cedar-code-map-node--definition {
+    border-color: rgb(52 211 153 / 0.55);
+    background: rgb(6 78 59 / 0.42);
+    color: #d1fae5;
+  }
+  .cedar-code-map-node--symbol .cedar-code-map-node-badge,
+  .cedar-code-map-node--definition .cedar-code-map-node-badge {
+    border-color: rgb(52 211 153 / 0.4);
+    background: rgb(4 47 46 / 0.65);
+    color: #6ee7b7;
+  }
+
+  .cedar-code-map-node--import,
+  .cedar-code-map-node--export {
+    border-color: rgb(56 189 248 / 0.5);
+    background: rgb(8 47 73 / 0.55);
+    color: #bae6fd;
+  }
+  .cedar-code-map-node--import .cedar-code-map-node-badge,
+  .cedar-code-map-node--export .cedar-code-map-node-badge {
+    border-color: rgb(56 189 248 / 0.45);
+    background: rgb(12 74 110 / 0.55);
+    color: #7dd3fc;
+  }
+
+  .cedar-code-map-node--call {
+    border-color: rgb(161 161 170 / 0.55);
+    background: rgb(39 39 42 / 0.92);
+    color: #e4e4e7;
+    font-size: calc(var(--cedar-code-map-node-font-size, 11px) - 0.5px);
+  }
+  .cedar-code-map-node--call .cedar-code-map-node-badge {
+    border-color: rgb(113 113 122 / 0.5);
+    background: rgb(24 24 27 / 0.75);
+    color: #d4d4d8;
+  }
+
+  .cedar-code-map-node--step {
+    border-color: rgb(125 211 252 / 0.5);
+    background: rgb(12 74 110 / 0.5);
+    color: #e0f2fe;
+  }
+  .cedar-code-map-node--step .cedar-code-map-node-badge {
+    border-color: rgb(56 189 248 / 0.45);
+    color: #bae6fd;
+  }
+
+  .cedar-code-map-node--table {
+    border-color: rgb(129 140 248 / 0.55);
+    background: rgb(49 46 129 / 0.45);
+    color: #e0e7ff;
+  }
+  .cedar-code-map-node--table .cedar-code-map-node-badge {
+    border-color: rgb(129 140 248 / 0.4);
+    color: #c7d2fe;
+  }
+
+  .cedar-code-map-node--external {
+    border-color: rgb(251 113 133 / 0.5);
+    background: rgb(76 5 25 / 0.45);
+    color: #fecdd3;
+  }
+  .cedar-code-map-node--external .cedar-code-map-node-badge {
+    border-color: rgb(251 113 133 / 0.4);
+    color: #fda4af;
+  }
+
+  .cedar-code-map-node--module,
+  .cedar-code-map-node--module-focus {
+    border-color: rgb(167 139 250 / 0.55);
+    background: rgb(46 16 101 / 0.45);
+    color: #ddd6fe;
+    font-size: calc(var(--cedar-code-map-node-font-size, 11px) - 1px);
+  }
+  .cedar-code-map-node--module-focus {
+    border-width: 2px;
+    border-color: rgb(139 92 246 / 0.9);
+    font-weight: 600;
+  }
+  .cedar-code-map-node--module .cedar-code-map-node-badge,
+  .cedar-code-map-node--module-focus .cedar-code-map-node-badge {
+    border-color: rgb(167 139 250 / 0.45);
+    color: #c4b5fd;
+  }
+
+  [data-theme="day"] .cedar-code-map-node {
+    background: #fff;
+    color: #0f172a;
+    border-color: #cbd5e1;
+    box-shadow: 0 1px 2px rgb(15 23 42 / 0.06);
+  }
+
+  [data-theme="day"] .cedar-code-map-node-badge {
+    background: #f1f5f9;
+    border-color: #e2e8f0;
+    color: #475569;
+  }
+
+  [data-theme="day"] .cedar-code-map-node--entry {
+    background: #f1f5f9;
+    border-color: #94a3b8;
+  }
+
+  [data-theme="day"] .cedar-code-map-node--symbol,
+  [data-theme="day"] .cedar-code-map-node--definition {
+    background: #ecfdf5;
+    border-color: #34d399;
+    color: #065f46;
+  }
+  [data-theme="day"] .cedar-code-map-node--symbol .cedar-code-map-node-badge,
+  [data-theme="day"] .cedar-code-map-node--definition .cedar-code-map-node-badge {
+    background: #d1fae5;
+    border-color: #6ee7b7;
+    color: #047857;
+  }
+
+  [data-theme="day"] .cedar-code-map-node--import,
+  [data-theme="day"] .cedar-code-map-node--export {
+    background: #e0f2fe;
+    border-color: #38bdf8;
+    color: #0c4a6e;
+  }
+  [data-theme="day"] .cedar-code-map-node--import .cedar-code-map-node-badge,
+  [data-theme="day"] .cedar-code-map-node--export .cedar-code-map-node-badge {
+    background: #bae6fd;
+    border-color: #7dd3fc;
+    color: #0369a1;
+  }
+
+  [data-theme="day"] .cedar-code-map-node--call {
+    background: #f4f4f5;
+    border-color: #a1a1aa;
+    color: #27272a;
+  }
+  [data-theme="day"] .cedar-code-map-node--call .cedar-code-map-node-badge {
+    background: #e4e4e7;
+    border-color: #d4d4d8;
+    color: #52525b;
+  }
+
+  [data-theme="day"] .cedar-code-map-node--step {
+    background: #f0f9ff;
+    border-color: #38bdf8;
+    color: #0c4a6e;
+  }
+
+  [data-theme="day"] .cedar-code-map-node--table {
+    background: #eef2ff;
+    border-color: #818cf8;
+    color: #312e81;
+  }
+
+  [data-theme="day"] .cedar-code-map-node--external {
+    background: #fff1f2;
+    border-color: #fb7185;
+    color: #881337;
+  }
+
+  [data-theme="day"] .cedar-code-map-node--module,
+  [data-theme="day"] .cedar-code-map-node--module-focus {
+    background: #f5f3ff;
+    border-color: #a78bfa;
+    color: #4c1d95;
+  }
+
+  .cedar-code-map-legend-panel {
+    margin: 0.35rem !important;
+    pointer-events: none;
+  }
+
+  .cedar-code-map-legend {
+    pointer-events: auto;
+    max-width: min(16.5rem, 44vw);
+    padding: 0.45rem 0.55rem 0.5rem;
+    border-radius: 0.55rem;
+    border: 1px solid rgb(148 163 184 / 0.35);
+    background: rgb(15 23 42 / 0.88);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 8px 24px rgb(0 0 0 / 0.35);
+    font-size: 10px;
+    line-height: 1.35;
+    color: #cbd5e1;
+  }
+
+  .cedar-code-map-legend--day {
+    background: rgb(255 255 255 / 0.92);
+    border-color: #e2e8f0;
+    color: #475569;
+    box-shadow: 0 6px 20px rgb(15 23 42 / 0.08);
+  }
+
+  .cedar-code-map-legend-title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.25rem 0.5rem;
+    margin-bottom: 0.35rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-size: 9px;
+    color: #94a3b8;
+  }
+
+  .cedar-code-map-legend--day .cedar-code-map-legend-title {
+    color: #64748b;
+  }
+
+  .cedar-code-map-legend-lang {
+    padding: 0.1rem 0.35rem;
+    border-radius: 0.25rem;
+    font-weight: 700;
+    color: #f8fafc;
+    background: rgb(51 65 85 / 0.85);
+  }
+
+  .cedar-code-map-legend--sql .cedar-code-map-legend-lang {
+    background: rgb(3 105 161 / 0.85);
+  }
+  .cedar-code-map-legend--java .cedar-code-map-legend-lang {
+    background: rgb(180 83 9 / 0.88);
+  }
+  .cedar-code-map-legend--js .cedar-code-map-legend-lang {
+    background: rgb(5 122 85 / 0.88);
+  }
+
+  .cedar-code-map-legend--day .cedar-code-map-legend-lang {
+    color: #fff;
+  }
+
+  .cedar-code-map-legend-stats {
+    margin-left: auto;
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: normal;
+    font-size: 9px;
+    color: #64748b;
+  }
+
+  .cedar-code-map-legend-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.28rem;
+  }
+
+  .cedar-code-map-legend-list li {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 0;
+  }
+
+  .cedar-code-map-legend-swatch {
+    flex: none;
+    width: 0.65rem;
+    height: 0.65rem;
+    border-radius: 0.2rem;
+    padding: 0 !important;
+    max-width: none !important;
+    box-shadow: none !important;
+    border-width: 1px;
+  }
+
+  .cedar-code-map-legend-hint {
+    min-width: 0;
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: normal;
+    color: inherit;
+    opacity: 0.92;
+  }
+
+  .cedar-code-map-xyflow .react-flow__edge-textbg {
+    rx: 4;
+    ry: 4;
+  }
+
+  .cedar-code-map-minimap {
+    border-radius: 0.45rem;
+    border: 1px solid rgb(148 163 184 / 0.35);
+    background: rgb(15 23 42 / 0.72) !important;
+    overflow: hidden;
+  }
+
+  [data-theme="day"] .cedar-code-map-minimap {
+    background: rgb(255 255 255 / 0.9) !important;
+    border-color: #cbd5e1;
+  }
+
+  .cedar-code-map-node--entry {
+    font-weight: 600;
+    min-width: 120px;
+    text-align: center;
+  }
+
+  .cedar-code-map-arborist-host {
+    overflow: hidden;
+  }
+
+  .cedar-code-map-arborist {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    font-size: var(--cedar-code-map-node-font-size, 11px);
+  }
+
+  .cedar-code-map-tree-row {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-width: 0;
+    padding-right: 0.35rem;
+    font-size: inherit;
+    line-height: 1.3;
+    color: rgb(226 232 240);
+    border-radius: 0.35rem;
+  }
+
+  .cedar-code-map-arborist--day .cedar-code-map-tree-row {
+    color: rgb(30 41 59);
+  }
+
+  .cedar-code-map-tree-row.is-selected {
+    background: rgb(59 130 246 / 0.18);
+  }
+
+  .cedar-code-map-tree-row.is-folder .cedar-code-map-tree-label {
+    font-weight: 600;
+  }
+
+  .cedar-code-map-tree-chevron {
+    flex: none;
+    width: 0.75rem;
+    opacity: 0.65;
+    font-size: 0.65em;
+  }
+
+  .cedar-code-map-tree-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+
+  .cedar-code-map-tree-row--module,
+  .cedar-code-map-tree-row--module-focus {
+    color: rgb(125 211 252);
+  }
+
+  .cedar-review-layout--three-col .cedar-code-map-svg-host,
+  .cedar-review-layout--three-col .cedar-code-map-arborist-host,
+  .cedar-review-layout--three-col .cedar-code-map-xyflow,
+  .cedar-review-layout--three-col .cedar-file-flow-stage > .cedar-code-map-cy {
+    flex: none;
+    min-height: 0;
+    height: auto;
+    max-height: none;
+  }
+
+  .cedar-review-layout--three-col .cedar-file-flow-stage.is-code-map-triptych .cedar-code-map-view-stack {
+    flex: 1 1 0;
+    width: 100%;
+    min-height: 12rem;
+  }
+
+  .cedar-review-layout--three-col .cedar-file-flow-stage.is-code-map-triptych .cedar-code-map-cy--flyout {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: auto !important;
+    height: 100% !important;
+    min-height: 10rem;
+    margin-left: 0.55rem;
+    margin-right: 0.2rem;
+    box-sizing: border-box;
+  }
+
+  .cedar-review-layout--three-col .cedar-file-flow-stage.is-code-map-triptych .cedar-cy-host canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .cedar-review-layout--three-col .cedar-file-flow-mermaid--fill {
+    flex: 1 1 auto;
+    min-height: min(52vh, 26rem);
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+  }
+
+  .cedar-review-layout--three-col .cedar-file-flow-mermaid--fill svg {
+    flex: 1 1 auto;
+    min-height: min(48vh, 24rem);
+    width: 100% !important;
+    max-width: 100%;
+  }
+
+  .cedar-review-left-nav-gate {
+    @apply w-full min-w-0 shrink-0 break-words rounded-lg border px-2.5 py-2 text-left leading-snug;
+    font-size: var(--cedar-review-meta);
+    line-height: 1.45;
+    margin: 0;
+    border-color: var(--cedar-review-border);
+    background: var(--cedar-review-card);
+    color: var(--cedar-review-foreground);
+  }
+
+  .cedar-review-left-nav-gate--ready {
+    border-color: rgb(16 185 129 / 0.35);
+    background: rgb(16 185 129 / 0.1);
+    color: rgb(209 250 229);
+  }
+
+  .cedar-review-left-nav-gate--pending {
+    border-color: rgb(245 158 11 / 0.35);
+    background: rgb(245 158 11 / 0.1);
+    color: rgb(254 243 199);
+  }
+
+  #main-stage.cedar-review-wide .cedar-review-layout--three-col .cedar-review-center {
+    max-width: none;
+  }
+
+  .cedar-review-layout--three-col .cedar-col-splitter.cedar-review-left-splitter,
+  .cedar-review-layout--three-col .cedar-col-splitter.cedar-review-right-splitter {
+    display: block;
+    align-self: stretch;
+  }
+
+  .cedar-review-layout--three-col .cedar-slices-nav-rail {
+    @apply flex min-h-0 w-full min-w-0 flex-1 flex-col;
+    gap: var(--cedar-review-rail-gap);
+  }
+
+  .cedar-review-layout--three-col .cedar-review-left-nav-action {
+    @apply mt-0.5 w-full shrink-0;
+  }
+
+  .cedar-review-layout--three-col .cedar-slices-nav-slices {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 9rem;
+    max-height: none;
+    overflow: hidden;
+  }
+
+  .cedar-review-layout--three-col .cedar-slices-nav-slices .cedar-pipeline-slice-list {
+    flex: 1 1 auto;
+    min-height: 3.5rem;
+    max-height: none;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .cedar-review-layout--three-col .cedar-slices-nav-rail {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+    overscroll-behavior: contain;
+  }
+
+  .cedar-review-layout--three-col .cedar-review-left-nav > .cedar-review-rail-toolbar {
+    flex-shrink: 0;
+  }
+
+  .cedar-review-layout--three-col .cedar-review-left-nav > .cedar-review-rail-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .cedar-review-layout--three-col .cedar-review-left-rail-footer {
+    flex-shrink: 0;
+  }
+
+  .cedar-review-layout--three-col .cedar-pr-chat-card:not(.cedar-pr-chat-card--compact) {
+    @apply flex min-h-0 flex-col;
+    flex: 1 1 0;
+    min-height: 9rem;
+  }
+
+  .cedar-review-layout--three-col .cedar-pr-chat-log {
+    flex: 1 1 auto;
+    min-height: 8rem;
+    max-height: none;
+  }
+
+  .cedar-review-layout.cedar-review-layout--three-col {
+    position: relative;
+  }
+
+  .cedar-review-left-nav,
+  .cedar-review-right-nav {
+    @apply relative min-w-0;
+    z-index: 4;
+    isolation: isolate;
+    flex-shrink: 0;
+    overflow-x: clip;
+  }
+
+  .cedar-review-layout--three-col .cedar-review-rail-head {
+    @apply mb-3 flex min-h-[2.75rem] w-full min-w-0 shrink-0 items-center justify-between gap-2.5 border-b pb-3;
+    border-color: var(--cedar-review-border);
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  .cedar-review-layout--three-col .cedar-review-rail-head--stacked {
+    @apply flex-col items-center justify-center gap-2 pb-3 pt-0.5;
+    min-height: auto;
+  }
+
+  .cedar-review-rail-head-title {
+    @apply block leading-tight;
+  }
+
+  .cedar-review-layout--three-col .cedar-review-rail-card {
+    @apply box-border w-full max-w-full min-w-0 overflow-hidden rounded-xl shadow-sm;
+    padding: var(--cedar-review-rail-card-pad);
+    border: 1px solid var(--cedar-review-border);
+    background: var(--cedar-review-card);
+  }
+
+  .cedar-review-layout--three-col .cedar-review-rail-slices > .cedar-rail-label {
+    @apply mb-2.5 block min-w-0;
+  }
+
+  .cedar-review-layout--three-col .cedar-review-rail-card--map {
+    @apply flex min-h-0 flex-1 flex-col;
+    gap: 0.625rem;
+  }
+
+  .cedar-review-layout--three-col .cedar-file-flow-hint,
+  .cedar-review-layout--three-col .cedar-file-flow-path,
+  .cedar-review-layout--three-col .cedar-file-flow-what {
+    @apply mx-0 w-full max-w-full min-w-0 px-0 text-center break-words;
+  }
+
+  .cedar-review-layout--three-col .cedar-file-flow-path {
+    @apply font-mono;
+    font-size: var(--cedar-review-meta);
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+  }
+
+  .cedar-review-layout--three-col .cedar-file-flow-what {
+    @apply mb-0 mt-0 line-clamp-4;
+  }
+
+  .cedar-review-layout--three-col .cedar-cursor-rollup,
+  .cedar-review-layout--three-col .cedar-cursor-rollup :is(p, li) {
+    @apply min-w-0 break-words;
+  }
+
+  .cedar-review-layout--three-col .cedar-pipeline-slice-list {
+    @apply gap-2;
+  }
+
+  .cedar-review-layout--three-col .cedar-pipeline-slice-item.cedar-nav-item-stack {
+    @apply w-full min-w-0 max-w-full items-stretch gap-0.5 rounded-lg px-2.5 py-2 text-left;
+    overflow: visible;
+  }
+
+  .cedar-review-layout--three-col .cedar-pipeline-slice-item .cedar-nav-item-meta {
+    @apply min-w-0 break-words;
+    padding-left: var(--cedar-slice-nav-indent, 14px);
+    font-size: var(--cedar-slice-nav-meta-size, 9px);
+    line-height: var(--cedar-slice-nav-line-height, 1.35);
+    overflow-wrap: anywhere;
+  }
+
+  .cedar-review-layout--three-col .cedar-pipeline-slice-item .cedar-nav-item-label {
+    font-size: var(--cedar-slice-nav-label-size, 11px);
+    line-height: var(--cedar-slice-nav-line-height, 1.35);
+  }
+
+  .cedar-review-layout--three-col .cedar-pipeline-slice-item .cedar-pipeline-slice-files {
+    font-size: var(--cedar-slice-nav-files-size, 10px);
+    line-height: var(--cedar-slice-nav-line-height, 1.35);
+  }
+
+  .cedar-review-layout--three-col .cedar-pipeline-slice-item.cedar-nav-item.is-active {
+    color: var(--cedar-review-foreground);
+  }
+
+  .cedar-review-layout--three-col .cedar-file-flow-empty {
+    @apply mx-auto max-w-[15rem] text-[11px] leading-relaxed text-zinc-500;
+  }
+
+  .cedar-review-rail-head {
+    @apply mb-2 flex shrink-0 items-center justify-between gap-2 border-b border-white/[0.06] pb-2;
+  }
+
+  .cedar-review-rail-edge {
+    @apply inline-flex shrink-0 items-center justify-center rounded-lg border p-0 text-zinc-400 shadow-sm transition duration-150;
+    border-color: var(--cedar-review-border);
+    background: var(--cedar-review-shell);
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+
+  .cedar-review-rail-edge:hover {
+    @apply text-zinc-100;
+    border-color: var(--cedar-review-border-strong);
+    background: var(--cedar-review-card);
+  }
+
+  .cedar-review-rail-edge:focus-visible {
+    @apply outline-none ring-2 ring-white/20 ring-offset-2 ring-offset-zinc-950;
+  }
+
+  .cedar-review-rail-edge--in-rail {
+    @apply relative z-10;
+  }
+
+  .cedar-review-rail-edge--affordance {
+    @apply hidden shrink-0;
+    width: var(--cedar-review-rail-edge-size, 2.25rem);
+    height: var(--cedar-review-rail-edge-size, 2.25rem);
+  }
+
+  .cedar-review-rail-edge--in-tabs {
+    @apply relative z-[1];
+  }
+
+  .cedar-review-rail-edge--in-tabs:not([hidden]) {
+    @apply inline-flex;
+  }
+
+  .cedar-review-layout--three-col .cedar-review-center > .cedar-review-tabs-head {
+    @apply relative z-[10] min-w-0;
+  }
+
+  .cedar-review-layout--three-col .cedar-review-center > .cedar-review-tabs-head .cedar-main-tablist {
+    @apply min-w-0 flex-1;
+  }
+
+  .cedar-rail-edge-icon-wrap {
+    @apply inline-flex items-center justify-center;
+  }
+
+  .cedar-rail-edge-icon {
+    @apply h-4 w-4 shrink-0;
+    display: block;
+  }
+
+  .cedar-review-layout.cedar-review-layout--three-col.is-left-nav-collapsed .cedar-review-left-splitter {
+    display: none;
+    width: 0;
+    min-width: 0;
+    flex: 0 0 0;
+    overflow: hidden;
+    border: 0;
+    padding: 0;
+    margin: 0;
+  }
+
+  .cedar-review-layout.cedar-review-layout--three-col.is-left-nav-collapsed .cedar-review-left-nav {
+    visibility: hidden;
+    display: none;
+    width: 0;
+    min-width: 0;
+    max-width: 0;
+    flex: 0 0 0;
+    overflow: hidden;
+    padding: 0;
+    margin: 0;
+    border: 0;
+  }
+
+  .cedar-review-layout.cedar-review-layout--three-col.is-right-nav-collapsed .cedar-review-right-splitter {
+    display: none;
+    width: 0;
+    min-width: 0;
+    flex: 0 0 0;
+    overflow: hidden;
+    border: 0;
+    padding: 0;
+    margin: 0;
+  }
+
+  .cedar-review-layout.cedar-review-layout--three-col.is-right-nav-collapsed .cedar-review-right-nav {
+    display: none;
+    width: 0;
+    min-width: 0;
+    max-width: 0;
+    flex: 0 0 0;
+    overflow: hidden;
+    padding: 0;
+    margin: 0;
+    border: 0;
+  }
+
+  .cedar-review-layout.cedar-review-layout--three-col.is-left-nav-collapsed .cedar-review-center,
+  .cedar-review-layout.cedar-review-layout--three-col.is-right-nav-collapsed .cedar-review-center,
+  .cedar-review-layout.cedar-review-layout--three-col.is-left-nav-collapsed.is-right-nav-collapsed .cedar-review-center {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: auto;
+  }
+
+  .cedar-review-layout.cedar-review-layout--three-col.is-left-nav-collapsed:not(.is-right-nav-collapsed) .cedar-review-center {
+    border-top-left-radius: 0.75rem;
+    border-bottom-left-radius: 0.75rem;
+  }
+
+  .cedar-review-layout.cedar-review-layout--three-col.is-right-nav-collapsed:not(.is-left-nav-collapsed) .cedar-review-center {
+    border-top-right-radius: 0.75rem;
+    border-bottom-right-radius: 0.75rem;
+  }
+
+  .cedar-review-layout.cedar-review-layout--three-col.is-left-nav-collapsed.is-right-nav-collapsed .cedar-review-center {
+    border-radius: 0.75rem;
+  }
+
+  @media (min-width: 1280px) {
+    .cedar-review-layout--three-col .cedar-review-left-nav {
+      min-width: 15.75rem;
+    }
+
+    .cedar-review-layout--three-col .cedar-review-right-nav {
+      min-width: 20rem;
+    }
+
+    .cedar-review-layout--three-col .cedar-review-center {
+      min-width: 0;
+    }
   }
 
   #main-stage.cedar-review-wide .cedar-pr-header,
@@ -626,8 +2659,30 @@
   }
 
   .cedar-review-sidebar {
-    @apply min-w-0 shrink-0 lg:sticky lg:top-20 lg:self-stretch;
+    @apply flex min-w-0 shrink-0 flex-col gap-3 lg:sticky lg:top-20 lg:self-start;
     width: 100%;
+    padding-bottom: 0.5rem;
+  }
+
+  @media (max-width: 1023px) {
+    .cedar-review-sidebar {
+      max-height: none;
+      overflow: visible;
+    }
+
+    .cedar-pipeline-slice-list {
+      max-height: min(28vh, 14rem);
+      overflow-y: auto;
+    }
+
+    .cedar-pr-chat-card {
+      min-height: min(22rem, 52vh);
+    }
+
+    .cedar-pr-chat-log {
+      min-height: 10rem;
+      max-height: min(28rem, 58vh);
+    }
   }
 
   @media (min-width: 1024px) {
@@ -636,8 +2691,58 @@
       width: var(--cedar-sidebar-width);
       min-width: 17.5rem;
       max-width: min(35rem, 44vw);
+      max-height: calc(100vh - 5.5rem);
+      padding: 0 0.5rem 0.75rem 0;
+      gap: 0.75rem;
+      overflow-x: hidden;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+
+    .cedar-review-sidebar .cedar-cursor-rollup-card,
+    .cedar-review-sidebar .cedar-review-rail-slices,
+    .cedar-review-sidebar > p,
+    .cedar-review-sidebar > #new-review-btn {
+      flex: 0 0 auto;
+    }
+
+    .cedar-review-sidebar .cedar-review-rail-slices {
+      min-height: 0;
+      flex: 0 1 auto;
+      max-height: min(24vh, 12.5rem);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .cedar-review-sidebar .cedar-pipeline-slice-list {
+      flex: 1 1 auto;
+      min-height: 0;
+      max-height: min(20vh, 10.5rem);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+
+    .cedar-review-sidebar .cedar-pr-chat-card {
+      flex: 1 1 0;
+      min-height: min(24rem, 52vh);
       max-height: none;
-      overflow: visible;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .cedar-review-sidebar .cedar-pr-chat-log {
+      flex: 1 1 0;
+      min-height: 12rem;
+      max-height: none;
+    }
+
+    .cedar-review-sidebar .cedar-pr-chat-form {
+      flex: 0 0 auto;
+      margin-top: auto;
+      padding: 0.85rem 0.35rem 0.9rem;
+      border-top: 1px solid rgb(255 255 255 / 0.06);
     }
   }
 
@@ -693,8 +2798,10 @@
     user-select: none;
   }
 
-  body.cedar-is-resizing-review .cedar-review-main,
-  body.cedar-is-resizing-slices .cedar-slice-review-pane {
+  body.cedar-is-resizing-review .cedar-review-center,
+  body.cedar-is-resizing-slices .cedar-slice-review-pane,
+  body.cedar-is-resizing-slices-nav .cedar-review-center,
+  body.cedar-is-resizing-file-flow .cedar-review-center {
     pointer-events: none;
   }
 
@@ -702,23 +2809,96 @@
     @apply text-[9px] tracking-[0.1em];
   }
 
-  .cedar-review-main {
+  .cedar-review-main,
+  .cedar-review-main-body {
     flex: 1 1 0%;
     width: 100%;
     min-width: 0;
     max-width: none;
   }
 
-  .cedar-review-stage {
-    @apply overflow-visible rounded-2xl border border-white/[0.07];
-    background: linear-gradient(180deg, rgb(12 12 13) 0%, rgb(8 8 9) 100%);
-    box-shadow:
-      0 1px 0 rgb(255 255 255 / 0.04) inset,
-      0 24px 64px -32px rgb(0 0 0 / 0.9);
+  .cedar-review-main-body {
+    @apply flex min-h-0 flex-1 flex-col gap-0;
+  }
+
+  .cedar-review-main-body > .cedar-review-tabs-head {
+    position: sticky;
+    top: 0;
+    z-index: 12;
+    margin-bottom: 0.35rem;
+    background: var(--cedar-review-surface);
+    box-shadow: 0 1px 0 var(--cedar-review-border);
+  }
+
+  .cedar-review-main-body > .cedar-main-tabpanel {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .cedar-review-main-body > .cedar-main-tabpanel[hidden] {
+    display: none;
+  }
+
+  .cedar-review-stage,
+  .cedar-main-tabpanel--architecture.cedar-review-stage {
+    @apply overflow-visible rounded-2xl border;
+    border-color: var(--cedar-review-border);
+    background: var(--cedar-review-surface);
+    box-shadow: var(--cedar-review-shadow-sm);
+  }
+
+  #main-stage.cedar-review-wide .cedar-slices-stage {
+    background: transparent;
+  }
+
+  .cedar-main-tabpanel--architecture {
+    @apply px-4 py-5 sm:px-6 sm:py-6;
   }
 
   .cedar-review-tabs-head {
-    @apply border-b border-white/[0.07] px-4 sm:px-6;
+    @apply flex min-h-[2.75rem] shrink-0 items-center justify-between gap-3 border-b px-0 sm:px-0.5;
+    border-color: var(--cedar-review-border);
+  }
+
+
+  .cedar-slices-stage {
+    @apply flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden pt-1;
+    width: 100%;
+    max-width: none;
+  }
+
+  @media (min-width: 1024px) {
+    .cedar-review-layout.cedar-review-slices-focus {
+      @apply items-stretch;
+    }
+
+    .cedar-review-layout.cedar-review-slices-focus .cedar-review-main {
+      flex: 1 1 auto;
+      min-width: 0;
+      max-width: none;
+      width: auto;
+    }
+
+    .cedar-review-layout.cedar-review-slices-focus .cedar-slices-stage {
+      min-height: calc(100vh - 7.5rem);
+      max-height: calc(100vh - 5.5rem);
+      width: 100%;
+      max-width: none;
+    }
+
+    .cedar-review-layout.cedar-review-slices-focus .cedar-slices-shell {
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+
+    .cedar-review-layout.cedar-review-slices-focus .cedar-slice-panel {
+      max-height: calc(100vh - 8rem);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
   }
 
   .cedar-main-tablist {
@@ -762,13 +2942,9 @@
     @apply bg-white/[0.1] text-zinc-400;
   }
 
-  .cedar-main-tabpanels {
-    @apply min-w-0 px-4 py-5 sm:px-6 sm:py-6;
-  }
-
   #cedar-review-panel-slices,
   .cedar-slices-tabpanel {
-    @apply min-w-0 overflow-visible px-1 py-2 sm:px-2 sm:py-3;
+    @apply min-w-0 overflow-visible px-0 py-0;
   }
 
   .cedar-diff-focus-bar {
@@ -783,32 +2959,304 @@
     @apply border-emerald-500/25 bg-emerald-500/10 text-emerald-200;
   }
 
+  .cedar-slices-shell--solo,
+  .cedar-slices-shell--with-flow {
+    @apply w-full min-w-0;
+  }
+
+  .cedar-slices-shell--solo .cedar-slice-review-pane {
+    flex: 1 1 100%;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .cedar-slices-shell--diffs,
+  .cedar-slices-shell--with-flow {
+    @apply flex min-h-0 w-full min-w-0 flex-1 flex-col;
+  }
+
+  .cedar-review-layout:not(.cedar-review-layout--three-col) .cedar-review-right-nav {
+    @apply flex min-h-0 shrink-0 flex-col;
+    width: 100%;
+  }
+
+  body.cedar-is-resizing-slices-nav,
+  body.cedar-is-resizing-file-flow {
+    cursor: col-resize;
+    user-select: none;
+  }
+
+  .cedar-file-flow-rail {
+    @apply flex h-full min-h-0 flex-1 flex-col;
+    min-height: 0;
+  }
+
+  .cedar-review-layout:not(.cedar-review-layout--three-col) .cedar-file-flow-rail {
+    min-height: 14rem;
+  }
+
   @media (min-width: 1024px) {
-  /* Slices tab: maximize diff space but keep PR chat in the left rail */
-    .cedar-review-layout.cedar-review-slices-focus:not(.cedar-pipeline-rail-expanded)
-      .cedar-review-sidebar
-      > *:not(.cedar-pr-chat-card) {
-      display: none;
+    .cedar-review-layout:not(.cedar-review-layout--three-col) .cedar-file-flow-rail {
+      min-height: min(78vh, calc(100vh - 7rem));
+      max-height: none;
     }
+  }
 
-    .cedar-review-layout.cedar-review-slices-focus:not(.cedar-pipeline-rail-expanded) .cedar-review-sidebar {
-      @apply flex min-h-0 flex-col;
-    }
+  .cedar-file-flow-path {
+    @apply break-words text-[11px] leading-snug;
+    color: var(--cedar-review-muted);
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
 
-    .cedar-review-layout.cedar-review-slices-focus:not(.cedar-pipeline-rail-expanded) .cedar-pr-chat-card {
-      @apply flex-1;
-    }
+  .cedar-file-flow-hint {
+    color: var(--cedar-review-muted);
+  }
 
-    .cedar-slices-shell.cedar-slice-rail-collapsed .cedar-slice-rail-wrap,
-    .cedar-slices-shell.cedar-slice-rail-collapsed > .cedar-slice-splitter {
-      display: none !important;
-    }
+  .cedar-file-flow-what {
+    color: var(--cedar-review-muted);
+  }
 
-    .cedar-slices-shell.cedar-slice-rail-collapsed .cedar-slice-review-pane {
-      flex: 1 1 100%;
-      width: 100%;
-      max-width: 100%;
-    }
+  .cedar-file-flow-empty {
+    color: var(--cedar-review-muted);
+  }
+
+  .cedar-file-flow-profile {
+    @apply w-full min-w-0 shrink-0 text-[10px] leading-snug;
+    color: var(--cedar-review-muted);
+  }
+
+  .cedar-code-map-profile {
+    @apply inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide;
+    border-color: var(--cedar-review-border);
+    background: var(--cedar-review-card);
+    color: var(--cedar-review-foreground);
+  }
+
+  .cedar-code-map-profile--sql-migration {
+    @apply border-sky-500/35 bg-sky-500/15 text-sky-100;
+  }
+
+  .cedar-code-map-profile--new-module,
+  .cedar-code-map-profile--new-service {
+    @apply border-emerald-500/35 bg-emerald-500/15 text-emerald-100;
+  }
+
+  .cedar-code-map-profile--local-edit {
+    @apply border-zinc-500/30 bg-zinc-500/10 text-zinc-300;
+  }
+
+  .cedar-code-map-profile-hint {
+    @apply font-normal normal-case tracking-normal;
+    color: var(--cedar-review-muted);
+  }
+
+  .cedar-file-flow-what {
+    @apply mb-2 mt-1;
+  }
+
+  .cedar-file-flow-what--functional {
+    @apply rounded-md border px-2 py-1.5 text-[11px] leading-relaxed;
+    border-color: rgb(45 212 191 / 0.35);
+    background: rgb(19 78 74 / 0.35);
+    color: var(--cedar-review-foreground);
+  }
+
+  [data-theme="day"] .cedar-file-flow-what--functional {
+    border-color: rgb(20 184 166 / 0.45);
+    background: rgb(240 253 250);
+    color: #134e4a;
+  }
+
+  .cedar-file-flow-stage {
+    @apply relative flex min-h-[16rem] min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-white/[0.06] bg-black/25 p-2.5;
+  }
+
+  .cedar-file-flow-stage > .cedar-code-map-svg-host,
+  .cedar-file-flow-stage > .cedar-code-map-cy,
+  .cedar-file-flow-stage > .cedar-file-flow-mermaid {
+    @apply min-h-0 w-full flex-1;
+  }
+
+  .cedar-code-map-svg-host {
+    position: absolute;
+    touch-action: none;
+  }
+
+  .cedar-code-map-cy {
+    position: absolute;
+    inset: 0;
+    touch-action: none;
+    min-height: 0;
+  }
+
+  .cedar-file-flow-stage > .cedar-code-map-cy.cedar-cy-host {
+    border-radius: 0.75rem;
+    min-height: 0;
+    height: 100%;
+  }
+
+  .cedar-file-flow-stage.is-code-map-triptych {
+    @apply flex min-h-0 flex-col gap-2;
+  }
+
+  .cedar-code-map-view-tabs {
+    @apply relative z-[2] flex shrink-0 gap-1 rounded-lg border border-white/[0.08] bg-black/30 p-1;
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04);
+    pointer-events: auto;
+  }
+
+  .cedar-code-map-view-tab {
+    @apply min-w-0 flex-1 rounded-md border border-transparent px-2 py-1.5 text-[10px] font-medium uppercase tracking-wide text-zinc-400 transition-colors;
+  }
+
+  .cedar-code-map-view-tab:hover:not(.is-active) {
+    @apply text-zinc-300;
+    background: rgb(255 255 255 / 0.05);
+  }
+
+  .cedar-code-map-view-tab.is-active,
+  .cedar-code-map-view-tab[aria-selected="true"] {
+    @apply border-white/[0.1] bg-white/[0.08] text-zinc-100;
+    box-shadow: 0 1px 0 rgb(0 0 0 / 0.2);
+  }
+
+  .cedar-code-map-view-stack {
+    @apply relative min-h-0 min-w-0 flex-1;
+    min-height: 18rem;
+  }
+
+  .cedar-file-flow-stage.is-code-map-triptych .cedar-code-map-view-stack {
+    flex: 1 1 0;
+    min-height: 14rem;
+    position: relative;
+  }
+
+  .cedar-code-map-view-stage {
+    @apply relative min-h-0 w-full;
+    position: absolute;
+    inset: 0;
+    min-height: 14rem;
+  }
+
+  .cedar-code-map-view-stage[hidden] {
+    display: none !important;
+  }
+
+  html[data-theme="day"] .cedar-code-map-view-tabs {
+    @apply border-zinc-200 bg-zinc-100/90;
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.9);
+  }
+
+  html[data-theme="day"] .cedar-code-map-view-tab {
+    @apply text-zinc-600;
+  }
+
+  html[data-theme="day"] .cedar-code-map-view-tab:hover:not(.is-active) {
+    @apply bg-zinc-200/50 text-zinc-800;
+  }
+
+  html[data-theme="day"] .cedar-code-map-view-tab.is-active,
+  html[data-theme="day"] .cedar-code-map-view-tab[aria-selected="true"] {
+    @apply border-zinc-200 bg-white text-zinc-900 shadow-sm;
+  }
+
+  .cedar-code-map-svg {
+    display: block;
+    max-width: none;
+    max-height: none;
+    cursor: grab;
+  }
+
+  .cedar-code-map-svg:active {
+    cursor: grabbing;
+  }
+
+
+  .cedar-file-flow-empty {
+    @apply text-[11px] leading-relaxed text-zinc-600;
+  }
+
+  .cedar-file-flow-fallback {
+    @apply max-h-64 overflow-auto font-mono text-[9px] leading-snug text-zinc-500;
+  }
+
+  .cedar-file-flow-mermaid {
+    @apply w-full;
+  }
+
+  .cedar-file-flow-mermaid svg {
+    display: block;
+    width: 100% !important;
+    max-width: 100%;
+    height: auto !important;
+    max-height: none;
+  }
+
+  .cedar-file-flow-stage .mermaid-rendered {
+    min-width: min(100%, 18rem);
+    width: 100%;
+    height: auto;
+  }
+
+  .cedar-gh-file.is-file-flow-active {
+    @apply ring-1 ring-emerald-500/30;
+  }
+
+  body.cedar-is-resizing-file-flow {
+    cursor: col-resize;
+    user-select: none;
+  }
+
+  .cedar-pipeline-slice-list {
+    @apply mt-2 flex w-full min-w-0 flex-col gap-1.5;
+  }
+
+  .cedar-pipeline-slice-item {
+    @apply box-border w-full min-w-0 max-w-full border px-3 py-2.5 text-left;
+    border-color: var(--cedar-review-border);
+    background: var(--cedar-review-inset);
+    overflow: visible;
+  }
+
+  :root:not([data-theme="day"]) .cedar-pipeline-slice-item:hover {
+    @apply border-white/10 bg-white/[0.04];
+  }
+
+  :root:not([data-theme="day"]) .cedar-pipeline-slice-item.is-active {
+    border-color: var(--cedar-review-border-strong);
+    background: var(--cedar-review-card);
+    @apply text-zinc-100;
+  }
+
+  :root:not([data-theme="day"]) .cedar-review-layout--three-col .cedar-pipeline-slice-item.cedar-nav-item.is-active {
+    border-color: var(--cedar-review-border-strong);
+    background: rgb(255 255 255 / 0.07);
+    @apply text-zinc-100;
+  }
+
+  html[data-theme="day"] .cedar-review-layout--three-col .cedar-pipeline-slice-item.cedar-nav-item {
+    color: rgb(24 24 27);
+  }
+
+  html[data-theme="day"] .cedar-review-layout--three-col .cedar-pipeline-slice-item .cedar-nav-item-label {
+    @apply text-zinc-900;
+  }
+
+  html[data-theme="day"] .cedar-review-layout--three-col .cedar-pipeline-slice-item .cedar-nav-item-meta {
+    @apply text-zinc-600;
+  }
+
+  html[data-theme="day"] .cedar-review-layout--three-col .cedar-pipeline-slice-item .cedar-slice-index {
+    @apply text-zinc-500;
+  }
+
+  .cedar-pipeline-slice-files {
+    @apply ml-auto shrink-0 font-mono text-[9px] tabular-nums text-zinc-600;
+  }
+
+  .cedar-pipeline-slice-item.is-active .cedar-pipeline-slice-files {
+    @apply text-zinc-400;
   }
 
   .cedar-main-tabpanel:not([hidden]) {
@@ -827,29 +3275,58 @@
   }
 
   .cedar-pr-chat-card {
-    @apply flex min-h-0 flex-col lg:min-h-0 lg:flex-1 lg:overflow-hidden;
+    @apply flex min-h-0 flex-col overflow-hidden;
+    font-size: var(--cedar-review-prose);
+    line-height: var(--cedar-review-prose-leading);
+    min-height: 18rem;
+    max-height: min(52rem, calc(100vh - 4.5rem));
+    padding: 0;
+  }
+
+  .cedar-review-layout--three-col .cedar-pr-chat-card {
+    gap: 0.625rem;
+  }
+
+  .cedar-pr-chat-card > .cedar-rail-label,
+  .cedar-pr-chat-card > .cedar-pr-chat-hint,
+  .cedar-pr-chat-card > .cedar-pr-chat-status {
+    flex-shrink: 0;
+  }
+
+  .cedar-pr-chat-card > .cedar-rail-label {
+    @apply mb-0 min-w-0 break-words;
   }
 
   .cedar-pr-chat-form {
-    @apply flex shrink-0 flex-col;
+    @apply mt-0 flex w-full min-w-0 shrink-0 flex-col;
+    gap: 0.75rem;
+    padding: 0;
+  }
+
+  .cedar-pr-chat-actions {
+    @apply flex w-full shrink-0 flex-col gap-2;
+    padding-top: 0.15rem;
   }
 
   .cedar-pr-chat-log {
-    @apply flex flex-1 flex-col gap-2 overflow-y-auto rounded-xl border border-white/[0.06] bg-black/40 p-2.5;
-    min-height: 10rem;
-    max-height: min(36rem, 56vh);
+    @apply flex min-h-0 w-full min-w-0 flex-1 flex-col gap-2.5 overflow-y-auto overflow-x-hidden rounded-xl border border-white/[0.06] bg-black/40;
+    font-size: inherit;
+    line-height: inherit;
+    padding: 0.85rem 0.95rem;
+    min-height: 8rem;
+    max-height: min(32rem, 62vh);
   }
 
   @media (min-width: 1024px) {
     .cedar-pr-chat-log {
-      min-height: 20rem;
-      max-height: none;
-      flex: 1 1 auto;
+      padding: 0.85rem 0.9rem;
     }
   }
 
   .cedar-pr-chat-bubble {
-    @apply rounded-lg px-2.5 py-2 text-[11px] leading-relaxed;
+    @apply max-w-full min-w-0 rounded-lg px-3 py-2.5;
+    font-size: inherit;
+    line-height: var(--cedar-review-prose-leading);
   }
 
   .cedar-pr-chat-bubble-user {
@@ -861,23 +3338,109 @@
   }
 
   .cedar-pr-chat-bubble-label {
-    @apply mb-0.5 text-[9px] font-medium uppercase tracking-wide text-zinc-600;
+    @apply mb-0.5 font-medium uppercase tracking-wide text-zinc-600;
+    font-size: var(--cedar-review-caption);
+    line-height: 1.4;
   }
 
   .cedar-pr-chat-bubble-body {
     @apply whitespace-pre-wrap break-words;
+    font-size: inherit;
+    line-height: inherit;
+  }
+
+  .cedar-pr-chat-bubble-body.cedar-pr-chat-rich {
+    white-space: normal;
+  }
+
+  .cedar-pr-chat-bubble-assistant .cedar-pr-chat-rich :is(h1, h2, h3, h4) {
+    @apply mt-2 mb-1 font-semibold text-zinc-300;
+  }
+
+  .cedar-pr-chat-bubble-assistant .cedar-pr-chat-rich :is(p, li, td, th, blockquote) {
+    font-size: inherit;
+    line-height: inherit;
+  }
+
+  .cedar-pr-chat-bubble-assistant .cedar-pr-chat-rich h3 {
+    font-size: var(--cedar-review-section);
+    line-height: 1.4;
+  }
+
+  .cedar-pr-chat-diagram-wrap {
+    @apply my-2 w-full min-w-0;
+  }
+
+  .cedar-pr-chat-mermaid-stage {
+    @apply w-full min-w-0 overflow-hidden rounded-md border border-white/[0.08] bg-black/25;
+    min-height: 12rem;
+    height: min(20rem, 42vh);
+  }
+
+  .cedar-pr-chat-mermaid-stage .mermaid-rendered {
+    @apply p-1;
   }
 
   .cedar-pr-chat-input {
-    @apply w-full min-h-[7.5rem] resize-y rounded-xl border border-white/[0.08] bg-black/50 px-3 py-2.5 text-xs leading-relaxed text-zinc-200 placeholder:text-zinc-600 focus:border-white/20 focus:outline-none focus:ring-2 focus:ring-white/10;
+    @apply w-full min-h-[6rem] max-h-[12rem] resize-y rounded-xl border border-white/[0.08] bg-black/50 px-3.5 py-3.5 text-zinc-100 placeholder:text-zinc-500 focus:border-white/25 focus:outline-none focus:ring-2 focus:ring-white/15;
+    font-size: var(--cedar-review-prose);
+    line-height: var(--cedar-review-prose-leading);
+    display: block;
+    visibility: visible;
+    opacity: 1;
+  }
+
+  .cedar-pr-chat-input::placeholder {
+    font-size: inherit;
+    line-height: inherit;
+  }
+
+  .cedar-pr-chat-hint {
+    @apply text-zinc-500;
+    font-size: var(--cedar-review-meta);
+    line-height: 1.5;
   }
 
   .cedar-pr-chat-card .cedar-pr-chat-hint {
-    @apply border-b border-white/[0.04] pb-2;
+    @apply mb-0 mt-0 min-w-0 break-words border-b border-white/[0.04] pb-2.5;
+  }
+
+  .cedar-pr-chat-status {
+    @apply text-zinc-500;
+    font-size: var(--cedar-review-meta);
+    line-height: 1.5;
   }
 
   .cedar-review-rail-card {
-    @apply rounded-xl border border-white/[0.06] bg-white/[0.02] p-3;
+    @apply box-border w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.02] p-4;
+  }
+
+  .cedar-pr-chat-send {
+    @apply inline-flex w-full items-center justify-center font-semibold tracking-tight;
+    min-height: 2.875rem;
+    padding: 0.7rem 1.15rem;
+    font-size: var(--cedar-review-section);
+    line-height: var(--cedar-review-prose-leading);
+  }
+
+  html[data-theme="night"] .cedar-pr-chat-send.cedar-btn-secondary,
+  :root:not([data-theme="day"]) .cedar-pr-chat-send.cedar-btn-secondary {
+    @apply border-white/18 bg-white/[0.08] text-zinc-100 hover:border-white/28 hover:bg-white/[0.12] hover:text-white;
+  }
+
+  html[data-theme="night"] .cedar-pr-chat-hint,
+  :root:not([data-theme="day"]) .cedar-pr-chat-hint {
+    @apply text-zinc-500;
+  }
+
+  html[data-theme="night"] .cedar-pr-chat-status,
+  :root:not([data-theme="day"]) .cedar-pr-chat-status {
+    @apply text-zinc-500;
+  }
+
+  html[data-theme="night"] .cedar-pr-chat-bubble-body,
+  :root:not([data-theme="day"]) .cedar-pr-chat-bubble-assistant .cedar-pr-chat-bubble-body {
+    @apply text-zinc-300;
   }
 
   .cedar-rail-label {
@@ -897,7 +3460,7 @@
   }
 
   .cedar-nav-item-row {
-    @apply flex w-full min-w-0 items-center gap-1.5;
+    @apply flex w-full min-w-0 items-start gap-1.5;
   }
 
   .cedar-nav-item .cedar-slice-index {
@@ -905,7 +3468,7 @@
   }
 
   .cedar-nav-item .cedar-slice-status-dot {
-    @apply h-2 w-2;
+    @apply mt-0.5 h-2 w-2 shrink-0;
   }
 
   .cedar-nav-item-label {
@@ -913,7 +3476,10 @@
   }
 
   .cedar-nav-item-meta {
-    @apply w-full pl-[1.375rem] font-mono text-[9px] leading-snug text-zinc-600;
+    @apply w-full font-mono leading-snug text-zinc-600;
+    padding-left: var(--cedar-slice-nav-indent, 14px);
+    font-size: var(--cedar-slice-nav-meta-size, 9px);
+    line-height: var(--cedar-slice-nav-line-height, 1.35);
   }
 
   .cedar-nav-item-check {
@@ -924,8 +3490,36 @@
     @apply border-white/[0.08] bg-white/[0.06] text-zinc-100;
   }
 
+  .cedar-slice-tab-full-pr {
+    @apply gap-1 py-1;
+  }
+
+  .cedar-slice-tab-full-pr .cedar-slice-index {
+    @apply w-5 shrink-0 text-[9px] font-semibold tracking-tight text-zinc-500;
+  }
+
+  .cedar-slice-tab-full-pr.is-active {
+    @apply border-sky-500/35 bg-sky-500/10;
+  }
+
+  .cedar-slice-rail .cedar-slice-tab-count {
+    @apply font-mono leading-none;
+  }
+
+  .cedar-slice-tab.is-active .cedar-slice-tab-count {
+    @apply text-zinc-400;
+  }
+
+  .cedar-full-pr-slice {
+    @apply max-w-none p-1.5 sm:p-2;
+  }
+
+  .cedar-full-pr-slice .cedar-gh-files-changed .mb-3 {
+    @apply mb-2;
+  }
+
   .cedar-slices-shell {
-    --cedar-slice-rail-width: 10.25rem;
+    --cedar-slice-rail-width: 6.75rem;
     @apply flex w-full min-w-0 flex-col gap-4 lg:flex-row lg:items-stretch lg:gap-0;
   }
 
@@ -947,9 +3541,9 @@
     .cedar-slice-rail-wrap.cedar-slice-rail-right {
       width: var(--cedar-slice-rail-width);
       flex: 0 0 var(--cedar-slice-rail-width);
-      min-width: 6.75rem;
-      max-width: 20rem;
-      @apply border-b-0 border-l border-white/[0.06] pb-0 pl-2;
+      min-width: 6rem;
+      max-width: 12.5rem;
+      @apply border-b-0 border-l border-white/[0.06] pb-0 pl-1.5;
     }
   }
 
@@ -998,7 +3592,45 @@
   }
 
   .cedar-slice-panel {
-    @apply rounded-lg border border-white/[0.05] bg-black/20 p-2 sm:p-3;
+    @apply rounded-lg border border-white/[0.05] bg-black/20 p-1.5 sm:p-2;
+  }
+
+  .cedar-slice-prose,
+  .cedar-review-stage .cedar-review-comment-body {
+    font-size: var(--cedar-review-prose);
+    line-height: var(--cedar-review-prose-leading);
+    @apply text-zinc-300;
+  }
+
+  .cedar-review-stage .cedar-review-comment-body.cedar-comment-html {
+    white-space: normal;
+  }
+
+  .cedar-review-stage .cedar-comment-html {
+    font-size: inherit;
+    line-height: inherit;
+    color: inherit;
+  }
+
+  .cedar-review-stage .cedar-comment-html p,
+  .cedar-review-stage .cedar-comment-html li {
+    @apply text-zinc-300;
+  }
+
+  .cedar-review-stage .cedar-comment-html strong {
+    @apply font-medium text-zinc-200;
+  }
+
+  .cedar-slice-rationale-summary {
+    @apply cursor-pointer list-none text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500 transition hover:text-zinc-300;
+  }
+
+  .cedar-slice-rationale-summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .cedar-slice-rationale[open] > .cedar-slice-rationale-summary {
+    @apply text-zinc-400;
   }
 
   .cedar-slice-review-pane .cedar-gh-files-changed {
@@ -1149,8 +3781,14 @@
     word-break: break-word;
   }
 
-  .cedar-diff2html {
+  :root:not([data-theme="day"]) .cedar-diff2html {
     color: #e6edf3;
+    font-size: inherit;
+    line-height: inherit;
+  }
+
+  html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme {
+    color: #1f2328;
     font-size: inherit;
     line-height: inherit;
   }
@@ -1178,7 +3816,7 @@
     border-radius: 0;
   }
 
-  .cedar-diff2html .d2h-file-header {
+  :root:not([data-theme="day"]) .cedar-diff2html .d2h-file-header {
     position: sticky;
     top: 0;
     z-index: 2;
@@ -1188,9 +3826,24 @@
     border-bottom: 1px solid #30363d;
   }
 
-  .cedar-diff2html .d2h-file-name {
+  html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme .d2h-file-header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    min-height: 32px;
+    padding: 6px 12px;
+    background-color: #f6f8fa;
+    border-bottom: 1px solid #d0d7de;
+  }
+
+  :root:not([data-theme="day"]) .cedar-diff2html .d2h-file-name {
     font-weight: 600;
     color: #58a6ff;
+  }
+
+  html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme .d2h-file-name {
+    font-weight: 600;
+    color: #0969da;
   }
 
   .cedar-diff2html .d2h-code-line-ctn {
@@ -1205,6 +3858,12 @@
   .cedar-diff2html .d2h-file-side-diff {
     overflow: visible !important;
     max-height: none !important;
+  }
+
+  .cedar-diff2html .d2h-wrapper,
+  .cedar-diff2html .d2h-diff-table {
+    width: 100%;
+    max-width: none;
   }
 
   .cedar-diff2html[data-diff-format="line-by-line"] .d2h-file-side-diff {
@@ -1261,8 +3920,8 @@
   }
 
   .cedar-diff-line-commented .cedar-diff-gutter {
-    box-shadow: inset 4px 0 0 #3fb950;
-    background-color: rgb(46 160 67 / 0.12) !important;
+    box-shadow: inset 3px 0 0 rgb(var(--cedar-comment-cursor-accent) / 0.72);
+    background-color: rgb(var(--cedar-comment-cursor-accent) / 0.07) !important;
   }
 
   .cedar-diff-comment-row.cedar-diff-comments-collapsed .cedar-diff-gutter {
@@ -1270,9 +3929,14 @@
   }
 
   .cedar-diff-comment-thread-row .cedar-diff-comment-thread-cell {
+    width: 100%;
+    max-width: none;
     padding: 0 !important;
     border: 0 !important;
     background: transparent !important;
+    font-family: var(--font-sans);
+    font-size: var(--cedar-review-prose, 0.75rem);
+    line-height: var(--cedar-review-prose-leading, 1.625);
   }
 
   .cedar-diff-comment-gutter-count {
@@ -1287,11 +3951,12 @@
     justify-content: center;
     border-radius: 9999px;
     padding: 0 0.2rem;
-    font-size: calc(var(--cedar-diff-font-size, 8px) * 0.95);
+    font-family: var(--font-sans);
+    font-size: var(--cedar-review-caption, 0.625rem);
     font-weight: 700;
     line-height: 1.2;
-    color: #0d1117;
-    background: #3fb950;
+    color: rgb(250 250 250);
+    background: rgb(var(--cedar-comment-cursor-accent) / 0.92);
     pointer-events: none;
   }
 
@@ -1300,14 +3965,20 @@
   }
 
   .cedar-diff-line-commented.cedar-diff-gutter-count-visible .cedar-diff-gutter {
-    box-shadow: inset 4px 0 0 #3fb950;
-    background-color: rgb(46 160 67 / 0.18) !important;
+    box-shadow: inset 3px 0 0 rgb(var(--cedar-comment-cursor-accent) / 0.85);
+    background-color: rgb(var(--cedar-comment-cursor-accent) / 0.1) !important;
   }
 
   .cedar-diff-comment-thread-wrap {
-    margin: 0.2rem 0 0.35rem 1.5rem;
-    font-size: var(--cedar-diff-font-size, 8px);
-    line-height: var(--cedar-diff-line-height, 14px);
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: none;
+    margin: 0.2rem 0 0.35rem;
+    padding: 0 0.35rem;
+    font-family: var(--font-sans);
+    font-size: var(--cedar-review-prose, 0.75rem);
+    line-height: var(--cedar-review-prose-leading, 1.625);
   }
 
   .cedar-diff-comment-thread-toggle {
@@ -1315,21 +3986,23 @@
     align-items: center;
     gap: 0.25rem;
     margin-bottom: 0.2rem;
-    border: 1px solid rgb(46 160 67 / 0.35);
     border-radius: 4px;
     padding: 0.1rem 0.35rem;
-    font-size: calc(var(--cedar-diff-font-size, 8px) * 1.05);
+    font-family: var(--font-sans);
+    font-size: var(--cedar-review-meta, 0.625rem);
     font-weight: 600;
-    line-height: var(--cedar-diff-line-height, 14px);
-    color: #7ee787;
-    background: rgb(46 160 67 / 0.12);
+    line-height: 1.35;
+    color: rgb(var(--cedar-comment-cursor-accent-muted));
+    border-color: rgb(255 255 255 / 0.1);
+    background: rgb(var(--cedar-comment-surface-elevated) / 0.65);
     cursor: pointer;
-    transition: background-color 0.12s, border-color 0.12s;
+    transition: background-color 0.12s, border-color 0.12s, color 0.12s;
   }
 
   .cedar-diff-comment-thread-toggle:hover {
-    background: rgb(46 160 67 / 0.22);
-    border-color: rgb(46 160 67 / 0.55);
+    color: rgb(228 228 231);
+    background: rgb(var(--cedar-comment-surface-elevated) / 0.92);
+    border-color: rgb(var(--cedar-comment-cursor-accent) / 0.35);
   }
 
   .cedar-diff-comment-thread-toggle-count {
@@ -1338,11 +4011,11 @@
     justify-content: center;
     border-radius: 9999px;
     padding: 0 0.2rem;
-    font-size: calc(var(--cedar-diff-font-size, 8px) * 0.95);
+    font-size: var(--cedar-review-caption, 0.625rem);
     font-weight: 700;
     line-height: 1.2;
-    color: #0d1117;
-    background: #3fb950;
+    color: rgb(250 250 250);
+    background: rgb(var(--cedar-comment-cursor-accent) / 0.88);
   }
 
   /* Collapsed: remove the extra table row so code lines stay contiguous */
@@ -1350,13 +4023,18 @@
     display: none !important;
   }
 
-  .cedar-gh-files-changed.cedar-diff-comments-off .cedar-diff-comment-thread-row,
-  tr.cedar-diff-comment-thread-row.cedar-diff-comments-off {
+  /* Hide collapsed threads; global "hide comments" only marks rows, not all descendants */
+  tr.cedar-diff-comment-thread-row.cedar-diff-comments-off,
+  tr.cedar-diff-comment-thread-row.is-collapsed {
     display: none !important;
   }
 
+  .cedar-gh-files-changed.cedar-diff-comments-off tr.cedar-diff-comment-thread-row.cedar-diff-line-expanded {
+    display: table-row !important;
+  }
+
   .cedar-gh-files-changed.cedar-diff-comments-off .cedar-diff-line-commented:not(.cedar-diff-gutter-count-visible) .cedar-diff-gutter {
-    box-shadow: inset 2px 0 0 rgb(63 185 80 / 0.35);
+    box-shadow: inset 2px 0 0 rgb(var(--cedar-comment-cursor-accent) / 0.4);
     background-color: transparent !important;
   }
 
@@ -1365,15 +4043,20 @@
   }
 
   .cedar-diff-comment-thread {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: none;
     margin: 0;
-    padding: 0.35rem 0.45rem 0.45rem 0.55rem;
-    border: 1px solid rgb(46 160 67 / 0.35);
-    border-left: 3px solid #3fb950;
-    border-radius: 0 6px 6px 0;
-    font-size: inherit;
-    line-height: inherit;
-    background: linear-gradient(90deg, rgb(46 160 67 / 0.14) 0%, rgb(13 17 23) 55%);
-    box-shadow: 0 2px 10px rgb(0 0 0 / 0.2);
+    padding: 0.45rem 0.55rem 0.55rem;
+    border: 1px solid rgb(255 255 255 / 0.08);
+    border-radius: 8px;
+    font-family: var(--font-sans);
+    font-size: var(--cedar-review-prose, 0.75rem);
+    line-height: var(--cedar-review-prose-leading, 1.625);
+    background: rgb(var(--cedar-comment-surface) / 0.88);
+    box-shadow:
+      inset 3px 0 0 rgb(var(--cedar-comment-cursor-accent) / 0.55),
+      0 10px 28px -18px rgb(0 0 0 / 0.65);
   }
 
   .cedar-review-progress-dock {
@@ -1396,15 +4079,37 @@
     transition: width 0.35s ease;
   }
 
+  .cedar-diff-comment-card {
+    border: 1px solid rgb(255 255 255 / 0.07);
+    border-radius: 7px;
+    padding: 0.55rem 0.65rem;
+    background: rgb(var(--cedar-comment-surface-elevated) / 0.55);
+    box-shadow: inset 3px 0 0 rgb(var(--cedar-comment-github-accent) / 0.45);
+  }
+
   .cedar-diff-comment-card--cursor {
-    border-color: rgba(52, 211, 153, 0.22);
-    background: rgba(16, 185, 129, 0.06);
+    background: rgb(var(--cedar-comment-surface-elevated) / 0.42);
+    box-shadow: inset 3px 0 0 rgb(var(--cedar-comment-cursor-accent) / 0.7);
+  }
+
+  .cedar-diff-comment-card--cursor-macro {
+    box-shadow: inset 3px 0 0 rgb(var(--cedar-comment-cursor-accent-muted) / 0.85);
+  }
+
+  .cedar-diff-comment-card--cursor .cedar-badge-ok {
+    @apply border-zinc-500/35 bg-zinc-800/80 text-zinc-200;
+  }
+
+  .cedar-diff-comment-card--cursor .cedar-diff-comment-card-head {
+    font-size: var(--cedar-review-meta, 0.625rem);
+    line-height: 1.35;
+    margin-bottom: 0.35rem;
   }
 
   .cedar-diff-comment-card + .cedar-diff-comment-card {
-    margin-top: 0.65rem;
-    padding-top: 0.65rem;
-    border-top: 1px solid rgb(46 160 67 / 0.2);
+    margin-top: 0.55rem;
+    padding-top: 0.55rem;
+    border-top: 1px solid rgb(255 255 255 / 0.06);
   }
 
   .cedar-diff-comment-card-head {
@@ -1412,14 +4117,19 @@
     flex-wrap: wrap;
     align-items: baseline;
     gap: 0.2rem 0.45rem;
-    margin-bottom: 0.2rem;
-    font-size: calc(var(--cedar-diff-font-size, 8px) * 1.05);
-    line-height: var(--cedar-diff-line-height, 14px);
+    margin-bottom: 0.25rem;
+    font-family: var(--font-sans);
+    font-size: var(--cedar-review-meta, 0.625rem);
+    line-height: 1.35;
   }
 
   .cedar-diff-comment-card-user {
     font-weight: 600;
-    color: #7ee787;
+    color: rgb(212 212 216);
+  }
+
+  .cedar-diff-comment-card--cursor .cedar-diff-comment-card-user {
+    color: rgb(var(--cedar-comment-cursor-accent-muted));
   }
 
   .cedar-diff-comment-card-time {
@@ -1440,15 +4150,70 @@
 
   .cedar-diff-comment-card-body {
     margin: 0;
-    font-size: inherit;
-    line-height: inherit;
-    color: #c9d1d9;
-    white-space: pre-wrap;
+    font-family: var(--font-sans);
+    font-size: var(--cedar-review-prose, 0.75rem);
+    line-height: var(--cedar-review-prose-leading, 1.625);
+    color: rgb(212 212 216);
     word-break: break-word;
   }
 
+  .cedar-diff-comment-card-body.cedar-comment-html {
+    font-size: var(--cedar-review-prose, 0.75rem);
+    line-height: var(--cedar-review-prose-leading, 1.625);
+    color: inherit;
+  }
+
+  .cedar-diff-comment-thread .cedar-review-comment-lead,
+  .cedar-diff-comment-thread .cedar-review-comment-lead.cedar-comment-html,
+  .cedar-diff-comment-thread .cedar-suggested-change-body,
+  .cedar-diff-comment-thread .cedar-suggested-change-body.cedar-comment-html {
+    font-size: inherit;
+    line-height: inherit;
+    color: inherit;
+  }
+
+  .cedar-review-comment-lead,
+  .cedar-review-comment-lead.cedar-comment-html,
+  .cedar-suggested-change-body,
+  .cedar-suggested-change-body.cedar-comment-html {
+    font-size: var(--cedar-review-prose, 0.75rem);
+    line-height: var(--cedar-review-prose-leading, 1.625);
+  }
+
+  .cedar-suggested-change {
+    margin-top: 0.5rem;
+    padding: 0.5rem 0.6rem;
+    border: 1px solid rgb(255 255 255 / 0.07);
+    border-radius: 6px;
+    background: rgb(0 0 0 / 0.28);
+    box-shadow: inset 2px 0 0 rgb(var(--cedar-comment-cursor-accent) / 0.5);
+  }
+
+  .cedar-suggested-change-label {
+    font-size: var(--cedar-review-meta, 0.625rem);
+    line-height: 1.3;
+    margin: 0 0 0.3rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: rgb(161 161 170);
+  }
+
+  .cedar-arch-findings .cedar-suggested-change {
+    box-shadow: inset 2px 0 0 rgb(var(--cedar-comment-arch-accent) / 0.45);
+    background: rgb(0 0 0 / 0.24);
+  }
+
+  .cedar-arch-findings .cedar-suggested-change-label {
+    color: rgb(161 161 170);
+  }
+
+  .cedar-diff-comment-card-body:not(.cedar-comment-html) {
+    white-space: pre-wrap;
+  }
+
   .cedar-diff-comment-card-head .cedar-badge {
-    font-size: calc(var(--cedar-diff-font-size, 8px) * 0.95);
+    font-size: var(--cedar-review-meta, 0.625rem);
     padding: 0 0.35rem;
   }
 
@@ -1483,12 +4248,28 @@
     @apply inline-flex h-6 w-6 items-center justify-center rounded-md border border-transparent text-xs transition hover:border-white/10 hover:bg-white/5;
   }
 
+  .cedar-review-comment-meta {
+    @apply mt-1.5 flex flex-wrap items-center gap-1;
+  }
+
+  .cedar-review-comment-meta .cedar-badge,
+  .cedar-review-comment-meta .cedar-finding-priority,
+  .cedar-review-comment-meta .cedar-finding-tag {
+    font-size: var(--cedar-review-meta);
+  }
+
+  .cedar-finding-actions {
+    @apply mt-1.5 flex flex-wrap gap-1;
+  }
+
   .cedar-finding-priority {
-    @apply inline-flex min-w-[2rem] items-center justify-center rounded border border-zinc-600/60 bg-zinc-800/80 px-1.5 py-0.5 font-mono text-[10px] font-semibold tracking-tight text-zinc-300;
+    @apply inline-flex min-w-[2rem] items-center justify-center rounded border border-zinc-600/60 bg-zinc-800/80 px-1.5 py-0.5 font-mono font-semibold tracking-tight text-zinc-300;
+    font-size: var(--cedar-review-meta);
   }
 
   .cedar-finding-tag {
-    @apply inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide;
+    @apply inline-flex items-center rounded-full border px-2 py-0.5 font-medium uppercase tracking-wide;
+    font-size: var(--cedar-review-meta);
   }
 
   .cedar-finding-tag-security {
@@ -1524,21 +4305,292 @@
   }
 
   .cedar-arch-findings,
-  .cedar-macro-review .cedar-review-comment-card {
-    @apply rounded-xl;
+  .cedar-macro-review .cedar-review-comment-card,
+  .cedar-findings-list .cedar-review-comment-card {
+    @apply w-full max-w-none rounded-xl;
+  }
+
+  .cedar-findings-list .cedar-review-comment-card {
+    border: 1px solid rgb(255 255 255 / 0.08);
+    background: linear-gradient(180deg, rgb(255 255 255 / 0.035) 0%, rgb(0 0 0 / 0.22) 100%);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.04),
+      0 12px 32px -24px rgb(0 0 0 / 0.55);
+  }
+
+  .cedar-slice-findings-panel .cedar-findings-list {
+    @apply space-y-2.5;
+  }
+
+  .cedar-comment-marker-chip {
+    display: inline-block;
+    flex-shrink: 0;
+    width: 0;
+    height: 0;
+    margin-right: 0.05rem;
+    border-style: solid;
+    border-width: 3.5px 0 3.5px 5.5px;
+    border-color: transparent transparent transparent rgb(0 0 0);
+    background: none;
+    box-shadow: none;
+    border-radius: 0;
+    vertical-align: middle;
+    transition: transform 0.12s ease;
+  }
+
+  .cedar-comment-marker-chip--arch {
+    border-left-color: rgb(0 0 0);
+  }
+
+  .cedar-comment-marker-chip--legend {
+    margin: 0 0.12rem;
+    border-width: 3px 0 3px 4.5px;
+  }
+
+  .cedar-review-comment-details[open] > summary .cedar-comment-marker-chip {
+    transform: rotate(90deg);
+  }
+
+  .cedar-review-comment-details > summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.3rem 0.4rem;
+    list-style: none;
+    cursor: pointer;
+    font-size: var(--cedar-review-meta);
+    line-height: 1.35;
+    border-radius: 6px;
+    padding: 0.32rem 0.42rem;
+    border: 1px solid transparent;
+    background: rgb(255 255 255 / 0.02);
+    transition:
+      border-color 0.15s,
+      background-color 0.15s;
+  }
+
+  .cedar-review-comment-details[open] > summary {
+    border-color: rgb(255 255 255 / 0.08);
+    background: rgb(255 255 255 / 0.035);
+  }
+
+  .cedar-arch-findings-card .cedar-review-comment-details > summary {
+    border-color: rgb(255 255 255 / 0.06);
+    background: rgb(255 255 255 / 0.02);
+  }
+
+  .cedar-findings-list .cedar-review-comment-card .cedar-badge-ok {
+    @apply border-zinc-500/35 bg-zinc-800/70 text-zinc-200;
+  }
+
+  .cedar-arch-findings-card .cedar-badge-ok {
+    @apply border-zinc-500/35 bg-zinc-800/70 text-zinc-200;
+  }
+
+  .cedar-review-comment-details > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .cedar-review-comment-details > summary::before {
+    display: none;
+  }
+
+  .cedar-review-comment-details[open] > summary .cedar-review-comment-summary-label {
+    display: none;
+  }
+
+  .cedar-review-comment-summary-label {
+    font-size: var(--cedar-review-meta);
+    font-weight: 500;
+    color: rgb(161 161 170);
+  }
+
+  .cedar-review-comment-details .cedar-review-comment-body {
+    margin-top: 0.45rem;
+  }
+
+  .cedar-review-comment-details .cedar-finding-actions {
+    margin-top: 0.45rem;
+  }
+
+  .cedar-findings-panel-summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .cedar-findings-panel[open] > .cedar-findings-panel-summary .cedar-comment-marker-chip {
+    transform: rotate(90deg);
+  }
+
+  .cedar-diff-comment-thread-toggle .cedar-comment-marker-chip {
+    border-width: 3px 0 3px 4.5px;
+  }
+
+  .cedar-diff-comment-thread-toggle[aria-expanded="true"] .cedar-comment-marker-chip {
+    transform: rotate(90deg);
+  }
+
+  .cedar-macro-review {
+    font-size: 0.75rem;
+    line-height: 1.35;
+  }
+
+  .cedar-macro-review .cedar-review-comment-body {
+    font-size: var(--cedar-review-prose, 0.75rem);
+    line-height: var(--cedar-review-prose-leading, 1.625);
+    @apply text-zinc-300;
+  }
+
+  .cedar-review-layout .cedar-comment-html code {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, Liberation Mono, monospace;
+    font-size: var(--cedar-review-meta);
+    line-height: 1.35;
+    @apply rounded bg-white/5 px-0.5 text-zinc-300;
+  }
+
+  .cedar-review-layout .cedar-comment-html pre {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, Liberation Mono, monospace;
+    font-size: var(--cedar-review-meta);
+    line-height: 1.45;
+    @apply overflow-x-auto rounded-md border border-white/10 bg-black/40 p-2 text-zinc-300;
+  }
+
+  .cedar-comment-html :is(p, ul, ol, pre, blockquote):first-child {
+    margin-top: 0;
+  }
+
+  .cedar-comment-html :is(p, ul, ol, pre, blockquote):last-child {
+    margin-bottom: 0;
+  }
+
+  .cedar-comment-html p {
+    margin: 0.35em 0;
+  }
+
+  .cedar-comment-html ul,
+  .cedar-comment-html ol {
+    margin: 0.35em 0;
+    padding-left: 1.1rem;
+  }
+
+  .cedar-comment-html code {
+    @apply rounded bg-white/5 px-0.5 font-mono text-zinc-300;
+    font-size: var(--cedar-review-meta, 0.625rem);
+    line-height: 1.35;
+  }
+
+  .cedar-comment-html pre {
+    @apply overflow-x-auto rounded-md border border-white/10 bg-black/40 p-2 font-mono text-zinc-300;
+    font-size: var(--cedar-review-meta, 0.625rem);
+    line-height: 1.45;
+  }
+
+  .cedar-comment-html a {
+    @apply text-sky-400/90 underline-offset-2 hover:text-sky-300;
+  }
+
+  .cedar-macro-dismissed > summary {
+    list-style: none;
+  }
+
+  .cedar-macro-dismissed > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .cedar-macro-arch-panel > summary,
+  .cedar-macro-themes-panel > summary {
+    list-style: none;
+  }
+
+  .cedar-macro-arch-panel > summary::-webkit-details-marker,
+  .cedar-macro-themes-panel > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .cedar-macro-arch-panel > summary::before,
+  .cedar-macro-themes-panel > summary::before {
+    content: "▸";
+    display: inline-block;
+    margin-right: 0.35rem;
+    font-size: 0.65rem;
+    color: rgb(113 113 122);
+    transition: transform 0.12s ease;
+  }
+
+  .cedar-macro-arch-panel[open] > summary::before,
+  .cedar-macro-themes-panel[open] > summary::before {
+    transform: rotate(90deg);
   }
 
   .cedar-arch-findings-host:empty {
     display: none;
   }
 
-  .cedar-arch-findings-hint,
+  .cedar-arch-findings {
+    @apply rounded-xl border border-white/[0.08] px-3 py-2.5;
+    border-left-width: 3px;
+    border-left-color: rgb(var(--cedar-comment-arch-accent) / 0.5);
+    background: rgb(var(--cedar-comment-surface) / 0.55);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04);
+  }
+
+  .cedar-arch-findings .cedar-label {
+    font-size: var(--cedar-review-section, 0.75rem);
+  }
+
+  .cedar-arch-findings-hint {
+    font-size: var(--cedar-review-caption, 0.625rem);
+    line-height: 1.4;
+    @apply mt-1 text-zinc-600;
+  }
+
+  .cedar-arch-findings .cedar-review-comment-body,
+  .cedar-arch-findings .cedar-comment-html,
+  .cedar-arch-findings .cedar-comment-html p,
+  .cedar-arch-findings .cedar-comment-html li {
+    font-size: var(--cedar-review-prose, 0.75rem);
+    line-height: var(--cedar-review-prose-leading, 1.625);
+  }
+
+  .cedar-arch-findings .cedar-review-comment-meta,
+  .cedar-arch-findings .cedar-finding-actions,
+  .cedar-arch-findings .cedar-btn-compact {
+    font-size: var(--cedar-review-meta, 0.625rem);
+  }
+
+  .cedar-arch-findings .cedar-comment-html a {
+    @apply text-sky-400/90 hover:text-sky-300;
+  }
+
+  .cedar-arch-findings-card {
+    border: 1px solid rgb(255 255 255 / 0.08);
+    background: rgb(var(--cedar-comment-surface-elevated) / 0.4);
+    box-shadow: inset 3px 0 0 rgb(var(--cedar-comment-arch-accent) / 0.4);
+  }
+
   .cedar-macro-review > .flex > div > p {
     @apply text-xs leading-relaxed text-zinc-500;
   }
 
   .cedar-review-comment-body {
-    @apply text-sm leading-relaxed text-zinc-200 whitespace-pre-wrap;
+    font-size: var(--cedar-review-prose, 0.75rem);
+    line-height: var(--cedar-review-prose-leading, 1.625);
+    @apply text-zinc-300;
+  }
+
+  .cedar-review-comment-body:not(.cedar-comment-html) {
+    @apply whitespace-pre-wrap text-zinc-200;
+  }
+
+  .cedar-file-review-group-label {
+    font-size: var(--cedar-review-meta);
+    @apply font-medium text-zinc-500;
+  }
+
+  .cedar-file-review-group-label.font-mono {
+    @apply font-mono text-zinc-400;
   }
 
   .cedar-review-comment-card.is-ignored .cedar-review-comment-body {
@@ -1553,23 +4605,214 @@
     @apply border-0 bg-transparent p-0 font-mono text-sky-400/90 underline-offset-2 hover:text-sky-300 hover:underline;
   }
 
+  .severity-blocker,
+  .severity-warning,
+  .severity-info {
+    font-size: var(--cedar-review-meta, 0.625rem);
+    @apply inline-flex items-center rounded-full border px-2 py-0.5 font-medium;
+  }
+
   .severity-blocker {
-    @apply inline-flex items-center rounded-full border border-rose-500/30 bg-rose-500/10 px-2.5 py-0.5 text-[11px] font-medium text-rose-200;
+    @apply border-rose-500/30 bg-rose-500/10 text-rose-200;
   }
   .severity-warning {
-    @apply inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-[11px] font-medium text-amber-100;
+    @apply border-amber-500/30 bg-amber-500/10 text-amber-100;
   }
   .severity-info {
-    @apply inline-flex items-center rounded-full border border-zinc-600 bg-zinc-800/50 px-2.5 py-0.5 text-[11px] font-medium text-zinc-400;
+    @apply border-zinc-600 bg-zinc-800/50 text-zinc-400;
   }
 
   #toast-host {
-    @apply pointer-events-none fixed bottom-6 right-6 z-50 flex max-w-sm flex-col gap-2;
+    @apply pointer-events-none fixed bottom-5 right-4 z-[60] flex w-[min(100vw-2rem,24rem)] flex-col-reverse gap-3 sm:bottom-6 sm:right-6;
   }
 
+  #toast-host > .cedar-notif:not(:first-child) {
+    transform: scale(0.98);
+    opacity: 0.92;
+    filter: saturate(0.92);
+  }
+
+  .cedar-notif {
+    pointer-events: auto;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    padding: 0.8rem 0.85rem 0.95rem;
+    border-radius: 0.75rem;
+    border: 1px solid rgb(255 255 255 / 0.09);
+    background:
+      linear-gradient(165deg, rgb(39 39 42 / 0.55) 0%, rgb(24 24 27 / 0.35) 42%, transparent 100%),
+      rgb(24 24 27 / 0.88);
+    backdrop-filter: blur(20px) saturate(1.25);
+    -webkit-backdrop-filter: blur(20px) saturate(1.25);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.06),
+      0 0 0 1px rgb(0 0 0 / 0.4),
+      0 20px 50px -24px rgb(0 0 0 / 0.85),
+      0 8px 24px -12px rgb(0 0 0 / 0.55);
+    animation: cedar-notif-in 0.38s cubic-bezier(0.16, 1, 0.3, 1) both;
+    overflow: hidden;
+    transition:
+      transform 0.2s ease,
+      box-shadow 0.2s ease,
+      opacity 0.2s ease;
+  }
+
+  .cedar-notif:hover {
+    transform: translateY(-1px);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.08),
+      0 0 0 1px rgb(0 0 0 / 0.45),
+      0 24px 56px -22px rgb(0 0 0 / 0.9),
+      0 10px 28px -10px rgb(0 0 0 / 0.6);
+  }
+
+  #toast-host > .cedar-notif:not(:first-child):hover {
+    transform: scale(0.98) translateY(-1px);
+  }
+
+  .cedar-notif.is-leaving {
+    animation: cedar-notif-out 0.28s cubic-bezier(0.4, 0, 1, 1) both;
+    pointer-events: none;
+  }
+
+  .cedar-notif-head {
+    @apply flex items-start justify-between gap-2;
+  }
+
+  .cedar-notif-brand {
+    @apply flex min-w-0 items-center gap-2.5;
+  }
+
+  .cedar-notif-badge {
+    @apply grid h-9 w-9 shrink-0 place-items-center rounded-[0.55rem] text-zinc-100;
+    background: var(--cedar-notif-accent-soft, rgb(113 113 122 / 0.14));
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.12),
+      0 0 0 1px rgb(255 255 255 / 0.06);
+    color: var(--cedar-notif-accent, rgb(212 212 216));
+  }
+
+  .cedar-notif-meta {
+    @apply flex min-w-0 flex-col gap-0.5;
+  }
+
+  .cedar-notif-app {
+    @apply truncate text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-400;
+  }
+
+  .cedar-notif-tag {
+    @apply w-fit rounded-full px-1.5 py-px text-[10px] font-medium leading-tight text-zinc-300;
+    background: rgb(255 255 255 / 0.06);
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.08);
+  }
+
+  .cedar-notif-close {
+    @apply grid h-7 w-7 shrink-0 place-items-center rounded-md text-zinc-500 transition hover:bg-white/10 hover:text-zinc-200;
+  }
+
+  .cedar-notif-body {
+    @apply px-0.5 pb-0.5 pt-0.5;
+    min-width: 0;
+  }
+
+  .cedar-notif-title {
+    @apply m-0 text-[14px] font-semibold leading-snug tracking-[-0.01em] text-zinc-50;
+  }
+
+  .cedar-notif-message {
+    @apply m-0 mt-1.5 text-[12.5px] leading-[1.55] text-zinc-400;
+  }
+
+  .cedar-notif-actions {
+    @apply m-0 flex flex-wrap items-center gap-2 px-0.5 pt-1;
+  }
+
+  .cedar-notif-action {
+    @apply rounded-md border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[11.5px] font-medium text-zinc-300 transition hover:border-white/16 hover:bg-white/[0.08] hover:text-zinc-100;
+  }
+
+  .cedar-notif-action--primary {
+    border-color: color-mix(in srgb, var(--cedar-notif-accent, rgb(161 161 170)) 35%, transparent);
+    background: var(--cedar-notif-accent-soft, rgb(113 113 122 / 0.14));
+    color: var(--cedar-notif-accent, rgb(228 228 231));
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08);
+  }
+
+  .cedar-notif-action--primary:hover {
+    filter: brightness(1.08);
+    @apply text-zinc-50;
+  }
+
+  .cedar-notif-progress {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    background: rgb(0 0 0 / 0.35);
+  }
+
+  .cedar-notif-progress span {
+    display: block;
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(90deg, var(--cedar-notif-accent, rgb(161 161 170)), rgb(255 255 255 / 0.55));
+    transform-origin: left center;
+    animation: cedar-notif-progress linear forwards;
+    opacity: 0.85;
+  }
+
+  .cedar-notif--warning .cedar-notif-badge {
+    color: rgb(252 211 77);
+  }
+
+  .cedar-notif--success .cedar-notif-badge {
+    color: rgb(110 231 183);
+  }
+
+  .cedar-notif--error .cedar-notif-badge {
+    color: rgb(253 164 175);
+  }
+
+  /* Legacy one-liners */
   .cedar-toast {
     @apply pointer-events-auto rounded-xl border border-white/10 bg-zinc-900/95 px-4 py-3 text-sm text-zinc-200 shadow-2xl backdrop-blur-md;
-    animation: cedar-fade 0.45s ease-out both;
+    animation: cedar-notif-in 0.32s ease-out both;
+  }
+}
+
+@keyframes cedar-notif-in {
+  from {
+    opacity: 0;
+    transform: translateX(1.35rem) scale(0.94);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes cedar-notif-out {
+  from {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(1rem) scale(0.96);
+  }
+}
+
+@keyframes cedar-notif-progress {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
   }
 }
 

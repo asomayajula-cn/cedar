@@ -5,12 +5,12 @@ import {
   renderDiffFontControl,
   wireDiffFontControls,
 } from "./diff-font.js";
-import { wireDiffComments } from "./diff-comments.js";
+import { defaultInlineCommentsVisible, wireDiffComments } from "./diff-comments.js";
+import { getResolvedTheme } from "./theme.js";
 
 const DIFF_BASE = {
   drawFileList: false,
   matching: "lines",
-  colorScheme: "dark",
   renderNothingWhenEmpty: false,
 };
 
@@ -27,10 +27,28 @@ export function defaultDiffFormat() {
  * @param {DiffOutputFormat} format
  */
 function diffOptions(format) {
+  const day = getResolvedTheme() === "day";
   return {
     ...DIFF_BASE,
     outputFormat: format,
+    colorScheme: day ? "light" : "dark",
   };
+}
+
+function diffSchemeClass() {
+  return getResolvedTheme() === "day" ? "d2h-light-color-scheme" : "d2h-dark-color-scheme";
+}
+
+/**
+ * @param {ParentNode} [root]
+ */
+export function refreshDiffThemeClasses(root = document) {
+  const scheme = diffSchemeClass();
+  const drop = scheme === "d2h-light-color-scheme" ? "d2h-dark-color-scheme" : "d2h-light-color-scheme";
+  root.querySelectorAll(".cedar-diff2html").forEach((el) => {
+    el.classList.remove(drop);
+    el.classList.add(scheme);
+  });
 }
 
 /**
@@ -70,7 +88,7 @@ export function renderGithubFileDiff(path, patch, format = defaultDiffFormat()) 
   }
   try {
     const body = diff2html(full, diffOptions(format));
-    return `<div class="cedar-diff2html d2h-dark-color-scheme" data-diff-format="${format}">${body}</div>`;
+    return `<div class="cedar-diff2html ${diffSchemeClass()}" data-diff-format="${format}">${body}</div>`;
   } catch {
     return `<pre class="cedar-gh-diff-fallback">${escapeHtml(patch ?? "")}</pre>`;
   }
@@ -160,17 +178,18 @@ export function renderSliceFileReviews(files, pullUrl = "") {
 
   const fontPreset = getActiveDiffFontPreset();
   const { size, line } = getDiffFontSettings();
+  const commentsVisible = defaultInlineCommentsVisible();
 
   return `
-    <div class="cedar-gh-files-changed space-y-0" style="--cedar-diff-font-size: ${size}px; --cedar-diff-line-height: ${line}px">
+    <div class="cedar-gh-files-changed space-y-0" data-comments-hidden="${commentsVisible ? "false" : "true"}" style="--cedar-diff-font-size: ${size}px; --cedar-diff-line-height: ${line}px">
       <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div>
           <p class="cedar-label mb-0">Files changed</p>
-          <p class="mt-1 text-[8px] text-zinc-600">Click a line or + in the gutter · green lines have comments (click line to show/hide)</p>
+          <p class="mt-1 text-[8px] text-zinc-600">Gutter count on commented lines · click the line or <span class="cedar-comment-marker-chip cedar-comment-marker-chip--legend" aria-hidden="true"></span> to open</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-          <button type="button" class="cedar-btn-secondary cedar-btn-compact cedar-diff-comments-visibility" data-comments-toggle aria-pressed="true">
-            Hide comments
+          <button type="button" class="cedar-btn-secondary cedar-btn-compact cedar-diff-comments-visibility" data-comments-toggle aria-pressed="${commentsVisible ? "true" : "false"}">
+            ${commentsVisible ? "Hide comments" : "Show comments"}
           </button>
           ${renderDiffFontControl(fontPreset)}
         </div>

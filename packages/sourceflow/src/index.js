@@ -1,0 +1,1 @@
+export { kindMeta } from "./react/node-meta.js";

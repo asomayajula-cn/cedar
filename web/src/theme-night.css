@@ -1,0 +1,125 @@
+@reference "tailwindcss";
+
+/* Night theme — review inner pages (default variables live on html in style.css) */
+
+html[data-theme="night"],
+:root:not([data-theme="day"]) {
+  color-scheme: dark;
+}
+
+html[data-theme="night"] #main-stage.cedar-review-wide #results.cedar-review-results--mounted .cedar-glass,
+html[data-theme="night"] #main-stage.cedar-review-wide #results.cedar-review-results--mounted .cedar-glass-subtle,
+:root:not([data-theme="day"]) #main-stage.cedar-review-wide #results.cedar-review-results--mounted .cedar-glass,
+:root:not([data-theme="day"]) #main-stage.cedar-review-wide #results.cedar-review-results--mounted .cedar-glass-subtle {
+  border-color: var(--cedar-review-border);
+  background: var(--cedar-review-shell);
+  box-shadow: var(--cedar-review-shadow-sm);
+}
+
+html[data-theme="night"] #review-progress-panel.cedar-review-stage,
+:root:not([data-theme="day"]) #review-progress-panel.cedar-review-stage {
+  border-color: var(--cedar-review-border);
+  background: var(--cedar-review-surface);
+  box-shadow: none;
+}
+
+html[data-theme="night"] .cedar-nav-item.is-active,
+:root:not([data-theme="day"]) .cedar-nav-item.is-active {
+  @apply border-white/20 bg-white/[0.07] text-zinc-100;
+}
+
+html[data-theme="night"] .cedar-review-layout--three-col .cedar-pipeline-slice-item.cedar-nav-item.is-active,
+:root:not([data-theme="day"]) .cedar-review-layout--three-col .cedar-pipeline-slice-item.cedar-nav-item.is-active {
+  @apply border-white/20 bg-white/[0.08] text-zinc-100;
+}
+
+html[data-theme="night"] .cedar-pr-stats,
+:root:not([data-theme="day"]) .cedar-pr-stats {
+  border-color: var(--cedar-review-border);
+  background: var(--cedar-review-inset);
+}
+
+html[data-theme="night"] #architecture-read.cedar-glass,
+:root:not([data-theme="day"]) #architecture-read.cedar-glass {
+  border-color: var(--cedar-review-border);
+  background: var(--cedar-review-surface);
+  box-shadow: var(--cedar-review-shadow-sm);
+}
+
+html[data-theme="night"] #cedar-review-panel-architecture > .cedar-glass,
+html[data-theme="night"] #cedar-review-panel-architecture > .cedar-glass-subtle,
+:root:not([data-theme="day"]) #cedar-review-panel-architecture > .cedar-glass,
+:root:not([data-theme="day"]) #cedar-review-panel-architecture > .cedar-glass-subtle {
+  border-color: var(--cedar-review-border);
+  background: var(--cedar-review-card);
+  box-shadow: none;
+}
+
+html[data-theme="night"] .cedar-findings-list .cedar-review-comment-card,
+:root:not([data-theme="day"]) .cedar-findings-list .cedar-review-comment-card {
+  border-color: var(--cedar-review-border);
+  background: var(--cedar-review-card);
+  box-shadow: var(--cedar-review-shadow-sm);
+}
+
+html[data-theme="night"] .cedar-pr-chat-log,
+:root:not([data-theme="day"]) .cedar-pr-chat-log {
+  border-color: var(--cedar-review-border);
+  background: var(--cedar-review-inset);
+}
+
+/* Inner rails — night */
+html[data-theme="night"] .cedar-review-layout--three-col .cedar-review-left-nav,
+html[data-theme="night"] .cedar-review-layout--three-col .cedar-review-right-nav,
+:root:not([data-theme="day"]) .cedar-review-layout--three-col .cedar-review-left-nav,
+:root:not([data-theme="day"]) .cedar-review-layout--three-col .cedar-review-right-nav {
+  background: var(--cedar-review-rail);
+  border-color: var(--cedar-review-border);
+}
+
+html[data-theme="night"] .cedar-review-rail-section--slices,
+:root:not([data-theme="day"]) .cedar-review-rail-section--slices {
+  background: var(--cedar-review-inset);
+  border-color: var(--cedar-review-border);
+}
+
+html[data-theme="night"] .cedar-left-rail-chat,
+:root:not([data-theme="day"]) .cedar-left-rail-chat {
+  background: var(--cedar-review-card);
+  border-color: var(--cedar-review-border);
+}
+
+html[data-theme="night"] .cedar-left-rail-chat-summary:hover,
+:root:not([data-theme="day"]) .cedar-left-rail-chat-summary:hover {
+  @apply bg-white/[0.04];
+}
+
+html[data-theme="night"] .cedar-review-layout--three-col .cedar-pipeline-slice-item.cedar-nav-item:not(.is-active),
+:root:not([data-theme="day"]) .cedar-review-layout--three-col .cedar-pipeline-slice-item.cedar-nav-item:not(.is-active) {
+  color: rgb(244 244 245);
+}
+
+html[data-theme="night"] .cedar-review-layout--three-col .cedar-pipeline-slice-item .cedar-nav-item-label,
+:root:not([data-theme="day"]) .cedar-review-layout--three-col .cedar-pipeline-slice-item .cedar-nav-item-label {
+  @apply text-zinc-100;
+}
+
+html[data-theme="night"] .cedar-review-layout--three-col .cedar-pipeline-slice-item .cedar-nav-item-meta,
+:root:not([data-theme="day"]) .cedar-review-layout--three-col .cedar-pipeline-slice-item .cedar-nav-item-meta {
+  @apply text-zinc-500;
+}
+
+html[data-theme="night"] #cedar-review-panel-architecture .text-white,
+:root:not([data-theme="day"]) #cedar-review-panel-architecture .text-white {
+  color: var(--cedar-review-foreground);
+}
+
+html[data-theme="night"] #cedar-review-panel-architecture .text-zinc-200,
+:root:not([data-theme="day"]) #cedar-review-panel-architecture .text-zinc-200 {
+  @apply text-zinc-300;
+}
+
+html[data-theme="night"] #cedar-review-panel-architecture .text-zinc-400,
+:root:not([data-theme="day"]) #cedar-review-panel-architecture .text-zinc-400 {
+  @apply text-zinc-400;
+}

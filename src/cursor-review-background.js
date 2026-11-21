@@ -168,6 +168,7 @@ export async function runBackgroundCursorReview(opts) {
         type: "cursor_slice",
         componentId: micro.componentId,
         microResult: result,
+        cursorReviewSummary: buildCursorReviewSummary(microResults, macroReview, useAiReview),
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -189,6 +190,7 @@ export async function runBackgroundCursorReview(opts) {
         type: "cursor_slice",
         componentId: micro.componentId,
         microResult: result,
+        cursorReviewSummary: buildCursorReviewSummary(microResults, macroReview, useAiReview),
       });
     }
   }

@@ -8,8 +8,20 @@ import { ARCHITECTURE_MODEL_LABEL, normalizeSliceId } from "./architecture-model
 import { formatClassArchitectureLabel, formatPrHubLabel } from "./diagram-labels.js";
 import { buildPrArchitectureLayers } from "./pr-architecture-layers.js";
 
-const MAX_FILES_PER_SLICE = 12;
 const MAX_LAYERS = 24;
+
+/**
+ * @param {unknown} graph
+ */
+export function isRenderableDiagramGraph(graph) {
+  return Boolean(
+    graph &&
+      typeof graph === "object" &&
+      graph.overview &&
+      Array.isArray(graph.overview.nodes) &&
+      graph.overview.nodes.length > 0
+  );
+}
 
 /**
  * @typedef {{ id: string, label: string, type: 'pr'|'slice'|'file', parent?: string, layerId?: string }} DiagramNode
@@ -45,7 +57,6 @@ export function buildDiagramGraph(microPrs, breakouts, pull, target) {
   const detailEdges = [];
 
   for (const layer of layers) {
-    const m = layer.micro;
     const sliceId = `slice_${safeId(layer.id)}`;
     const sliceLabel = formatClassArchitectureLabel(layer);
 
@@ -64,45 +75,6 @@ export function buildDiagramGraph(microPrs, breakouts, pull, target) {
       target: sliceId,
       kind: "contains",
     });
-
-    const files = [...(m.files ?? [])]
-      .sort((a, b) => filePath(a).localeCompare(filePath(b)))
-      .slice(0, MAX_FILES_PER_SLICE);
-
-    for (let i = 0; i < files.length; i++) {
-      const f = files[i];
-      const fileId = `${sliceId}_f${i}`;
-      const short = shortenPath(filePath(f));
-      const fileLabel = `${short}\n+${f.additions ?? 0}/−${f.deletions ?? 0}`;
-      detailNodes.push({
-        id: fileId,
-        label: fileLabel,
-        type: "file",
-      });
-      detailEdges.push({
-        id: `e_${sliceId}_${fileId}`,
-        source: sliceId,
-        target: fileId,
-        kind: "contains",
-      });
-    }
-
-    const fileCount = m.files?.length ?? 0;
-    if (fileCount > MAX_FILES_PER_SLICE) {
-      const moreId = `${sliceId}_more`;
-      const rest = fileCount - MAX_FILES_PER_SLICE;
-      detailNodes.push({
-        id: moreId,
-        label: `+${rest} more files`,
-        type: "file",
-      });
-      detailEdges.push({
-        id: `e_${sliceId}_${moreId}`,
-        source: sliceId,
-        target: moreId,
-        kind: "contains",
-      });
-    }
   }
 
   const deps = new Set();
@@ -149,29 +121,11 @@ export function buildDiagramGraph(microPrs, breakouts, pull, target) {
       slicesShown: layers.length,
       architectureModel: ARCHITECTURE_MODEL_LABEL,
       layout,
-      version: 4,
+      version: 5,
     },
     overview: { nodes: overviewNodes, edges: overviewEdges },
     detail: { nodes: detailNodes, edges: detailEdges },
   };
-}
-
-/**
- * @param {{ filename?: string, path?: string }} f
- */
-function filePath(f) {
-  return f.filename ?? f.path ?? "";
-}
-
-/**
- * @param {string} path
- */
-function shortenPath(path) {
-  const p = String(path);
-  if (p.length <= 44) return p;
-  const parts = p.split("/");
-  if (parts.length <= 2) return `…${p.slice(-42)}`;
-  return `${parts[0]}/…/${parts[parts.length - 1]}`;
 }
 
 /**

@@ -8,6 +8,60 @@ export function slicesIconSvg(className = "h-4 w-4") {
   </svg>`;
 }
 
+/** Collapse the left navigation rail (panel + chevron toward edge). */
+export function panelCollapseLeftIconSvg(className = "h-4 w-4") {
+  return `<svg class="${className}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <rect x="3.5" y="5" width="7" height="14" rx="1.25" stroke="currentColor" stroke-width="1.5"/>
+    <path stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M16 9l-4 3 4 3"/>
+  </svg>`;
+}
+
+/** Collapse the right code map rail. */
+export function panelCollapseRightIconSvg(className = "h-4 w-4") {
+  return `<svg class="${className}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <rect x="13.5" y="5" width="7" height="14" rx="1.25" stroke="currentColor" stroke-width="1.5"/>
+    <path stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M8 9l4 3-4 3"/>
+  </svg>`;
+}
+
+/** Restore left navigation rail. */
+export function panelExpandLeftIconSvg(className = "h-3.5 w-3.5") {
+  return `<svg class="${className}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <rect x="3.5" y="5" width="7" height="14" rx="1.25" stroke="currentColor" stroke-width="1.5"/>
+    <path stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M13 9l4 3-4 3"/>
+  </svg>`;
+}
+
+/** Restore right code map rail. */
+export function panelExpandRightIconSvg(className = "h-3.5 w-3.5") {
+  return `<svg class="${className}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <rect x="13.5" y="5" width="7" height="14" rx="1.25" stroke="currentColor" stroke-width="1.5"/>
+    <path stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M11 9l-4 3 4 3"/>
+  </svg>`;
+}
+
+/** Expand code map to a large overlay. */
+export function codeMapExpandIconSvg(className = "h-4 w-4") {
+  return `<svg class="${className}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5"/>
+  </svg>`;
+}
+
+/** Close expanded code map. */
+export function codeMapCloseExpandIconSvg(className = "h-4 w-4") {
+  return `<svg class="${className}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path stroke="currentColor" stroke-width="1.5" stroke-linecap="round" d="M9 9 4 4M9 15 4 20M15 9l5-4M15 15l5 4"/>
+  </svg>`;
+}
+
+/** Re-sync review with latest PR head (diffs, maps, architecture). */
+export function refreshReviewIconSvg(className = "h-3.5 w-3.5 shrink-0") {
+  return `<svg class="${className}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M20 12a8 8 0 1 1-2.34-5.66"/>
+    <path stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M20 4v5h-5"/>
+  </svg>`;
+}
+
 /** Compact graph / blueprint for the Architecture tab. */
 export function architectureIconSvg(className = "h-4 w-4") {
   return `<svg class="${className}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" aria-hidden="true">

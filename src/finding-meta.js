@@ -96,10 +96,12 @@ export function enrichFinding(finding) {
   const meta = getFindingMeta(finding.ruleId, finding.severity);
   const tag = finding.tag ?? meta.tag;
   const priority = finding.priority ?? meta.priority;
+  const line = coerceFindingLine(finding.line) ?? undefined;
   return {
     ...finding,
     tag,
     priority,
+    ...(line != null ? { line } : {}),
   };
 }
 
@@ -139,13 +141,26 @@ export function normalizeFindingTag(value) {
 }
 
 /**
+ * @param {unknown} line
+ * @returns {number | null}
+ */
+export function coerceFindingLine(line) {
+  if (typeof line === "number" && Number.isFinite(line) && line >= 1) return Math.trunc(line);
+  if (typeof line === "string" && line.trim()) {
+    const n = Number.parseInt(line.trim(), 10);
+    return Number.isFinite(n) && n >= 1 ? n : null;
+  }
+  return null;
+}
+
+/**
  * Draft inline review comments only — Composer-generated or existing GitHub comments (no heuristic fallback).
  *
  * @param {{ ruleId?: string, filename?: string, line?: number, source?: string }} f
  */
 export function isCodeReviewFinding(f) {
   if (!f?.filename) return false;
-  if (typeof f.line !== "number" || f.line < 1) return false;
+  if (coerceFindingLine(f.line) == null) return false;
   if (f.source === "github") return true;
   if (f.source === "composer" || String(f.ruleId ?? "").startsWith("composer/")) return true;
   return false;

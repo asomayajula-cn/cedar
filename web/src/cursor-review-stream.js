@@ -1,4 +1,5 @@
 import { applyCursorBackgroundProgress, hideReviewProgressDock, setReviewProgress } from "./review-progress-ui.js";
+import { refreshCursorReviewSummary } from "./cursor-rollup-patch.js";
 
 /**
  * @param {object} payload
@@ -72,6 +73,11 @@ export function applyCursorBackgroundEvent(event, refreshUi) {
     const idx = session.data.microResults.findIndex((r) => r.componentId === id);
     if (idx >= 0) {
       session.data.microResults[idx] = { ...session.data.microResults[idx], ...event.microResult };
+    }
+    if (event.cursorReviewSummary && typeof event.cursorReviewSummary === "object") {
+      session.data.cursorReviewSummary = event.cursorReviewSummary;
+    } else {
+      refreshCursorReviewSummary(session);
     }
     session.data.cursorReviewPending = true;
     refreshUi();

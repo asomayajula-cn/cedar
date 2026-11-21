@@ -18,7 +18,7 @@ export function summarizeCursorSliceReview(microResults) {
     if (!cr) continue;
     slicesAttempted += 1;
     const comments = (r.reviewComments ?? []).filter(isCodeReviewFinding);
-    const count = comments.length;
+    const count = comments.length || Math.max(0, Number(cr.count) || 0);
     total += count;
     if (count > 0) slicesWithFindings += 1;
     bySlice.push({

@@ -1,5 +1,5 @@
 /**
- * Complete layout: UML components, request flow, and event sequence (PR architecture + class names).
+ * Complete layout: UML · components, flow, and events (one node per virtual micro-PR slice).
  * @typedef {import('./partition.js').MicroPr} MicroPr
  * @typedef {import('./ai-breakouts.js').AiComponentDef} AiComponentDef
  * @typedef {import('./pr-architecture-layers.js').PrArchitectureLayer} PrArchitectureLayer
@@ -8,8 +8,8 @@
 import { normalizeSliceId } from "./architecture-model.js";
 import { formatPrHubLabel, mermaidFlowNodeLabel } from "./diagram-labels.js";
 import { buildPrArchitectureLayers } from "./pr-architecture-layers.js";
-import { mermaidClassId, mermaidParticipantAlias, mermaidSafeText } from "./mermaid-sanitize.js";
-import { layerAccent } from "./diagram-colors.js";
+import { mermaidParticipantAlias, mermaidSafeText } from "./mermaid-sanitize.js";
+import { layerAccent, layerAccentForTheme } from "./diagram-colors.js";
 
 const MAX_LAYERS = 16;
 
@@ -65,29 +65,23 @@ function buildClassRegistry(layers) {
   const classes = [];
 
   for (const layer of layers) {
-    const layerTypes = layer.types ?? [];
-    const ids = [];
-
-    if (!layerTypes.length) {
-      const className = `${safeIdent(layer.id)}_layer`;
-      typeToMermaidId.set(className, className);
-      mermaidIdToType.set(className, layer.name);
-      ids.push(className);
-      classes.push({ typeName: layer.name, mermaidId: className, layerId: layer.id, layer });
-    } else {
-      for (const typeName of layerTypes) {
-        const className = mermaidClassId(typeName, typeToMermaidId);
-        if (!typeToMermaidId.has(typeName)) {
-          typeToMermaidId.set(typeName, className);
-          mermaidIdToType.set(className, typeName);
-          classes.push({ typeName, mermaidId: className, layerId: layer.id, layer });
-        }
-        ids.push(typeToMermaidId.get(typeName) ?? className);
-      }
+    const typeNames =
+      layer.classNames?.length > 0
+        ? layer.classNames
+        : [String(layer.name ?? layer.id).trim()];
+    const mermaidIds = [];
+    let idx = 0;
+    for (const typeName of typeNames.slice(0, 8)) {
+      const mermaidId = `${safeIdent(typeName)}_${safeIdent(layer.id)}_${idx}`;
+      idx += 1;
+      mermaidIds.push(mermaidId);
+      mermaidIdToType.set(mermaidId, typeName);
+      classes.push({ typeName, mermaidId, layerId: layer.id, layer });
     }
-
-    layerToClassIds.set(layer.id, ids);
-    if (ids[0]) layerToAnchor.set(layer.id, ids[0]);
+    if (!mermaidIds.length) continue;
+    typeToMermaidId.set(layer.id, mermaidIds[0]);
+    layerToClassIds.set(layer.id, mermaidIds);
+    layerToAnchor.set(layer.id, mermaidIds[0]);
   }
 
   return { typeToMermaidId, layerToClassIds, layerToAnchor, mermaidIdToType, classes };
@@ -119,39 +113,30 @@ export function buildCompleteLayoutViews(microPrs, breakouts, pull, target, slic
  * @param {Map<string, number>} sliceNums
  */
 function buildComponentsClassDiagram(layers, registry, sliceNums) {
+  void sliceNums;
   if (!layers.length) {
     return 'classDiagram\n  class EmptyPR["No changed layers"]';
   }
 
   const lines = ["classDiagram", layers.length <= 4 ? "  direction LR" : "  direction TB"];
   /** @type {Set<string>} */
-  const classIds = new Set();
+  const declared = new Set();
 
-  const sliceNum = (layerId, fallback) =>
-    sliceNums.get(normalizeSliceId(layerId)) ?? fallback;
+  /** @param {string} className @param {string} layerId */
+  const paintClass = (className, layerId) => {
+    const accent = layerAccentForTheme(normalizeSliceId(layerId), "day");
+    lines.push(
+      `  style ${className} fill:${accent.fill},stroke:${accent.stroke},stroke-width:1.5px,color:${accent.text}`
+    );
+  };
 
-  for (let li = 0; li < layers.length; li++) {
-    const layer = layers[li];
-    const num = sliceNum(layer.id, li + 1);
-    const layerTypes = layer.types ?? [];
-    if (!layerTypes.length) {
-      const className = registry.layerToAnchor.get(layer.id);
-      if (!className) continue;
-      classIds.add(className);
-      lines.push(`  class ${className}["${mermaidSafeText(layer.name)}"]`);
-      if (layer.summary) lines.push(`  ${className} : ${mermaidSafeText(layer.summary)}`);
-      lines.push(`  ${className} : ${mermaidSafeText(`slice #${num}`)}`);
-      continue;
-    }
-
-    for (let i = 0; i < layerTypes.length; i++) {
-      const typeName = layerTypes[i];
-      const className = registry.typeToMermaidId.get(typeName);
-      if (!className) continue;
-      classIds.add(className);
-      lines.push(`  class ${className}["${mermaidSafeText(typeName)}"]`);
-      if (layer.summary && i === 0) lines.push(`  ${className} : ${mermaidSafeText(layer.summary)}`);
-      lines.push(`  ${className} : ${mermaidSafeText(`slice #${num}`)}`);
+  for (const c of registry.classes) {
+    if (declared.has(c.mermaidId)) continue;
+    declared.add(c.mermaidId);
+    lines.push(`  class ${c.mermaidId}["${mermaidSafeText(c.typeName)}"]`);
+    paintClass(c.mermaidId, c.layerId);
+    if (c.layer.summary && c.mermaidId === registry.layerToAnchor.get(c.layerId)) {
+      lines.push(`  ${c.mermaidId} : ${mermaidSafeText(c.layer.summary)}`);
     }
   }
 
@@ -169,15 +154,6 @@ function buildComponentsClassDiagram(layers, registry, sliceNums) {
           lines.push(`  ${from} ..> ${to} : uses`);
         }
       }
-    }
-  }
-
-  if (classIds.size) {
-    lines.push(
-      "  classDef cedarType fill:#1a1a2e,stroke:#818cf8,stroke-width:1.5px,color:#e0e7ff,font-weight:500"
-    );
-    for (const id of classIds) {
-      lines.push(`  class ${id} cedarType`);
     }
   }
 
@@ -280,7 +256,7 @@ function buildRequestFlowDiagram(layers, active, pull, target) {
  */
 function buildEventsSequenceDiagram(layers, active, registry) {
   if (!registry.classes.length) {
-    return "sequenceDiagram\n  participant Empty as Empty\n  Empty->>Empty: No types in PR";
+    return "sequenceDiagram\n  participant Empty as Empty\n  Empty->>Empty: No slices in PR";
   }
 
   const lines = ["sequenceDiagram", "  autonumber"];

@@ -15,24 +15,28 @@ import {
   rationaleForSlice,
 } from "./architecture-model.js";
 import { detectPrModules } from "./pr-architecture.js";
+import { isSqlFile, sliceIdForSqlPath } from "./sql-slice.js";
 
 const LAYER_HINTS = [
   { id: "migrations", name: "Schema & migrations", match: /(^|\/)migrations?\//i },
   { id: "migrations", name: "Schema & migrations", match: /db\/migration\//i },
+  { id: "migrations", name: "Schema & migrations", match: /db\/changelog\//i },
+  { id: "tests", name: "Tests", match: /(^|\/)contract-test\//i },
   {
     id: "domain",
     name: "Domain layer",
-    match: /src\/main\/java\/.*\/domain\/|(^|\/)(domain)\//i,
+    match: /src\/main\/java\/.*\/(domain|model|entity)\/|(^|\/)(domain)\//i,
   },
   {
     id: "application",
     name: "Application layer",
-    match: /src\/main\/java\/.*\/application\/|(^|\/)(application|usecase|usecases|port)\//i,
+    match:
+      /src\/main\/java\/.*\/(application|usecase|usecases|port|service|services|mapper|shift)\//i,
   },
   {
     id: "repository",
     name: "Repository & data access",
-    match: /src\/main\/java\/.*\/(repository|persistence|data)\/|Repository\.(java|kt)$/i,
+    match: /src\/main\/java\/.*\/(repository|persistence|data|dao|jpa)\/|Repository\.(java|kt)$/i,
   },
   {
     id: "repository",
@@ -42,12 +46,22 @@ const LAYER_HINTS = [
   {
     id: "infrastructure",
     name: "Infrastructure adapters",
-    match: /src\/main\/java\/.*\/(infrastructure|adapter)\//i,
+    match: /src\/main\/java\/.*\/(infrastructure|adapter|client|exception|log)\//i,
+  },
+  {
+    id: "infrastructure",
+    name: "Infrastructure adapters",
+    match: /META-INF\/spring\.factories$/i,
   },
   {
     id: "api",
     name: "API & HTTP adapters",
     match: /src\/main\/java\/.*\/api\/|(^|\/)(api|handlers|routes)\//i,
+  },
+  {
+    id: "config",
+    name: "Runtime config · 12-factor",
+    match: /src\/main\/java\/.*\/(config|properties)\//i,
   },
   {
     id: "config",
@@ -59,17 +73,24 @@ const LAYER_HINTS = [
     name: "Runtime config · 12-factor",
     match: /src\/main\/resources\/application/i,
   },
+  { id: "config", name: "Runtime config · 12-factor", match: /logging-configuration\.json$/i },
   { id: "config", name: "Runtime config · 12-factor", match: /(^|\/)\.env(\.example)?$/i },
+  { id: "infra", name: "Platform & ops", match: /^infra\//i },
   {
     id: "build_deploy",
     name: "Build & release · 12-factor",
-    match: /(^|\/)pom\.xml$|(^|\/)build\.gradle(\.kts)?$|Dockerfile|docker-compose|Procfile$|\.github\/workflows\//i,
+    match:
+      /(^|\/)pom\.xml$|(^|\/)build\.gradle(\.kts)?$|(^|\/)settings\.gradle(\.kts)?$|Dockerfile|docker-compose|Procfile$|\.github\/workflows\//i,
   },
   { id: "persistence", name: "Persistence", match: /(^|\/)(prisma|drizzle|db)\b/i },
   { id: "web", name: "Web & UI", match: /(^|\/)(web|components|pages)\b/i },
   { id: "infra", name: "Platform & ops", match: /(^|\/)(terraform|k8s)\b/i },
   { id: "infra", name: "Platform & ops", match: /(^|\/)\.github\b/i },
-  { id: "tests", name: "Tests", match: /(^|\/)(test|tests|__tests__|spec)\b|\.(test|spec)\.[a-z]+$/i },
+  {
+    id: "tests",
+    name: "Tests",
+    match: /(^|\/)(test|tests|__tests__|spec)\b|\.(test|spec)\.[a-z]+$/i,
+  },
   { id: "integration", name: "Contracts", match: /(^|\/)(openapi|proto|contracts)\b/i },
 ];
 
@@ -147,6 +168,13 @@ export function heuristicArchitecturalBreakouts(files) {
  * @param {string} filename
  */
 function classifyFile(filename) {
+  if (isSqlFile(filename)) {
+    const sqlSlice = sliceIdForSqlPath(filename);
+    if (sqlSlice) {
+      return { id: sqlSlice, name: displayNameForSlice(sqlSlice, sqlSlice) };
+    }
+  }
+
   for (const layer of LAYER_HINTS) {
     if (layer.match.test(filename)) {
       return { id: layer.id, name: layer.name };

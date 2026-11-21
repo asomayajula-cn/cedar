@@ -30,7 +30,7 @@ export function mermaidSafeText(s) {
     .replace(/[\r\n]+/g, " ")
     .replace(/\s+/g, " ")
     .trim()
-    .slice(0, 220);
+    .slice(0, 300);
 }
 
 /**

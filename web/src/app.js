@@ -1,8 +1,11 @@
 import { cedarMarkSvg } from "./cedar-logo.js";
-import { architectureIconSvg, slicesIconSvg } from "./cedar-icons.js";
-import { mountArchitectureGraphs, wireArchitectureZoomControls } from "./architecture-canvas.js";
-import { buildDiagramGraph } from "../../src/diagram-graph.js";
-import { layerAccent, sliceStatusVisual } from "../../src/diagram-colors.js";
+import { slicesIconSvg } from "./cedar-icons.js";
+import { mountArchitectureGraphs, remountCytoscapeForTheme, wireArchitectureZoomControls } from "./architecture-canvas.js";
+import { buildDiagramGraph, isRenderableDiagramGraph } from "../../src/diagram-graph.js";
+import {
+  layerAccentForTheme,
+  sliceStatusVisualForTheme,
+} from "../../src/diagram-colors.js";
 import { buildArchitectureDiagramMermaid } from "../../src/architecture-diagram.js";
 import { buildCompleteLayoutViews } from "../../src/architecture-layout-views.js";
 import {
@@ -11,16 +14,40 @@ import {
   normalizeSliceId,
 } from "../../src/architecture-model.js";
 import { buildPrArchitectureLayers } from "../../src/pr-architecture-layers.js";
-import { renderSliceFileReviews, wireFileReviewToggles } from "./diff-view.js";
+import { microPrsForDiagram } from "../../src/test-path.js";
+import { refreshDiffThemeClasses, renderSliceFileReviews, wireFileReviewToggles } from "./diff-view.js";
+import {
+  buildFileFlowCatalogFromMicroPrs,
+  refreshFileFlowRailTheme,
+  setFileFlowCatalog,
+  wireFileFlowRail,
+} from "./file-flow-rail.js";
+import { refitActiveCodeMap } from "./file-flow-canvas.js";
+import { remountCodeMapCyForTheme } from "./code-map-cytoscape-mount.js";
+import { FULL_PR_SLICE_ID, isFullPrSliceId, mergeAllPrFiles } from "./full-pr-slice.js";
 import { loadDiffReviewComments, repaintAllDiffComments, setCommentToast } from "./diff-comments.js";
-import { initDiffFontFromServer } from "./diff-font.js";
+import { applySliceNavTypography, getDiffFontSettings, initDiffFontFromServer } from "./diff-font.js";
+import { getResolvedTheme, onAppThemeChange, wireAppThemeToggle } from "./theme.js";
 import {
   mountCompleteLayoutViews,
   activateDiagramUx,
   wireDiagramResizeListeners,
   refitPanZoomDiagrams,
+  remountMermaidDiagrams,
+  scheduleDiagramRefit,
 } from "./diagram-ux.js";
 import { applyReviewStreamEvent, postReviewStream } from "./review-stream.js";
+import {
+  hidePrStaleBanner,
+  renderPrRefreshReviewButtonHtml,
+  requestPrRefresh,
+  setPrRefreshExecutor,
+  setPrStaleNotifier,
+  stopPrCommitRefresh,
+  wirePrCommitRefresh,
+} from "./pr-commit-refresh.js";
+import { showOutlookNotification, showSimpleNotification } from "./review-notifications.js";
+import { refreshCursorReviewSummary } from "./cursor-rollup-patch.js";
 import { applyCursorBackgroundEvent, postCursorReviewStream } from "./cursor-review-stream.js";
 import {
   hideReviewProgressDock,
@@ -29,7 +56,7 @@ import {
   setReviewProgress,
   showReviewProgressDock,
 } from "./review-progress-ui.js";
-import { buildPrChatContext, wirePrChatSidebar } from "./pr-chat.js";
+import { buildPrChatContext, ensurePrChatState, refreshPrChatUiFromSession, wirePrChatSidebar } from "./pr-chat.js";
 import {
   countActiveFindings,
   ensureFindingSession,
@@ -40,38 +67,113 @@ import {
   wireFindingActions,
 } from "./finding-actions.js";
 import { buildFindingsListHtml } from "./review-findings-ui.js";
-import { renderMacroReviewPanelHtml } from "./macro-review-ui.js";
+import { wireReviewRailCollapse } from "./review-rail-collapse.js";
+import {
+  renderLoadingReviewCenterMain,
+  renderReviewMainTabsHeadHtml,
+  renderThreeColumnReviewChrome,
+} from "./review-three-col-shell.js";
+
+/** Hero-stage utilities on #main-stage (removed in full-width review mode). */
+const MAIN_STAGE_HERO_LAYOUT_CLASSES = ["mx-auto", "max-w-6xl", "px-4", "py-12", "sm:px-6", "sm:py-20"];
+
+function enterReviewStageLayout() {
+  const stage = document.getElementById("main-stage");
+  if (!(stage instanceof HTMLElement)) return;
+  stage.classList.add("cedar-review-wide");
+  stage.classList.remove(...MAIN_STAGE_HERO_LAYOUT_CLASSES);
+  document.body.classList.add("cedar-review-stage-active");
+}
+
+function exitReviewStageLayout() {
+  const stage = document.getElementById("main-stage");
+  if (!(stage instanceof HTMLElement)) return;
+  stage.classList.remove("cedar-review-wide", "cedar-review-slices-focus");
+  document.body.classList.remove("cedar-review-stage-active");
+  for (const cls of MAIN_STAGE_HERO_LAYOUT_CLASSES) stage.classList.add(cls);
+}
+
+/**
+ * @param {ParentNode} root
+ */
+function wireReviewChrome(root) {
+  wireSlicesNavRailResize(root);
+  wireFileFlowRailResize(root);
+  wireReviewRailCollapse(root);
+}
+
+/**
+ * @param {ParentNode} root
+ * @param {"architecture" | "slices"} [mainTab]
+ */
+function focusReviewWorkspace(root, mainTab = "slices") {
+  activateReviewMainTab(root, mainTab);
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      root.querySelector("#cedar-review-workspace")?.scrollIntoView({ block: "start", behavior: "smooth" });
+      window.dispatchEvent(new Event("resize"));
+    });
+  });
+}
 
 /**
  * @param {string} [status]
  */
 function renderSliceStatusDot(status) {
-  const v = sliceStatusVisual(status);
+  const v = sliceStatusVisualForTheme(status, getResolvedTheme());
   return `<span class="cedar-slice-status-dot" style="background-color:${v.fill};border-color:${v.border};color:${v.border}" aria-hidden="true"></span>`;
 }
 
 /**
- * @param {number} n
- * @param {string} [status]
- * @param {boolean} [hashPrefix]
- */
-function renderSliceIndexLabel(n, status, hashPrefix = true) {
-  const v = sliceStatusVisual(status);
-  const label = hashPrefix ? `#${n}` : String(n);
-  return `<span class="cedar-slice-index tabular-nums" style="color:${v.text}">${label}</span>`;
-}
-
-/**
- * Review status pill on each virtual micro-PR (matches diagram slice badges).
+ * Review status pill on each slice (matches diagram slice badges).
  * @param {string} [status]
  */
 function renderSliceReviewBadge(status) {
-  const v = sliceStatusVisual(status);
+  const v = sliceStatusVisualForTheme(status, getResolvedTheme());
   const label = statusLabel[status] ?? status ?? "Pending";
-  return `<span class="cedar-badge cedar-slice-review-badge inline-flex items-center gap-1.5" style="border-color:${v.border}66;background-color:${v.fill};color:${v.text}">
+  return `<span class="cedar-badge cedar-slice-review-badge inline-flex items-center gap-1.5" data-slice-status="${escapeHtml(status ?? "")}" style="border-color:${v.border}66;background-color:${v.fill};color:${v.text}">
     ${renderSliceStatusDot(status)}
     <span>${escapeHtml(label)}</span>
   </span>`;
+}
+
+/** @param {ParentNode} root */
+function refreshThemeAwareChrome(root) {
+  const theme = getResolvedTheme();
+  root.querySelectorAll(".cedar-layer-chip[data-layer-id]").forEach((el) => {
+    const layerId = el.dataset.layerId;
+    if (!layerId) return;
+    const accent = layerAccentForTheme(layerId, theme);
+    const bg =
+      theme === "day"
+        ? `linear-gradient(135deg, ${accent.fill} 0%, color-mix(in srgb, ${accent.fill} 82%, white) 100%)`
+        : `linear-gradient(135deg, ${accent.fill}88 0%, #0a0a0a44 100%)`;
+    el.style.borderColor = accent.stroke;
+    el.style.background = bg;
+    const label = el.querySelector(".cedar-layer-chip-label");
+    if (label) label.style.color = accent.text;
+  });
+  root.querySelectorAll("[data-slice-status]").forEach((el) => {
+    const status = el.dataset.sliceStatus ?? "";
+    const v = sliceStatusVisualForTheme(status, theme);
+    if (el.classList.contains("cedar-pipeline-slice-item")) {
+      el.style.borderLeft = `3px solid ${v.border}`;
+    }
+    if (el.classList.contains("cedar-diagram-slice-badge")) {
+      el.style.borderColor = `${v.border}44`;
+    }
+    if (el.classList.contains("cedar-slice-review-badge")) {
+      el.style.borderColor = `${v.border}66`;
+      el.style.backgroundColor = v.fill;
+      el.style.color = v.text;
+    }
+    el.querySelectorAll(".cedar-slice-status-dot").forEach((dot) => {
+      dot.style.backgroundColor = v.fill;
+      dot.style.borderColor = v.border;
+      dot.style.color = v.border;
+    });
+  });
 }
 
 const statusLabel = {
@@ -91,13 +193,9 @@ function githubApiErrorMessage(body, fallback = "Request failed") {
 }
 
 function showToast(message, tone = "neutral") {
-  const host = document.getElementById("toast-host");
-  if (!host) return;
-  const el = document.createElement("div");
-  el.className = `cedar-toast ${tone === "error" ? "border-rose-500/30 text-rose-100" : ""}`;
-  el.textContent = message;
-  host.appendChild(el);
-  setTimeout(() => el.remove(), 4800);
+  const t =
+    tone === "error" ? "error" : tone === "success" ? "success" : tone === "warning" ? "warning" : "neutral";
+  showSimpleNotification(message, t);
 }
 
 export function mountApp(root) {
@@ -121,83 +219,110 @@ export function mountApp(root) {
             <span class="text-zinc-700">·</span>
             <span class="px-3 py-1.5">Approve</span>
           </nav>
-          <div id="health-pill" class="cedar-badge cedar-badge-muted">Checking…</div>
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              id="cedar-theme-toggle"
+              class="cedar-btn-secondary cedar-btn-compact"
+              data-cedar-theme-toggle
+              aria-pressed="false"
+              aria-label="Toggle day or night theme"
+              title="Switch to day theme"
+            >
+              <span class="cedar-theme-icon-sun" aria-hidden="true">Day</span>
+              <span class="cedar-theme-icon-moon" aria-hidden="true">Night</span>
+            </button>
+            <div id="health-pill" class="cedar-badge cedar-badge-muted">Checking…</div>
+          </div>
         </div>
       </header>
 
       <main id="main-stage" class="relative mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-20">
-        <section id="hero" class="cedar-fade-in mx-auto max-w-xl">
-          <div class="text-center">
-            <div class="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white shadow-[0_0_40px_-12px_rgba(255,255,255,0.25)]">
+        <section id="hero" class="cedar-hero cedar-fade-in">
+          <header class="cedar-hero-intro">
+            <div class="cedar-hero-mark" aria-hidden="true">
               ${cedarMarkSvg("h-8 w-8")}
             </div>
-            <h1 class="mt-4 text-4xl font-semibold tracking-tight text-white sm:text-[2.75rem] sm:leading-[1.1]">
-              Review the architecture,<br class="hidden sm:block" /> not just the diff
+            <p class="cedar-hero-eyebrow">Architecture-first review</p>
+            <h1 class="cedar-hero-title">
+              Review the architecture,<br class="cedar-hero-title-break" /> not just the diff
             </h1>
-            <p class="mx-auto mt-5 max-w-md text-base leading-relaxed text-zinc-400">
-              Cedar splits each pull request into micro slices, reviews them independently, and delivers a whole-picture composite with an architecture diagram.
+            <p class="cedar-hero-lede">
+              Cedar partitions each pull request into micro slices, reviews them independently, and returns a composite read with diagrams.
             </p>
-          </div>
+          </header>
 
-          <form id="review-form" class="cedar-glass mt-10 p-6 sm:p-8">
-            <div class="cedar-glass-subtle mb-6 space-y-4 rounded-xl p-4 sm:p-5">
-              <div class="flex flex-wrap items-start justify-between gap-2">
-                <div>
-                  <p class="cedar-label mb-0">Room configuration</p>
-                  <p class="mt-1 text-[10px] leading-snug text-zinc-600">Writes <span class="font-mono text-zinc-500">GITHUB_TOKEN</span> and <span class="font-mono text-zinc-500">CURSOR_API_KEY</span> to the project <span class="font-mono text-zinc-500">.env</span> and applies them to this API.</p>
+          <form id="review-form" class="cedar-hero-form cedar-glass" autocomplete="on">
+            <div class="cedar-hero-form-block cedar-hero-form-block--credentials">
+              <div class="cedar-hero-form-block-head">
+                <div class="cedar-hero-form-block-copy">
+                  <h2 class="cedar-hero-form-title">Workspace credentials</h2>
+                  <p class="cedar-hero-form-hint">Saved to <span class="font-mono">.env</span> on this machine and loaded by the API.</p>
                 </div>
-                <button type="button" id="save-env-btn" class="cedar-btn-secondary cedar-btn-compact shrink-0">Save to .env</button>
+                <button type="button" id="save-env-btn" class="cedar-btn-secondary cedar-hero-save-btn">Save to .env</button>
               </div>
-              <label class="block">
-                <span class="flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500">
-                  <span>GitHub PAT</span>
-                  <span id="config-github-status" class="font-mono text-[10px] text-zinc-600">Checking…</span>
-                </span>
-                <input name="githubToken" type="password" autocomplete="off" spellcheck="false"
-                  placeholder="ghp_… or github_pat_…"
-                  class="cedar-input mt-2 font-mono text-xs" />
-              </label>
-              <label class="block">
-                <span class="flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500">
-                  <span>Cursor API key</span>
-                  <span id="config-cursor-status" class="font-mono text-[10px] text-zinc-600">Checking…</span>
-                </span>
-                <input name="cursorApiKey" type="password" autocomplete="off" spellcheck="false"
-                  placeholder="crsr_… from cursor.com/dashboard/integrations"
-                  class="cedar-input mt-2 font-mono text-xs" />
-              </label>
-              <p id="env-save-status" class="hidden text-xs leading-relaxed text-zinc-500" role="status"></p>
-            </div>
-            <label class="cedar-label">GitHub pull request URL</label>
-            <input name="prUrl" required inputmode="url" autocomplete="url"
-              placeholder="https://github.com/owner/repo/pull/42"
-              class="cedar-input mt-3 font-mono text-[13px]" />
-            <details class="mt-5 group">
-              <summary class="cursor-pointer list-none text-sm font-medium text-zinc-500 transition hover:text-zinc-300">
-                <span class="group-open:hidden">Advanced options</span>
-                <span class="hidden group-open:inline">Hide options</span>
-              </summary>
-              <div class="mt-4 space-y-4 border-t border-white/[0.06] pt-4">
-                <p class="text-[10px] leading-snug text-zinc-600">One-off token for this review only (if different from <span class="font-mono">.env</span>).</p>
-                <label class="block">
-                  <span class="text-xs text-zinc-500">GitHub token override (optional)</span>
-                  <input name="token" type="password" autocomplete="off" placeholder="Uses GITHUB_TOKEN from .env if empty"
-                    class="cedar-input mt-2 font-mono text-xs" />
+              <div class="cedar-hero-field-grid">
+                <label class="cedar-hero-field">
+                  <span class="cedar-hero-field-label">
+                    GitHub PAT
+                    <span id="config-github-status" class="cedar-hero-field-status">Checking…</span>
+                  </span>
+                  <input name="githubToken" type="password" autocomplete="off" spellcheck="false"
+                    placeholder="ghp_… or github_pat_…"
+                    class="cedar-input cedar-hero-input font-mono" />
                 </label>
-                <div class="flex flex-wrap gap-6 text-xs text-zinc-400">
-                  <label class="flex cursor-pointer items-center gap-2"><input type="checkbox" name="postMicro" class="rounded border-white/20 bg-black" /> Post micro-reviews to GitHub</label>
-                  <label class="flex cursor-pointer items-center gap-2"><input type="checkbox" name="post" class="rounded border-white/20 bg-black" /> Post composite review</label>
-                </div>
+                <label class="cedar-hero-field">
+                  <span class="cedar-hero-field-label">
+                    Cursor API key
+                    <span id="config-cursor-status" class="cedar-hero-field-status">Checking…</span>
+                  </span>
+                  <input name="cursorApiKey" type="password" autocomplete="off" spellcheck="false"
+                    placeholder="crsr_…"
+                    class="cedar-input cedar-hero-input font-mono" />
+                </label>
+              </div>
+              <p id="env-save-status" class="cedar-hero-form-status hidden" role="status"></p>
+            </div>
+
+            <div class="cedar-hero-form-divider" role="presentation"></div>
+
+            <div class="cedar-hero-form-block cedar-hero-form-block--primary">
+              <label class="cedar-hero-field cedar-hero-field--url">
+                <span class="cedar-hero-field-label cedar-hero-field-label--primary">GitHub pull request</span>
+                <input name="prUrl" required inputmode="url" autocomplete="url"
+                  placeholder="https://github.com/owner/repo/pull/42"
+                  class="cedar-input cedar-hero-input cedar-hero-input--url font-mono" />
+              </label>
+            </div>
+
+            <details class="cedar-hero-advanced">
+              <summary class="cedar-hero-advanced-summary">
+                <span class="cedar-hero-advanced-label-closed">Advanced options</span>
+                <span class="cedar-hero-advanced-label-open">Hide options</span>
+              </summary>
+              <div class="cedar-hero-advanced-body">
+                <p class="cedar-hero-form-hint">One-off GitHub token for this run only, when it differs from <span class="font-mono">.env</span>.</p>
+                <label class="cedar-hero-field">
+                  <span class="cedar-hero-field-label">GitHub token override</span>
+                  <input name="token" type="password" autocomplete="off" placeholder="Uses GITHUB_TOKEN from .env if empty"
+                    class="cedar-input cedar-hero-input font-mono" />
+                </label>
+                <fieldset class="cedar-hero-checks">
+                  <legend class="sr-only">GitHub posting</legend>
+                  <label class="cedar-hero-check"><input type="checkbox" name="postMicro" /> Post micro-reviews</label>
+                  <label class="cedar-hero-check"><input type="checkbox" name="post" /> Post composite review</label>
+                </fieldset>
               </div>
             </details>
-            <div class="mt-8 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-              <button type="submit" id="submit-btn" class="cedar-btn-primary w-full sm:w-auto">
+
+            <footer class="cedar-hero-form-footer">
+              <button type="submit" id="submit-btn" class="cedar-btn-primary cedar-hero-submit">
                 <span id="submit-label">Start review</span>
               </button>
-              <p class="text-center text-xs text-zinc-600 sm:text-left">Typically 30–90s depending on PR size</p>
-            </div>
+              <p class="cedar-hero-form-footnote">Typical run: 30–90 seconds · scales with PR size</p>
+            </footer>
           </form>
-          <p id="form-error" class="mt-4 hidden text-center text-sm text-rose-400"></p>
+          <p id="form-error" class="cedar-hero-error hidden" role="alert"></p>
         </section>
 
         <section id="results" class="hidden cedar-fade-in"></section>
@@ -215,6 +340,46 @@ export function mountApp(root) {
     const input = document.querySelector('input[name="prUrl"]');
     if (input) input.value = prFromQuery;
   }
+
+  wireAppThemeToggle(root);
+
+  const applyDiagramFontCssVar = () => {
+    const { size } = getDiffFontSettings();
+    document.documentElement.style.setProperty("--cedar-diagram-font-size", `${Math.min(14, Math.max(9, size + 2))}px`);
+  };
+  applyDiagramFontCssVar();
+
+  const refitDiagramsForUi = () => {
+    const results = document.getElementById("results");
+    if (!results) return;
+    applyDiagramFontCssVar();
+    refreshThemeAwareChrome(results);
+    remountCytoscapeForTheme();
+    remountCodeMapCyForTheme();
+    refreshFileFlowRailTheme();
+    void remountMermaidDiagrams(results).then(() => {
+      refreshFileFlowRailTheme();
+      scheduleDiagramRefit(results);
+    });
+    scheduleDiagramRefit(results);
+  };
+
+  onAppThemeChange(() => {
+    refreshDiffThemeClasses(root);
+    const results = document.getElementById("results");
+    if (results) repaintAllDiffComments(results);
+    refitDiagramsForUi();
+  });
+
+  window.addEventListener("cedar-diff-font-change", () => {
+    applySliceNavTypography();
+    refitDiagramsForUi();
+    const stage = document.getElementById("cedar-file-flow-stage");
+    if (stage?.classList.contains("is-code-map-active")) {
+      delete stage.dataset.cedarMapUserZoomed;
+      refitActiveCodeMap();
+    }
+  });
 }
 
 function updateConfigStatus(data) {
@@ -359,23 +524,22 @@ async function onSubmit(e) {
   label.innerHTML = '<span class="cedar-spinner"></span><span class="ml-2">Connecting…</span>';
   hero.classList.add("hidden");
   results.classList.remove("hidden");
-  document.getElementById("main-stage")?.classList.add("cedar-review-wide");
-    results.innerHTML = loadingSkeleton();
+  enterReviewStageLayout();
+  results.classList.add("cedar-review-results--mounted");
+  results.innerHTML = loadingSkeleton();
+  wireReviewChrome(results);
+  window.scrollTo({ top: 0, behavior: "smooth" });
   showReviewProgressDock();
   setReviewProgress(4, "Starting review", "Fetching PR from GitHub…");
 
   try {
-    const statusEl = document.getElementById("review-progress-status");
-    const logEl = document.getElementById("review-progress-log");
-    const onStream = (event) => {
-      applyReviewStreamEvent(event, statusEl, logEl);
+    const data = await streamCedarReview(payload, (event) => {
       if (event?.type === "activity" && event.text) {
         label.innerHTML = `<span class="cedar-spinner"></span><span class="ml-2">${escapeHtml(String(event.text))}</span>`;
       } else if (event?.type === "phase" && event.status === "running") {
         label.innerHTML = `<span class="cedar-spinner"></span><span class="ml-2">${escapeHtml(String(event.label ?? "Working…"))}</span>`;
       }
-    };
-    const data = await postReviewStream(payload, onStream);
+    });
 
     try {
       const healthRes = await fetch("/api/health");
@@ -384,25 +548,7 @@ async function onSubmit(e) {
       /* keep prior health */
     }
 
-    const filePatches = new Map();
-    for (const m of data.microPrs ?? []) {
-      for (const f of m.files ?? []) {
-        if (f.patch) filePatches.set(`${m.componentId}::${f.path}`, f.patch);
-      }
-    }
-
-    window.__cedarSession = {
-      prUrl: payload.prUrl,
-      token: payload.token,
-      cursorApiKey: payload.cursorApiKey,
-      data,
-      serverHealth: window.__cedarServerHealth,
-      sliceApprovals: new Set(),
-      ignoredFindings: new Set(),
-      findingCommentsPosted: new Set(),
-      filePatches,
-    };
-    ensureFindingSession(window.__cedarSession);
+    applyLoadedReviewSession(payload, data);
 
     renderResults(results, data);
     if (!data.cursorReviewPending) {
@@ -420,7 +566,7 @@ async function onSubmit(e) {
   } catch (err) {
     results.innerHTML = "";
     results.classList.add("hidden");
-    document.getElementById("main-stage")?.classList.remove("cedar-review-wide");
+    exitReviewStageLayout();
     errorEl.textContent = err instanceof Error ? err.message : String(err);
     errorEl.classList.remove("hidden");
     showToast(errorEl.textContent, "error");
@@ -431,13 +577,20 @@ async function onSubmit(e) {
 }
 
 function loadingSkeleton() {
-  return `
-    ${renderReviewProgressDockHtml()}
-    <div id="review-progress-panel" class="cedar-glass p-6 sm:p-8">
-      <p class="cedar-label">Review in progress</p>
-      <p id="review-progress-status" class="mt-3 text-sm font-medium text-zinc-200">Connecting…</p>
-      <ul id="review-progress-log" class="review-progress-log mt-4 max-h-56 space-y-1 overflow-y-auto text-xs text-zinc-500" aria-live="polite"></ul>
-    </div>`;
+  return `${renderReviewProgressDockHtml()}
+    <header class="cedar-pr-header cedar-glass mb-4 cedar-pr-header--pending">
+      <div class="cedar-pr-header-id">
+        <p class="cedar-pr-header-eyebrow">Pull request</p>
+        <p class="cedar-pr-header-title text-zinc-400">Review running…</p>
+        <p class="cedar-pr-header-meta font-mono text-[10px] text-zinc-600">Fetching &amp; partitioning</p>
+      </div>
+    </header>
+    ${renderThreeColumnReviewChrome({
+      sidebarSliceList:
+        '<p class="px-2 py-2 text-[11px] leading-snug text-zinc-600">Slices appear when partitioning finishes.</p>',
+      gate: { ready: false, blockedReason: "Review in progress…" },
+      centerMainHtml: renderLoadingReviewCenterMain(),
+    })}`;
 }
 
 let sliceApprovals = new Set();
@@ -446,7 +599,9 @@ function finishReviewUi(container) {
   bindApproveHandlers(container);
   wireFindingActions(container, patchFindingsAndMetrics);
   wireFileReviewToggles(container);
-  wireMacroReviewPost(container);
+  wireFileFlowRail(container);
+  wireReviewChrome(container);
+  wirePrCommitRefresh(container);
   repaintAllDiffComments(container);
   void loadDiffReviewComments(container);
   if (window.__cedarSession?.data?.cursorReviewPending) showReviewProgressDock();
@@ -479,9 +634,9 @@ async function startBackgroundCursorReviewIfNeeded(container) {
   const onEvent = (event) => {
     applyCursorBackgroundEvent(event, () => {
       if (event.type === "cursor_macro") {
-        refreshReviewUi();
         const results = document.getElementById("results");
         if (results) {
+          patchCursorMacroComplete(results);
           finishReviewUiWithoutBackground(results);
           repaintAllDiffComments(results);
         }
@@ -517,8 +672,46 @@ function finishReviewUiWithoutBackground(container) {
   bindApproveHandlers(container);
   wireFindingActions(container, patchFindingsAndMetrics);
   wireFileReviewToggles(container);
-  wireMacroReviewPost(container);
+  wireFileFlowRail(container);
+  wireReviewChrome(container);
+  wirePrCommitRefresh(container);
   repaintAllDiffComments(container);
+}
+
+/**
+ * @param {ParentNode | null} container
+ */
+function captureReviewUiState(container) {
+  if (!(container instanceof HTMLElement)) return null;
+  const mainBtn = container.querySelector("[data-review-tab].is-active");
+  const mainTab = mainBtn?.getAttribute("data-review-tab");
+  const sliceBtn = container.querySelector("[data-slice-tab].is-active");
+  const sliceId = sliceBtn?.getAttribute("data-slice-tab");
+  return {
+    mainTab: mainTab === "architecture" || mainTab === "slices" ? mainTab : null,
+    sliceId: sliceId || null,
+  };
+}
+
+/**
+ * @param {ParentNode} container
+ */
+function patchCursorRollupCard(container) {
+  const session = window.__cedarSession;
+  if (!(container instanceof HTMLElement) || !session?.data) return;
+  const summary = refreshCursorReviewSummary(session) ?? session.data.cursorReviewSummary;
+  const rollupCard = container.querySelector(".cedar-cursor-rollup-card");
+  if (rollupCard && summary) {
+    rollupCard.innerHTML = renderCursorReviewRollup(summary);
+    rollupCard.hidden = !summary.enabled;
+  }
+}
+
+function patchCursorMacroComplete(container) {
+  const session = window.__cedarSession;
+  if (!(container instanceof HTMLElement) || !session?.data) return;
+  patchPrHeaderMetrics(session.data);
+  patchCursorRollupCard(container);
 }
 
 function refreshReviewUi() {
@@ -527,7 +720,8 @@ function refreshReviewUi() {
   if (!session?.data || !results) return;
   ensureFindingSession(session);
   sliceApprovals = session.sliceApprovals ?? sliceApprovals;
-  renderResults(results, session.data);
+  const uiRestore = captureReviewUiState(results);
+  renderResults(results, session.data, { uiRestore });
 }
 
 window.__cedarPatchFindings = patchFindingsAndMetrics;
@@ -540,20 +734,19 @@ function patchFindingsAndMetrics() {
   if (!session?.data || !container) return;
 
   const { microResults } = session.data;
-  for (const r of microResults.filter((res) => res.status !== "skipped")) {
+
+  for (const r of microResults.filter((res) => res.status !== "skipped" && !isFullPrSliceId(res.componentId))) {
     const panel = container.querySelector(`[data-slice-panel="${CSS.escape(r.componentId)}"]`);
     if (!panel) continue;
 
-    const { html, activeCount, inlineOnly, archHtml } = buildFindingsListHtml(r, session);
-    const archHost = panel.querySelector("[data-arch-findings-host]");
-    if (archHost instanceof HTMLElement) archHost.innerHTML = archHtml;
+    const { html, activeCount, inlineOnly } = buildFindingsListHtml(r, session);
     const details = panel.querySelector(".cedar-findings-panel");
     if (details instanceof HTMLDetailsElement) {
       const hidePanel = inlineOnly;
       details.hidden = hidePanel;
       if (!hidePanel) {
-        const body = details.querySelector(".mt-3");
-        if (body) body.innerHTML = html;
+        const body = details.querySelector(".cedar-findings-panel-body") ?? details.querySelector(":scope > div:not(summary)");
+        if (body instanceof HTMLElement) body.innerHTML = html;
         const sum = details.querySelector("summary");
         if (sum) {
           sum.textContent = `Code findings${activeCount ? ` (${activeCount})` : ""}`;
@@ -564,6 +757,7 @@ function patchFindingsAndMetrics() {
     patchSliceFindingBadges(panel, r, session);
   }
 
+  patchCursorRollupCard(container);
   patchPrHeaderMetrics(session.data);
   wireFindingActions(container, patchFindingsAndMetrics);
 }
@@ -683,11 +877,12 @@ function mergeConfidence(gate, microResults) {
 }
 
 function cyToolbar(targetId, badge = "") {
-  return `<div class="diagram-toolbar flex flex-wrap items-center gap-1.5">
+  return `<div class="diagram-toolbar flex flex-wrap items-center gap-1.5" data-diagram-toolbar>
     <span class="cedar-label mb-0">View</span>
     <button type="button" class="diagram-tool-btn" data-cy-action="in" data-cy-target="${targetId}" title="Zoom in">+</button>
     <button type="button" class="diagram-tool-btn" data-cy-action="out" data-cy-target="${targetId}" title="Zoom out">−</button>
     <button type="button" class="diagram-tool-btn" data-cy-action="fit" data-cy-target="${targetId}" title="Fit">Fit</button>
+    <button type="button" class="diagram-tool-btn" data-diagram-action="maximize" title="Maximize panel" aria-pressed="false">⤢</button>
     ${badge}
   </div>`;
 }
@@ -699,17 +894,15 @@ function renderDiagramSliceBadges(slices) {
   if (!slices.length) return "";
   const dots = slices
     .map((r) => {
-      const v = sliceStatusVisual(r.status);
-      const n = r.sliceNumber ?? 0;
+      const v = sliceStatusVisualForTheme(r.status, getResolvedTheme());
       const classes = (r.classNames ?? []).filter(Boolean);
       const classHint = classes.length ? classes.join(", ") : String(r.componentName ?? r.componentId ?? "").trim();
-      const title = classHint ? `${classHint} · slice #${n}` : `slice #${n}`;
-      return `<button type="button" class="cedar-diagram-slice-badge" data-jump-slice="${escapeHtml(r.componentId)}"
+      const title = classHint || String(r.componentName ?? r.componentId ?? "").trim();
+      return `<button type="button" class="cedar-diagram-slice-badge" data-jump-slice="${escapeHtml(r.componentId)}" data-slice-status="${escapeHtml(r.status)}"
         style="border-color:${v.border}44"
         title="${escapeHtml(title)}"
-        aria-label="Slice ${n}: ${escapeHtml(classHint || r.componentId)}">
+        aria-label="${escapeHtml(title)}">
         ${renderSliceStatusDot(r.status)}
-        ${renderSliceIndexLabel(n, r.status)}
       </button>`;
     })
     .join("");
@@ -721,9 +914,8 @@ function renderDiagramSliceBadges(slices) {
  * @param {string} sliceBadgesHtml
  */
 function completeLayoutMermaidArticle(spec, sliceBadgesHtml) {
-  const mt = spec.first ? "" : " mt-8";
-  return `<article class="cedar-layout-view cedar-architecture-read-panel${mt} w-full" data-layout-view="${escapeHtml(spec.view)}" data-diagram-wrap>
-              <div class="architecture-read-mermaid-head mb-2 flex flex-wrap items-center justify-between gap-2">
+  return `<article class="cedar-layout-view cedar-architecture-read-panel w-full min-w-0" data-layout-view="${escapeHtml(spec.view)}" data-diagram-wrap>
+              <div class="architecture-read-mermaid-head">
                 <p class="cedar-label mb-0">${escapeHtml(spec.label)}</p>
                 ${architectureDiagramToolbar(spec.id, sliceBadgesHtml)}
               </div>
@@ -753,10 +945,15 @@ function renderPrLayerStack(activeSliceIds) {
   const active = new Set(activeSliceIds);
   const layers = ARCHITECTURE_LAYER_STACK.filter((l) => active.has(l.id));
   if (!layers.length) return "";
+  const theme = getResolvedTheme();
   const items = layers
     .map((layer) => {
-      const accent = layerAccent(layer.id);
-      return `<li class="cedar-layer-chip is-active" style="border-color:${accent.stroke};background:linear-gradient(135deg, ${accent.fill}88 0%, #0a0a0a44 100%)"><span class="cedar-layer-chip-label" style="color:${accent.text}">${escapeHtml(layer.label)}</span><span class="cedar-layer-chip-hint">${escapeHtml(layer.hint)}</span></li>`;
+      const accent = layerAccentForTheme(layer.id, theme);
+      const bg =
+        theme === "day"
+          ? `linear-gradient(135deg, ${accent.fill} 0%, color-mix(in srgb, ${accent.fill} 82%, white) 100%)`
+          : `linear-gradient(135deg, ${accent.fill}88 0%, #0a0a0a44 100%)`;
+      return `<li class="cedar-layer-chip is-active" data-layer-id="${escapeHtml(layer.id)}" style="border-color:${accent.stroke};background:${bg}"><span class="cedar-layer-chip-label" style="color:${accent.text}">${escapeHtml(layer.label)}</span><span class="cedar-layer-chip-hint">${escapeHtml(layer.hint)}</span></li>`;
     })
     .join("");
   return `<div class="cedar-layer-stack mt-4" aria-label="${escapeHtml(ARCHITECTURE_MODEL_LABEL)}">
@@ -765,11 +962,11 @@ function renderPrLayerStack(activeSliceIds) {
   </div>`;
 }
 
-function virtualPrLabel(target, pull, componentId, index, total) {
+function virtualPrLabel(target, pull, componentId) {
   const repo = target?.owner && target?.repo ? `${target.owner}/${target.repo}` : "repository";
   return {
     id: `vpr-${pull.number}-${componentId}`,
-    title: `Virtual micro-PR ${index} of ${total}`,
+    title: "Slice",
     slug: `${repo}#${pull.number} · slice \`${componentId}\``,
   };
 }
@@ -790,76 +987,31 @@ function activateReviewMainTab(root, mainTab = "architecture") {
     panel.hidden = panel.getAttribute("data-review-panel") !== mainTab;
   });
   const layout = root.querySelector(".cedar-review-layout");
+  const mainStage = document.getElementById("main-stage");
   if (layout instanceof HTMLElement) {
     layout.classList.toggle("cedar-review-slices-focus", mainTab === "slices");
   }
-  if (mainTab === "slices") {
-    requestAnimationFrame(() => {
-      const shell = root.querySelector(".cedar-slices-shell");
-      if (shell instanceof HTMLElement) {
-        applySliceRailWidth(shell, readStoredSliceRailWidth());
-        window.dispatchEvent(new Event("resize"));
-      }
-    });
+  if (mainStage instanceof HTMLElement) {
+    mainStage.classList.toggle("cedar-review-slices-focus", mainTab === "slices");
   }
-}
-
-const SLICE_RAIL_COLLAPSED_KEY = "cedar.sliceRailCollapsed";
-
-/**
- * @param {ParentNode} root
- */
-function wireDiffFocusToggles(root) {
-  const shell = root.querySelector(".cedar-slices-shell");
-  const layout = root.querySelector(".cedar-review-layout");
-  if (!(shell instanceof HTMLElement) || !(layout instanceof HTMLElement)) return;
-
-  const stored = sessionStorage.getItem(SLICE_RAIL_COLLAPSED_KEY);
-  const collapsed = stored === null ? true : stored === "true";
-  shell.classList.toggle("cedar-slice-rail-collapsed", collapsed);
-
-  root.querySelectorAll("[data-toggle-slice-rail]").forEach((btn) => {
-    if (btn.dataset.wiredFocus) return;
-    btn.dataset.wiredFocus = "1";
-    btn.addEventListener("click", () => {
-      const isCollapsed = shell.classList.toggle("cedar-slice-rail-collapsed");
-      sessionStorage.setItem(SLICE_RAIL_COLLAPSED_KEY, isCollapsed ? "true" : "false");
-      const label = btn.querySelector("[data-toggle-label]");
-      if (label instanceof HTMLElement) {
-        label.textContent = isCollapsed ? "Show slices" : "Hide slices";
-      }
-      btn.setAttribute("aria-pressed", isCollapsed ? "true" : "false");
-      window.dispatchEvent(new Event("resize"));
+  if (mainTab === "architecture") {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        refitPanZoomDiagrams(root);
+        const host = root.querySelector("#cedar-cy-slices");
+        if (host?.dataset.cyMountPending === "1" && window.__cedarOverviewGraph) {
+          const { resolveGraph, getStatusMap } = window.__cedarOverviewGraph;
+          mountArchitectureGraphs(root, resolveGraph(), getStatusMap(), {
+            force: true,
+            onFail: () => showToast("Architecture diagram could not render.", "error"),
+          });
+        }
+        window.dispatchEvent(new Event("resize"));
+      });
     });
-    const label = btn.querySelector("[data-toggle-label]");
-    if (label instanceof HTMLElement) {
-      label.textContent = shell.classList.contains("cedar-slice-rail-collapsed") ? "Show slices" : "Hide slices";
-    }
-  });
-
-  root.querySelectorAll("[data-toggle-pipeline-rail]").forEach((btn) => {
-    if (btn.dataset.wiredFocus) return;
-    btn.dataset.wiredFocus = "1";
-    btn.addEventListener("click", () => {
-      const expanded = layout.classList.toggle("cedar-pipeline-rail-expanded");
-      const label = btn.querySelector("[data-toggle-label]");
-      if (label instanceof HTMLElement) {
-        label.textContent = expanded ? "Hide pipeline" : "Show pipeline";
-      }
-      btn.setAttribute("aria-pressed", expanded ? "true" : "false");
-      window.dispatchEvent(new Event("resize"));
-    });
-    const label = btn.querySelector("[data-toggle-label]");
-    if (label instanceof HTMLElement) {
-      label.textContent = layout.classList.contains("cedar-pipeline-rail-expanded")
-        ? "Hide pipeline"
-        : "Show pipeline";
-    }
-  });
-
-  root.querySelectorAll("[data-toggle-slice-rail]").forEach((btn) => {
-    btn.setAttribute("aria-pressed", shell.classList.contains("cedar-slice-rail-collapsed") ? "true" : "false");
-  });
+  } else if (mainTab === "slices") {
+    requestAnimationFrame(() => window.dispatchEvent(new Event("resize")));
+  }
 }
 
 /**
@@ -923,14 +1075,25 @@ function wireSliceKeyboardNav(root) {
 }
 
 const SIDEBAR_WIDTH_KEY = "cedar.reviewSidebarWidthPx";
-const SIDEBAR_WIDTH_DEFAULT = 400;
+const SIDEBAR_WIDTH_DEFAULT = 432;
 const SIDEBAR_WIDTH_MIN = 280;
 const SIDEBAR_WIDTH_MAX = 560;
 
 const SLICE_RAIL_WIDTH_KEY = "cedar.sliceRailWidthPx";
-const SLICE_RAIL_DEFAULT = 148;
-const SLICE_RAIL_MIN = 108;
-const SLICE_RAIL_MAX = 320;
+const SLICE_RAIL_DEFAULT = 108;
+const SLICE_RAIL_MIN = 96;
+const SLICE_RAIL_MAX = 220;
+
+const FILE_FLOW_RAIL_WIDTH_KEY = "cedar.fileFlowRailWidthPx";
+const FILE_FLOW_RAIL_DEFAULT = 520;
+const FILE_FLOW_RAIL_MIN = 320;
+const FILE_FLOW_RAIL_MAX = 880;
+
+const SLICES_NAV_RAIL_WIDTH_KEY = "cedar.slicesNavRailWidthPx";
+const SLICES_NAV_RAIL_USER_KEY = "cedar.slicesNavRailUserResized";
+const SLICES_NAV_RAIL_DEFAULT = 280;
+const SLICES_NAV_RAIL_MIN = 240;
+const SLICES_NAV_RAIL_MAX = 360;
 
 /**
  * @param {HTMLElement | null | undefined} layout
@@ -1068,7 +1231,7 @@ function wireSliceRailResize(root) {
     const startW = rail instanceof HTMLElement ? rail.getBoundingClientRect().width : readStoredSliceRailWidth();
 
     const onMove = (moveEv) => {
-      // Rail sits on the right: drag left → narrower rail → wider diff pane
+      // Rail on the right: drag left → narrower rail → wider diff pane
       const next = Math.min(SLICE_RAIL_MAX, Math.max(SLICE_RAIL_MIN, startW - (moveEv.clientX - startX)));
       applySliceRailWidth(shell, next);
       notifyResized();
@@ -1105,6 +1268,202 @@ function wireSliceRailResize(root) {
   });
 }
 
+function readStoredFileFlowRailWidth() {
+  const raw = localStorage.getItem(FILE_FLOW_RAIL_WIDTH_KEY);
+  const n = raw ? Number(raw) : NaN;
+  if (Number.isFinite(n)) return Math.min(FILE_FLOW_RAIL_MAX, Math.max(FILE_FLOW_RAIL_MIN, n));
+  return FILE_FLOW_RAIL_DEFAULT;
+}
+
+/**
+ * @param {HTMLElement | null | undefined} shell
+ * @param {number} widthPx
+ */
+function applyFileFlowRailWidth(shell, widthPx) {
+  if (!shell) return;
+  shell.style.setProperty("--cedar-file-flow-rail-width", `${widthPx}px`);
+}
+
+/**
+ * @param {ParentNode} root
+ */
+function wireFileFlowRailResize(root) {
+  const shell = root.querySelector(".cedar-review-layout--three-col");
+  const splitter = root.querySelector("[data-file-flow-splitter]");
+  const rail = root.querySelector(".cedar-review-right-nav");
+  if (!(shell instanceof HTMLElement) || !(splitter instanceof HTMLElement)) return;
+
+  applyFileFlowRailWidth(shell, readStoredFileFlowRailWidth());
+
+  if (splitter.dataset.wiredFileFlowSplit) return;
+  splitter.dataset.wiredFileFlowSplit = "1";
+
+  const notifyResized = () => {
+    window.dispatchEvent(new Event("resize"));
+    scheduleDiagramRefit(root);
+  };
+
+  splitter.addEventListener("dblclick", () => {
+    applyFileFlowRailWidth(shell, FILE_FLOW_RAIL_DEFAULT);
+    localStorage.removeItem(FILE_FLOW_RAIL_WIDTH_KEY);
+    notifyResized();
+  });
+
+  splitter.addEventListener("pointerdown", (ev) => {
+    if (!root.querySelector(".cedar-review-layout--three-col")) return;
+    ev.preventDefault();
+    splitter.setPointerCapture(ev.pointerId);
+    document.body.classList.add("cedar-is-resizing-file-flow");
+    const startX = ev.clientX;
+    const startW = rail instanceof HTMLElement ? rail.getBoundingClientRect().width : readStoredFileFlowRailWidth();
+
+    const onMove = (moveEv) => {
+      const next = Math.min(FILE_FLOW_RAIL_MAX, Math.max(FILE_FLOW_RAIL_MIN, startW - (moveEv.clientX - startX)));
+      applyFileFlowRailWidth(shell, next);
+      notifyResized();
+    };
+
+    const onUp = (upEv) => {
+      splitter.releasePointerCapture(upEv.pointerId);
+      document.body.classList.remove("cedar-is-resizing-file-flow");
+      splitter.removeEventListener("pointermove", onMove);
+      splitter.removeEventListener("pointerup", onUp);
+      splitter.removeEventListener("pointercancel", onUp);
+      if (rail instanceof HTMLElement) {
+        localStorage.setItem(FILE_FLOW_RAIL_WIDTH_KEY, String(Math.round(rail.getBoundingClientRect().width)));
+      }
+    };
+
+    splitter.addEventListener("pointermove", onMove);
+    splitter.addEventListener("pointerup", onUp);
+    splitter.addEventListener("pointercancel", onUp);
+  });
+
+  splitter.addEventListener("keydown", (ev) => {
+    if (!root.querySelector(".cedar-review-layout--three-col")) return;
+    let delta = 0;
+    if (ev.key === "ArrowLeft") delta = 16;
+    else if (ev.key === "ArrowRight") delta = -16;
+    else return;
+    ev.preventDefault();
+    const current = rail instanceof HTMLElement ? rail.getBoundingClientRect().width : FILE_FLOW_RAIL_DEFAULT;
+    const next = Math.min(FILE_FLOW_RAIL_MAX, Math.max(FILE_FLOW_RAIL_MIN, current + delta));
+    applyFileFlowRailWidth(shell, next);
+    localStorage.setItem(FILE_FLOW_RAIL_WIDTH_KEY, String(Math.round(next)));
+    notifyResized();
+  });
+}
+
+function readStoredSlicesNavRailWidth() {
+  if (localStorage.getItem(SLICES_NAV_RAIL_USER_KEY) !== "1") {
+    return SLICES_NAV_RAIL_DEFAULT;
+  }
+  const raw = localStorage.getItem(SLICES_NAV_RAIL_WIDTH_KEY);
+  const n = raw ? Number(raw) : NaN;
+  if (Number.isFinite(n)) {
+    const clamped = Math.min(SLICES_NAV_RAIL_MAX, Math.max(SLICES_NAV_RAIL_MIN, n));
+    if (Math.round(clamped) !== Math.round(n)) {
+      localStorage.setItem(SLICES_NAV_RAIL_WIDTH_KEY, String(Math.round(clamped)));
+    }
+    return clamped;
+  }
+  return SLICES_NAV_RAIL_DEFAULT;
+}
+
+/**
+ * @param {HTMLElement | null | undefined} shell
+ * @param {number} widthPx
+ */
+function applySlicesNavRailWidth(shell, widthPx) {
+  if (!shell) return;
+  shell.style.setProperty("--cedar-slices-nav-rail-width", `${widthPx}px`);
+}
+
+/**
+ * @param {HTMLElement | null | undefined} shell
+ */
+function syncSlicesNavRailWidthFromPrefs(shell) {
+  if (!shell) return;
+  if (localStorage.getItem(SLICES_NAV_RAIL_USER_KEY) === "1") {
+    applySlicesNavRailWidth(shell, readStoredSlicesNavRailWidth());
+    return;
+  }
+  shell.style.removeProperty("--cedar-slices-nav-rail-width");
+}
+
+/**
+ * @param {ParentNode} root
+ */
+function wireSlicesNavRailResize(root) {
+  const shell = root.querySelector(".cedar-review-layout--three-col");
+  const splitter = root.querySelector("[data-slices-nav-splitter]");
+  const rail = root.querySelector(".cedar-review-left-nav");
+  if (!(shell instanceof HTMLElement) || !(splitter instanceof HTMLElement)) return;
+
+  syncSlicesNavRailWidthFromPrefs(shell);
+
+  if (splitter.dataset.wiredSlicesNavSplit) return;
+  splitter.dataset.wiredSlicesNavSplit = "1";
+
+  const notifyResized = () => {
+    window.dispatchEvent(new Event("resize"));
+    scheduleDiagramRefit(root);
+  };
+
+  splitter.addEventListener("dblclick", () => {
+    localStorage.removeItem(SLICES_NAV_RAIL_WIDTH_KEY);
+    localStorage.removeItem(SLICES_NAV_RAIL_USER_KEY);
+    syncSlicesNavRailWidthFromPrefs(shell);
+    notifyResized();
+  });
+
+  splitter.addEventListener("pointerdown", (ev) => {
+    if (!root.querySelector(".cedar-review-layout--three-col")) return;
+    ev.preventDefault();
+    splitter.setPointerCapture(ev.pointerId);
+    document.body.classList.add("cedar-is-resizing-slices-nav");
+    const startX = ev.clientX;
+    const startW = rail instanceof HTMLElement ? rail.getBoundingClientRect().width : readStoredSlicesNavRailWidth();
+
+    const onMove = (moveEv) => {
+      const next = Math.min(SLICES_NAV_RAIL_MAX, Math.max(SLICES_NAV_RAIL_MIN, startW + (moveEv.clientX - startX)));
+      applySlicesNavRailWidth(shell, next);
+      notifyResized();
+    };
+
+    const onUp = (upEv) => {
+      splitter.releasePointerCapture(upEv.pointerId);
+      document.body.classList.remove("cedar-is-resizing-slices-nav");
+      splitter.removeEventListener("pointermove", onMove);
+      splitter.removeEventListener("pointerup", onUp);
+      splitter.removeEventListener("pointercancel", onUp);
+      if (rail instanceof HTMLElement) {
+        localStorage.setItem(SLICES_NAV_RAIL_USER_KEY, "1");
+        localStorage.setItem(SLICES_NAV_RAIL_WIDTH_KEY, String(Math.round(rail.getBoundingClientRect().width)));
+      }
+    };
+
+    splitter.addEventListener("pointermove", onMove);
+    splitter.addEventListener("pointerup", onUp);
+    splitter.addEventListener("pointercancel", onUp);
+  });
+
+  splitter.addEventListener("keydown", (ev) => {
+    if (!root.querySelector(".cedar-review-layout--three-col")) return;
+    let delta = 0;
+    if (ev.key === "ArrowRight") delta = 16;
+    else if (ev.key === "ArrowLeft") delta = -16;
+    else return;
+    ev.preventDefault();
+    const current = rail instanceof HTMLElement ? rail.getBoundingClientRect().width : SLICES_NAV_RAIL_DEFAULT;
+    const next = Math.min(SLICES_NAV_RAIL_MAX, Math.max(SLICES_NAV_RAIL_MIN, current + delta));
+    applySlicesNavRailWidth(shell, next);
+    localStorage.setItem(SLICES_NAV_RAIL_USER_KEY, "1");
+    localStorage.setItem(SLICES_NAV_RAIL_WIDTH_KEY, String(Math.round(next)));
+    notifyResized();
+  });
+}
+
 /**
  * @param {ParentNode} root
  * @param {"architecture" | "slices"} defaultMainTab
@@ -1123,6 +1482,52 @@ const COMPLETE_LAYOUT_MERMAID_SLOTS = [
   { key: "flow", sel: "#cedar-mermaid-flow" },
   { key: "events", sel: "#cedar-mermaid-events" },
 ];
+
+/**
+ * @param {object} breakouts
+ * @param {object[]} diagramMicroPrs
+ * @param {{ number?: number, title?: string }} pull
+ * @param {{ owner?: string, repo?: string }} target
+ */
+function resolveOverviewDiagramGraph(breakouts, diagramMicroPrs, pull, target) {
+  const built = buildDiagramGraph(diagramMicroPrs, breakouts, pull, target);
+  const fromApi = breakouts?.diagramGraph;
+  if (isRenderableDiagramGraph(fromApi)) return fromApi;
+  return built;
+}
+
+/**
+ * @param {HTMLElement} root
+ * @param {{ resolveGraph: () => object, getStatusMap: () => Map<string, string> }} payload
+ */
+function wireArchitectureOverviewGraph(root, payload) {
+  const draw = () => {
+    const panel = root.querySelector("#cedar-review-panel-architecture");
+    if (panel instanceof HTMLElement && panel.hidden) return;
+    const graph = payload.resolveGraph();
+    if (!isRenderableDiagramGraph(graph)) {
+      showToast("Architecture diagram could not render.", "error");
+      return;
+    }
+    mountArchitectureGraphs(root, graph, payload.getStatusMap(), {
+      force: true,
+      onFail: () => showToast("Architecture diagram could not render.", "error"),
+    });
+    requestAnimationFrame(() => refitPanZoomDiagrams(root));
+  };
+
+  root.querySelectorAll("[data-review-tab]").forEach((btn) => {
+    if (!(btn instanceof HTMLElement) || btn.dataset.wiredCyOverview) return;
+    btn.dataset.wiredCyOverview = "1";
+    btn.addEventListener("click", () => {
+      if (btn.getAttribute("data-review-tab") === "architecture") {
+        requestAnimationFrame(() => requestAnimationFrame(draw));
+      }
+    });
+  });
+
+  requestAnimationFrame(() => requestAnimationFrame(draw));
+}
 
 function wireCompleteLayoutViews(root, views) {
   if (!(root instanceof HTMLElement) || !views) return;
@@ -1197,14 +1602,17 @@ function renderCursorReviewRollup(summary) {
   const sliceRows = (summary.slice?.bySlice ?? [])
     .map((s) => {
       const fail = s.error ? ' <span class="text-rose-400/90">· failed</span>' : "";
-      return `<li class="flex justify-between gap-2 text-[9px] text-zinc-500">
-        <span class="truncate">${escapeHtml(s.componentName)}${fail}</span>
-        <span class="shrink-0 tabular-nums text-zinc-400">${s.count}</span>
+      const pending = s.status === "pending" ? ' <span class="text-zinc-600">· pending</span>' : "";
+      const count =
+        s.status === "pending" && !s.count ? "—" : String(s.count ?? 0);
+      return `<li class="flex justify-between gap-2 text-[9px] text-zinc-500" data-slice-rollup-id="${escapeHtml(s.componentId)}">
+        <span class="truncate">${escapeHtml(s.componentName)}${pending}${fail}</span>
+        <span class="shrink-0 tabular-nums text-zinc-400" data-slice-finding-count>${count}</span>
       </li>`;
     })
     .join("");
   const macroCount = summary.macro?.findingCount ?? 0;
-  return `<div class="mt-3 border-t border-white/[0.06] pt-3" aria-labelledby="cedar-cursor-rollup-heading">
+  return `<div class="cedar-cursor-rollup" aria-labelledby="cedar-cursor-rollup-heading">
     <p id="cedar-cursor-rollup-heading" class="text-[9px] font-medium uppercase tracking-wide text-zinc-500">Cursor findings</p>
     <p class="mt-1 text-[10px] font-medium text-zinc-300">${summary.totalFindings} on this PR</p>
     <p class="text-[9px] text-zinc-600">${summary.slice.total} slice · ${macroCount} macro</p>
@@ -1212,11 +1620,19 @@ function renderCursorReviewRollup(summary) {
   </div>`;
 }
 
-function renderResults(container, data) {
-  const { pull, gate, microPrs, microResults, macroReview, cursorReviewSummary, composite, breakouts, partition, process, target } = data;
-  const macroReviewHtml = renderMacroReviewPanelHtml(macroReview);
+/**
+ * @param {HTMLElement} container
+ * @param {object} data
+ * @param {{ uiRestore?: { mainTab?: string | null, sliceId?: string | null } | null }} [opts]
+ */
+function renderResults(container, data, opts = {}) {
+  enterReviewStageLayout();
+  container.classList.add("cedar-review-results--mounted");
+  const { pull, gate, microPrs, microResults, cursorReviewSummary, composite, breakouts, partition, target } = data;
+  const uiRestore = opts.uiRestore ?? null;
   sliceApprovals = window.__cedarSession?.sliceApprovals ?? sliceApprovals;
   ensureFindingSession(window.__cedarSession);
+  setFileFlowCatalog(buildFileFlowCatalogFromMicroPrs(microPrs));
 
   const confidence = mergeConfidence(gate, microResults);
   const touched = microResults.filter((r) => r.status !== "skipped");
@@ -1224,57 +1640,8 @@ function renderResults(container, data) {
   const allSlicesApproved = touched.length > 0 && approvedCount === touched.length;
   const canApprovePr = gate.ready && allSlicesApproved;
   const approvePct = touched.length ? Math.round((approvedCount / touched.length) * 100) : 0;
-  const sliceTotal = touched.length || microResults.length;
-
-  const sidebarSlices = microResults
-    .filter((r) => r.status !== "skipped")
-    .map((r, i) => {
-      const micro = microPrs.find((m) => m.componentId === r.componentId);
-      const approved = sliceApprovals.has(r.componentId);
-      const vpr = virtualPrLabel(target, pull, r.componentId, i + 1, sliceTotal);
-      return `
-        <button type="button" data-scroll-slice="${escapeHtml(r.componentId)}"
-          class="cedar-nav-item cedar-nav-item-stack${i === 0 ? " is-active" : ""}"
-          title="${escapeHtml(r.componentName)}">
-          <span class="cedar-nav-item-row">
-            ${renderSliceIndexLabel(i + 1, r.status, false)}
-            ${renderSliceStatusDot(r.status)}
-            <span class="cedar-nav-item-label">${escapeHtml(r.componentName)}</span>
-            ${approved ? '<span class="cedar-nav-item-check">✓</span>' : ""}
-          </span>
-          <span class="cedar-nav-item-meta">${escapeHtml(vpr.id)} · ${micro?.fileCount ?? r.filesReviewed} files</span>
-        </button>`;
-    })
-    .join("");
-
-  const processList = (process ?? [])
-    .map((step, i) => {
-      const done = step.status === "done";
-      const blocked = step.status === "blocked";
-      const skipped = step.status === "skipped";
-      return `
-        <li class="flex gap-2 text-[10px] leading-snug">
-          <span class="mt-px flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-[9px] font-semibold ${
-            done
-              ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
-              : blocked
-                ? "border-rose-500/40 text-rose-300"
-                : skipped
-                  ? "border-white/[0.06] text-zinc-600"
-                  : "border-white/10 text-zinc-500"
-          }">${i + 1}</span>
-          <span class="min-w-0">
-            <span class="font-medium text-zinc-200">${escapeHtml(step.label)}</span>
-            <span class="block text-[9px] text-zinc-600">${escapeHtml(step.detail ?? step.status)}</span>
-          </span>
-        </li>`;
-    })
-    .join("");
-
   const archSliceCount = microPrs.filter((m) => (m.files?.length ?? m.fileCount ?? 0) > 0).length;
-  const diagramMicroPrs = microPrs
-    .filter((m) => (m.files?.length ?? m.fileCount ?? 0) > 0)
-    .map((m) => ({
+  const diagramMicroPrs = microPrsForDiagram(microPrs).map((m) => ({
       componentId: m.componentId,
       componentName: m.componentName,
       additions: m.additions ?? 0,
@@ -1302,7 +1669,9 @@ function renderResults(container, data) {
   const archLayersForBadges = diagramMicroPrs.length
     ? buildPrArchitectureLayers(diagramMicroPrs, breakouts)
     : [];
-  const classNamesBySlice = new Map(archLayersForBadges.map((l) => [l.id, l.types ?? []]));
+  const classNamesBySlice = new Map(
+    archLayersForBadges.map((l) => [l.id, (l.classNames?.length ? l.classNames : [l.name || l.micro?.componentName]).filter(Boolean)])
+  );
 
   let layoutViews = breakouts?.diagramLayoutViews ?? null;
   if (!layoutViews && diagramMicroPrs.length) {
@@ -1338,9 +1707,15 @@ function renderResults(container, data) {
     Boolean(composite);
 
   const activeSlices = activeSlicesForDiagram;
-  const firstSliceId = activeSlices[0]?.componentId ?? "";
+  const fullPrFiles = mergeAllPrFiles(microPrs);
+  const prFileCount = partition?.fileCount ?? fullPrFiles.length;
+  const showFullPrSlice = fullPrFiles.length > 0;
+  const firstSliceId = showFullPrSlice ? FULL_PR_SLICE_ID : (activeSlices[0]?.componentId ?? "");
   const hasArchitectureContent = Boolean(breakouts?.architectureSummary) || showArchitectureRead;
-  const defaultMainTab = hasArchitectureContent ? "architecture" : "slices";
+  const defaultMainTab = activeSlices.length > 0 ? "slices" : hasArchitectureContent ? "architecture" : "slices";
+  const initialMainTab =
+    uiRestore?.mainTab === "architecture" || uiRestore?.mainTab === "slices" ? uiRestore.mainTab : defaultMainTab;
+  const initialSliceId = uiRestore?.sliceId ?? firstSliceId;
   const diagramSliceBadges = renderDiagramSliceBadges(
     activeSlices.map((r, i) => {
       const id = normalizeSliceId(r.componentId);
@@ -1354,27 +1729,74 @@ function renderResults(container, data) {
     })
   );
 
-  const sliceTabBar = activeSlices
-    .map((r, i) => {
-      const approved = sliceApprovals.has(r.componentId);
-      const active = i === 0;
-      return `<button type="button" role="tab" class="cedar-nav-item cedar-slice-tab${active ? " is-active" : ""}"
-        data-slice-tab="${escapeHtml(r.componentId)}" aria-selected="${active ? "true" : "false"}"
-        title="${escapeHtml(r.componentName)}">
-        ${renderSliceIndexLabel(i + 1, r.status, false)}
-        ${renderSliceStatusDot(r.status)}
-        <span class="cedar-nav-item-label">${escapeHtml(r.componentName)}</span>
-        ${approved ? '<span class="cedar-nav-item-check">✓</span>' : ""}
+  const fullPrTabActive = showFullPrSlice && initialSliceId === FULL_PR_SLICE_ID;
+  const fullPrSidebarNav = showFullPrSlice
+    ? (() => {
+        const passedVis = sliceStatusVisualForTheme("passed", getResolvedTheme());
+        return `<button type="button" role="tab" class="cedar-nav-item cedar-nav-item-stack cedar-pipeline-slice-item cedar-pipeline-slice-item--full-pr${fullPrTabActive ? " is-active" : ""}"
+        data-slice-status="passed"
+        style="border-left: 3px solid ${passedVis.border}"
+        data-slice-tab="${escapeHtml(FULL_PR_SLICE_ID)}" data-scroll-slice="${escapeHtml(FULL_PR_SLICE_ID)}"
+        aria-selected="${fullPrTabActive ? "true" : "false"}"
+        title="All ${fullPrFiles.length} changed files on this pull request">
+        <span class="cedar-nav-item-row">
+          ${renderSliceStatusDot("passed")}
+          <span class="cedar-nav-item-label">All files</span>
+          <span class="cedar-pipeline-slice-files tabular-nums">${fullPrFiles.length}${prFileCount > fullPrFiles.length ? `/${prFileCount}` : ""}</span>
+        </span>
+        <span class="cedar-nav-item-meta">Full pull request diff</span>
       </button>`;
-    })
-    .join("");
+      })()
+    : "";
 
-  const slicePanels = activeSlices
-    .map((r, i) => {
+  const sidebarSliceList =
+    fullPrSidebarNav +
+    activeSlices
+      .map((r, i) => {
+        const approved = sliceApprovals.has(r.componentId);
+        const micro = microPrs.find((m) => m.componentId === r.componentId);
+        const sliceFileCount = micro?.files?.length ?? micro?.fileCount ?? r.filesReviewed ?? 0;
+        const vpr = virtualPrLabel(target, pull, r.componentId);
+        const active = initialSliceId === r.componentId || (!showFullPrSlice && i === 0 && !uiRestore?.sliceId);
+        const statusVis = sliceStatusVisualForTheme(r.status, getResolvedTheme());
+        return `<button type="button" role="tab" class="cedar-nav-item cedar-nav-item-stack cedar-pipeline-slice-item${active ? " is-active" : ""}"
+        data-slice-status="${escapeHtml(r.status)}"
+        style="border-left: 3px solid ${statusVis.border}"
+        data-slice-tab="${escapeHtml(r.componentId)}" data-scroll-slice="${escapeHtml(r.componentId)}"
+        aria-selected="${active ? "true" : "false"}"
+        title="${escapeHtml(r.componentName)} · ${sliceFileCount} file${sliceFileCount === 1 ? "" : "s"}">
+        <span class="cedar-nav-item-row">
+          ${renderSliceStatusDot(r.status)}
+          <span class="cedar-nav-item-label">${escapeHtml(r.componentName)}</span>
+          ${approved ? '<span class="cedar-nav-item-check">✓</span>' : ""}
+          <span class="cedar-pipeline-slice-files tabular-nums" aria-label="${sliceFileCount} files">${sliceFileCount}</span>
+        </span>
+        <span class="cedar-nav-item-meta">${escapeHtml(vpr.id)} · ${sliceFileCount} file${sliceFileCount === 1 ? "" : "s"}</span>
+      </button>`;
+      })
+      .join("");
+
+  const fullPrPanelHtml = showFullPrSlice
+    ? `<article id="slice-${escapeHtml(FULL_PR_SLICE_ID)}" class="cedar-slice-panel cedar-full-pr-slice" data-slice-panel="${escapeHtml(FULL_PR_SLICE_ID)}" data-full-pr-slice="1"${
+          fullPrTabActive ? "" : " hidden"
+        }>
+          ${
+            prFileCount > fullPrFiles.length
+              ? `<p class="cedar-full-pr-slice-note mb-2 text-[10px] leading-snug text-zinc-600">${fullPrFiles.length} of ${prFileCount} files with diffs · large/binary files may omit patches</p>`
+              : ""
+          }
+          ${renderSliceFileReviews(fullPrFiles, pull.url)}
+        </article>`
+    : "";
+
+  const slicePanels =
+    fullPrPanelHtml +
+    activeSlices
+      .map((r, i) => {
       const micro = microPrs.find((m) => m.componentId === r.componentId);
       const rationale = micro?.rationale ?? micro?.description;
       const session = window.__cedarSession;
-      const { html: findings, activeCount, inlineOnly, archHtml } = buildFindingsListHtml(r, session);
+      const { html: findings, activeCount, inlineOnly } = buildFindingsListHtml(r, session);
       const hideFindingsPanel = inlineOnly;
       const cursorCount = (r.reviewComments ?? []).length;
       const activeFindings = findingsForSlice(r.componentId, r).filter(
@@ -1383,32 +1805,32 @@ function renderResults(container, data) {
       const blockers = activeFindings.filter((f) => f.severity === "blocker").length;
       const warnings = activeFindings.filter((f) => f.severity === "warning").length;
       const approved = sliceApprovals.has(r.componentId);
-      const vpr = virtualPrLabel(target, pull, r.componentId, i + 1, sliceTotal);
+      const vpr = virtualPrLabel(target, pull, r.componentId);
       const fileList = micro?.files ?? [];
 
       return `
         <article id="slice-${escapeHtml(r.componentId)}" class="cedar-slice-panel" data-slice-panel="${escapeHtml(r.componentId)}" data-virtual-pr="${escapeHtml(vpr.id)}"${
-          i === 0 ? "" : " hidden"
+          initialSliceId === r.componentId || (!showFullPrSlice && i === 0 && !uiRestore?.sliceId) ? "" : " hidden"
         }>
           <div class="flex flex-wrap items-start justify-between gap-4">
             <div class="min-w-0 max-w-3xl">
               <p class="cedar-label">${escapeHtml(vpr.title)}</p>
-              <h3 class="mt-2 text-sm font-semibold text-white">${escapeHtml(r.componentName)}</h3>
+              <h3 class="cedar-slice-panel-title">${escapeHtml(r.componentName)}</h3>
               <p class="mt-1 font-mono text-xs text-zinc-500">${escapeHtml(vpr.slug)}</p>
               <div class="mt-4 flex flex-wrap gap-2" data-slice-badges>
                 ${renderSliceReviewBadge(r.status)}
                 <span class="cedar-badge cedar-badge-muted">+${micro?.additions ?? 0} / −${micro?.deletions ?? 0}</span>
                 <span class="cedar-badge cedar-badge-muted">${fileList.length} files</span>
-                ${cursorCount ? `<span class="cedar-badge cedar-badge-ok text-[9px]">${cursorCount} Cursor</span>` : ""}
+                ${cursorCount ? `<span class="cedar-badge cedar-badge-ok cedar-badge-compact">${cursorCount} Cursor</span>` : ""}
                 ${blockers ? `<span data-slice-blockers class="cedar-badge border-rose-500/30 bg-rose-500/10 text-rose-200">${blockers} blockers</span>` : ""}
                 ${warnings ? `<span data-slice-warnings class="cedar-badge cedar-badge-warn">${warnings} warnings</span>` : ""}
                 ${approved ? `<span class="cedar-badge cedar-badge-ok" data-slice-approved-badge>Approved</span>` : ""}
               </div>
               ${
                 rationale
-                  ? `<details class="mt-3">
-                <summary class="cursor-pointer text-xs text-zinc-500 hover:text-zinc-300">Slice rationale</summary>
-                <p class="mt-2 text-sm leading-relaxed text-zinc-300">${escapeHtml(rationale)}</p>
+                  ? `<details class="cedar-slice-rationale mt-3">
+                <summary class="cedar-slice-rationale-summary">Slice rationale</summary>
+                <p class="cedar-slice-prose mt-2">${escapeHtml(rationale)}</p>
               </details>`
                   : ""
               }
@@ -1420,15 +1842,14 @@ function renderResults(container, data) {
               ${approved ? "Approved" : "Mark approved"}
             </button>
           </div>
+          <details class="group cedar-findings-panel cedar-slice-findings-panel mt-3 border-t border-white/[0.06] pt-3"${hideFindingsPanel ? " hidden" : ""}>
+            <summary class="cedar-findings-panel-summary"><span class="cedar-comment-marker-chip" aria-hidden="true"></span>Code findings${
+              activeCount ? ` (${activeCount})` : ""
+            }</summary>
+            <div class="cedar-findings-panel-body mt-2">${findings}</div>
+          </details>
           <div class="mt-4 space-y-4 border-t border-white/[0.06] pt-4">
-            <div class="cedar-arch-findings-host" data-arch-findings-host>${archHtml}</div>
             ${renderSliceFileReviews(fileList, pull.url)}
-            <details class="group cedar-findings-panel"${hideFindingsPanel ? " hidden" : activeCount ? " open" : ""}>
-              <summary class="cursor-pointer text-xs font-medium text-zinc-500 hover:text-zinc-300">Code findings${
-                activeCount ? ` (${activeCount})` : ""
-              }</summary>
-              <div class="mt-3">${findings}</div>
-            </details>
           </div>
         </article>`;
     })
@@ -1441,7 +1862,7 @@ function renderResults(container, data) {
         <p class="cedar-pr-header-eyebrow">Pull request</p>
         <a href="${escapeHtml(pull.url)}" target="_blank" rel="noreferrer"
           class="cedar-pr-header-title" title="${escapeHtml(pull.title)}">${escapeHtml(pull.title)}</a>
-        <p class="cedar-pr-header-meta">#${pull.number} · ${gate.headSha.slice(0, 7)} · ${escapeHtml(breakouts?.strategy ?? partition?.mode ?? "review")}</p>
+        <p class="cedar-pr-header-meta">#${pull.number} · ${gate.headSha.slice(0, 7)} · ${prFileCount} files · ${escapeHtml(breakouts?.strategy ?? partition?.mode ?? "review")}</p>
       </div>
       <div class="cedar-pr-header-metrics">
         <div class="cedar-pr-stats" role="group" aria-label="Review progress">
@@ -1459,73 +1880,28 @@ function renderResults(container, data) {
             <div class="cedar-pr-stat-progress-fill" style="width:${approvePct}%"></div>
           </div>
         </div>
-        <button type="button" id="approve-pr-btn" ${canApprovePr ? "" : "disabled"} class="cedar-btn-signoff cedar-btn-approve-pr${canApprovePr ? " is-ready" : ""}"
-          title="${canApprovePr ? "Approve the full pull request on GitHub" : "Mark every slice approved in Cedar first"}">
-          Approve full PR
-        </button>
+        <div class="cedar-pr-header-actions">
+          ${renderPrRefreshReviewButtonHtml()}
+          <button type="button" id="approve-pr-btn" ${canApprovePr ? "" : "disabled"} class="cedar-btn-signoff cedar-btn-approve-pr${canApprovePr ? " is-ready" : ""}"
+            title="${canApprovePr ? "Approve the full pull request on GitHub" : "Mark every slice approved in Cedar first"}">
+            Approve full PR
+          </button>
+        </div>
       </div>
     </header>
 
-    ${macroReviewHtml}
+    ${renderThreeColumnReviewChrome({
+      sidebarSliceList,
+      gate,
+      cursorRollupHtml: renderCursorReviewRollup(cursorReviewSummary),
+      cursorRollupVisible: Boolean(cursorReviewSummary?.enabled),
+      centerMainHtml: `${renderReviewMainTabsHeadHtml({
+        activeTab: initialMainTab,
+        sliceCount: touched.length,
+      })}
 
-    <div class="cedar-review-layout">
-      <aside class="cedar-review-sidebar space-y-2 lg:sticky lg:top-20 lg:self-stretch">
-        <div class="cedar-review-rail-card">
-          <p class="cedar-rail-label">Pipeline</p>
-          <ul class="mt-2 space-y-2">${processList}</ul>
-          ${renderCursorReviewRollup(cursorReviewSummary)}
-        </div>
-        <div class="cedar-review-rail-card cedar-review-rail-slices lg:hidden">
-          <p class="cedar-rail-label cedar-rail-label-with-icon">${slicesIconSvg("cedar-rail-icon")}<span>Slices</span></p>
-          <div class="mt-2 flex flex-col gap-0.5">${sidebarSlices}</div>
-        </div>
-        <div class="cedar-review-rail-card cedar-pr-chat-card">
-          <p class="cedar-rail-label">Ask about this PR</p>
-          <p class="cedar-pr-chat-hint mt-1 text-[9px] leading-snug text-zinc-600">Composer · ask mode · answers from review context</p>
-          <div class="cedar-pr-chat-log mt-2" id="cedar-pr-chat-log" aria-live="polite" aria-relevant="additions"></div>
-          <form class="cedar-pr-chat-form mt-2">
-            <label class="sr-only" for="cedar-pr-chat-input">Question about this pull request</label>
-            <textarea id="cedar-pr-chat-input" class="cedar-pr-chat-input" rows="7" maxlength="2000"
-              placeholder="Architecture, slices, blockers, what changed…"></textarea>
-            <button type="submit" class="cedar-pr-chat-send cedar-btn-secondary mt-2 w-full text-xs">Send</button>
-          </form>
-          <p class="cedar-pr-chat-status mt-2 text-[9px] text-zinc-500" hidden></p>
-        </div>
-        <p class="rounded-lg border px-3 py-2 text-xs ${gate.ready ? "border-emerald-500/20 bg-emerald-500/5 text-emerald-300/90" : "border-amber-500/20 bg-amber-500/5 text-amber-200/90"}">
-          ${gate.ready ? "Composite review is ready." : escapeHtml(gate.blockedReason ?? "Composite pending.")}
-        </p>
-        <button type="button" id="new-review-btn" class="cedar-btn-secondary w-full text-xs">New review</button>
-      </aside>
-      <div
-        class="cedar-col-splitter cedar-review-splitter"
-        data-review-splitter
-        role="separator"
-        aria-orientation="vertical"
-        aria-label="Resize sidebar"
-        tabindex="0"
-        title="Drag to resize · double-click to reset"
-      ></div>
-
-      <div class="cedar-review-main cedar-review-stage min-w-0">
-        <header class="cedar-review-tabs-head">
-          <div class="cedar-main-tablist" role="tablist" aria-label="Review views">
-            <button type="button" role="tab" class="cedar-main-tab${defaultMainTab === "architecture" ? " is-active" : ""}" data-review-tab="architecture"
-              aria-selected="${defaultMainTab === "architecture" ? "true" : "false"}">
-              ${architectureIconSvg("cedar-main-tab-icon")}
-              <span>Architecture</span>
-            </button>
-            <button type="button" role="tab" class="cedar-main-tab${defaultMainTab === "slices" ? " is-active" : ""}" data-review-tab="slices"
-              aria-selected="${defaultMainTab === "slices" ? "true" : "false"}">
-              ${slicesIconSvg("cedar-main-tab-icon")}
-              <span>Slices</span>
-              <span class="cedar-main-tab-count">${touched.length}</span>
-            </button>
-          </div>
-        </header>
-
-        <div class="cedar-main-tabpanels">
-          <div role="tabpanel" class="cedar-main-tabpanel space-y-6" data-review-panel="architecture" id="cedar-review-panel-architecture"${
-            defaultMainTab === "slices" ? " hidden" : ""
+          <div role="tabpanel" class="cedar-main-tabpanel cedar-main-tabpanel--architecture cedar-review-stage space-y-6" data-review-panel="architecture" id="cedar-review-panel-architecture"${
+            initialMainTab === "slices" ? " hidden" : ""
           }>
             ${
               breakouts?.architectureSummary
@@ -1556,9 +1932,9 @@ function renderResults(container, data) {
             }
             ${
               archSliceCount > 0
-                ? `<div class="mt-6" id="architecture-read-overview">
-            <div class="architecture-read-mermaid-head mb-2 flex flex-wrap items-center justify-between gap-2">
-              <p class="cedar-label mb-0">Overview · virtual micro-PRs</p>
+                ? `<div class="mt-6 cedar-layout-view w-full min-w-0" id="architecture-read-overview" data-diagram-wrap>
+            <div class="architecture-read-mermaid-head">
+              <p class="cedar-label mb-0">Overview · slices</p>
               ${cyToolbar(
                 "cedar-cy-slices",
                 `<span class="cedar-badge cedar-badge-muted">${archSliceCount} slices · ${
@@ -1566,7 +1942,7 @@ function renderResults(container, data) {
                 }</span>`
               )}
             </div>
-            <div id="cedar-cy-slices" class="cedar-cy-host diagram-overview-read" role="img" aria-label="Virtual micro-PR overview"></div>
+            <div id="cedar-cy-slices" class="cedar-cy-host diagram-overview-read diagram-stage-canvas" role="img" aria-label="Slice overview"></div>
           </div>`
                 : ""
             }
@@ -1599,40 +1975,16 @@ function renderResults(container, data) {
             }
           </div>
 
-          <div role="tabpanel" class="cedar-main-tabpanel cedar-slices-tabpanel" data-review-panel="slices" id="cedar-review-panel-slices"${
-            defaultMainTab === "architecture" ? " hidden" : ""
+        <div role="tabpanel" class="cedar-main-tabpanel cedar-slices-stage cedar-slices-tabpanel" data-review-panel="slices" id="cedar-review-panel-slices"${
+            initialMainTab === "architecture" ? " hidden" : ""
           }>
-            <div class="cedar-diff-focus-bar">
-              <button type="button" class="cedar-diff-focus-btn" data-toggle-pipeline-rail aria-pressed="false">
-                <span data-toggle-label>Hide pipeline</span>
-              </button>
-              <button type="button" class="cedar-diff-focus-btn" data-toggle-slice-rail aria-pressed="false">
-                <span data-toggle-label>Hide slices</span>
-              </button>
-            </div>
-            <div class="cedar-slices-shell">
-              <div class="cedar-slice-panels cedar-slice-review-pane min-w-0 flex-1">${slicePanels}</div>
-              <div
-                class="cedar-col-splitter cedar-slice-splitter"
-                data-slice-splitter
-                role="separator"
-                aria-orientation="vertical"
-                aria-label="Resize review pane"
-                tabindex="0"
-                title="Drag left for more diff space · double-click reset"
-              ></div>
-              <nav class="cedar-slice-rail-wrap cedar-slice-rail-right" aria-label="Micro slices">
-                <p class="cedar-rail-label cedar-rail-label-with-icon mb-2 px-0.5">${slicesIconSvg("cedar-rail-icon")}<span>Slices</span></p>
-                <p class="cedar-rail-hint mb-2 hidden lg:block">drag grip left · [ ] keys</p>
-                <div class="cedar-slice-rail cedar-slice-tablist" role="tablist">${sliceTabBar}</div>
-              </nav>
-            </div>
+          <div class="cedar-slices-shell cedar-slices-shell--diffs">
+            <div class="cedar-slice-panels cedar-slice-review-pane min-w-0 flex-1">${slicePanels}</div>
           </div>
         </div>
 
-        <p id="approve-status" class="mt-6 hidden text-sm font-medium text-emerald-400"></p>
-      </div>
-    </div>
+        <p id="approve-status" class="mt-6 hidden text-sm font-medium text-emerald-400"></p>`,
+    })}
   `;
 
   container.querySelectorAll("[data-scroll-slice], [data-jump-slice]").forEach((btn) => {
@@ -1642,20 +1994,20 @@ function renderResults(container, data) {
     });
   });
 
-  wireReviewTabs(container, defaultMainTab);
-  wireSliceTabs(container, firstSliceId);
+  wireReviewTabs(container, initialMainTab);
+  wireSliceTabs(container, initialSliceId);
   wireSliceKeyboardNav(container);
-  wireReviewLayoutResize(container);
-  wireSliceRailResize(container);
-  wireDiffFocusToggles(container);
   const layout = container.querySelector(".cedar-review-layout");
-  if (layout instanceof HTMLElement && defaultMainTab === "slices") {
+  if (layout instanceof HTMLElement && initialMainTab === "slices") {
     layout.classList.add("cedar-review-slices-focus");
+    document.getElementById("main-stage")?.classList.add("cedar-review-slices-focus");
   }
 
   document.getElementById("new-review-btn")?.addEventListener("click", () => {
+    stopPrCommitRefresh();
     document.getElementById("hero")?.classList.remove("hidden");
-    document.getElementById("main-stage")?.classList.remove("cedar-review-wide");
+    exitReviewStageLayout();
+    container.classList.remove("cedar-review-results--mounted");
     container.classList.add("hidden");
     container.innerHTML = "";
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1666,110 +2018,68 @@ function renderResults(container, data) {
     wireDiagramResizeListeners(container);
   }
 
+  if (hasLayoutViews || archSliceCount > 0) {
+    activateDiagramUx(container);
+    const { size } = getDiffFontSettings();
+    document.documentElement.style.setProperty(
+      "--cedar-diagram-font-size",
+      `${Math.min(14, Math.max(9, size + 2))}px`
+    );
+    scheduleDiagramRefit(container);
+  }
+
   if (archSliceCount > 0) {
-    const graph =
-      breakouts?.diagramGraph ??
-      buildDiagramGraph(
-        microPrs.map((m) => ({
-          componentId: m.componentId,
-          componentName: m.componentName,
-          additions: m.additions,
-          deletions: m.deletions,
-          description: m.description,
-          dependsOn: m.dependsOn ?? [],
-          files: (m.files ?? []).map((f) => ({
-            filename: f.path,
-            additions: f.additions,
-            deletions: f.deletions,
-          })),
-        })),
-        breakouts,
-        { number: pull.number, title: pull.title },
-        { owner: target?.owner, repo: target?.repo }
-      );
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        const statusByLayerId = new Map(
-          activeSlicesForDiagram.map((r) => [normalizeSliceId(r.componentId), r.status])
-        );
-        const drew = mountArchitectureGraphs(container, graph, statusByLayerId);
-        if (!drew) showToast("Architecture diagram could not render.", "error");
-      });
-    });
+    const overviewPayload = {
+      resolveGraph: () =>
+        resolveOverviewDiagramGraph(breakouts, diagramMicroPrs, { number: pull.number, title: pull.title }, target),
+      getStatusMap: () =>
+        new Map(activeSlicesForDiagram.map((r) => [normalizeSliceId(r.componentId), r.status])),
+    };
+    window.__cedarOverviewGraph = overviewPayload;
+    wireArchitectureOverviewGraph(container, overviewPayload);
   }
 
   wirePrChatSidebar(container, {
-    getContext: () => buildPrChatContext(data),
+    getContext: () => buildPrChatContext(window.__cedarSession?.data ?? data),
     getToken: () => window.__cedarSession?.token,
+    getSession: () => window.__cedarSession,
   });
+  refreshPrChatUiFromSession();
 
   if (data.cursorReviewPending) restoreReviewProgressDock();
+  applySliceNavTypography();
   finishReviewUi(container);
-}
-
-function wireMacroReviewPost(root) {
-  const btn = root.querySelector("#post-macro-review-btn");
-  if (!(btn instanceof HTMLButtonElement)) return;
-  if (btn.dataset.wiredMacro) return;
-  btn.dataset.wiredMacro = "1";
-  btn.addEventListener("click", () => void postMacroReview());
-}
-
-async function postMacroReview() {
-  const session = window.__cedarSession;
-  const macro = session?.data?.macroReview;
-  const btn = document.getElementById("post-macro-review-btn");
-  if (!session || !macro?.body?.trim()) {
-    showToast("No macro review text to post.", "error");
-    return;
-  }
-  const prev = btn instanceof HTMLButtonElement ? btn.textContent : "";
-  if (btn instanceof HTMLButtonElement) {
-    btn.disabled = true;
-    btn.textContent = "Posting…";
-  }
-  try {
-    const res = await fetch("/api/macro-review/post", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        prUrl: session.prUrl,
-        token: session.token,
-        owner: session.data.target?.owner,
-        repo: session.data.target?.repo,
-        pr: session.data.target?.pr,
-        body: macro.body,
-        event: macro.event ?? "COMMENT",
-      }),
-    });
-    const json = await res.json();
-    if (!res.ok) throw new Error(json.error ?? json.hint ?? "Post failed");
-    showToast("Posted macro review on GitHub");
-  } catch (err) {
-    showToast(err instanceof Error ? err.message : String(err), "error");
-  } finally {
-    if (btn instanceof HTMLButtonElement) {
-      btn.disabled = false;
-      btn.textContent = prev || "Post PR comment";
-    }
-  }
+  if (!uiRestore?.mainTab) focusReviewWorkspace(container, initialMainTab);
 }
 
 function bindApproveHandlers(root) {
-  root.querySelectorAll("[data-approve-slice]").forEach((btn) => {
-    btn.addEventListener("click", () => void approveSlice(btn));
+  if (!(root instanceof HTMLElement)) return;
+  if (root.dataset.cedarApproveHandlersWired === "1") return;
+  root.dataset.cedarApproveHandlersWired = "1";
+  root.addEventListener("click", (e) => {
+    const t = e.target;
+    if (!(t instanceof Element)) return;
+    const sliceBtn = t.closest("[data-approve-slice]");
+    if (sliceBtn instanceof HTMLButtonElement && !sliceBtn.disabled && root.contains(sliceBtn)) {
+      void approveSlice(sliceBtn);
+      return;
+    }
+    const prBtn = t.closest("#approve-pr-btn");
+    if (prBtn instanceof HTMLButtonElement && root.contains(prBtn)) {
+      void approveFullPr();
+    }
   });
-  root.querySelector("#approve-pr-btn")?.addEventListener("click", () => void approveFullPr());
 }
 
 function approveSlice(btn) {
   const session = window.__cedarSession;
   if (!session) return;
   const componentId = btn.dataset.approveSlice;
-  if (!componentId) return;
+  if (!componentId || isFullPrSliceId(componentId)) return;
 
+  if (session.sliceApprovals.has(componentId)) return;
   session.sliceApprovals.add(componentId);
-  showToast(`Marked approved · ${btn.dataset.componentName ?? componentId}`);
+  showToast(`Marked approved · ${btn.dataset.componentName ?? componentId}`, "success");
   patchSliceApprovalState(componentId);
 }
 
@@ -1830,3 +2140,119 @@ function escapeHtml(s) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
 }
+
+/**
+ * @param {{ prUrl: string, token?: string, cursorApiKey?: string, post?: boolean, postMicro?: boolean }} payload
+ */
+function applyLoadedReviewSession(payload, data) {
+  const filePatches = new Map();
+  for (const m of data.microPrs ?? []) {
+    for (const f of m.files ?? []) {
+      if (f.patch) filePatches.set(`${m.componentId}::${f.path}`, f.patch);
+    }
+  }
+
+  const prior = window.__cedarSession;
+  const samePr = prior?.prUrl === payload.prUrl;
+  window.__cedarSession = {
+    prUrl: payload.prUrl,
+    token: payload.token,
+    cursorApiKey: payload.cursorApiKey,
+    data,
+    serverHealth: window.__cedarServerHealth,
+    sliceApprovals: samePr && prior?.sliceApprovals ? prior.sliceApprovals : new Set(),
+    ignoredFindings: samePr && prior?.ignoredFindings ? prior.ignoredFindings : new Set(),
+    findingCommentsPosted:
+      samePr && prior?.findingCommentsPosted ? prior.findingCommentsPosted : new Set(),
+    filePatches,
+    prChat: samePr && prior?.prChat ? prior.prChat : undefined,
+  };
+  ensureFindingSession(window.__cedarSession);
+  ensurePrChatState(window.__cedarSession);
+}
+
+/**
+ * @param {{ prUrl: string, token?: string, cursorApiKey?: string, post?: boolean, postMicro?: boolean }} payload
+ * @param {(event: object) => void} [onEvent]
+ */
+async function streamCedarReview(payload, onEvent) {
+  const statusEl = document.getElementById("review-progress-status");
+  const logEl = document.getElementById("review-progress-log");
+  const onStream = (event) => {
+    applyReviewStreamEvent(event, statusEl, logEl);
+    onEvent?.(event);
+  };
+  return postReviewStream(payload, onStream);
+}
+
+async function rerunCurrentPrReview() {
+  const session = window.__cedarSession;
+  const results = document.getElementById("results");
+  if (!session?.prUrl || !(results instanceof HTMLElement)) {
+    throw new Error("No active review to refresh");
+  }
+
+  const uiRestore = captureReviewUiState(results);
+  stopPrCommitRefresh();
+  hidePrStaleBanner();
+
+  showReviewProgressDock();
+  setReviewProgress(4, "Refreshing review", "Fetching latest commits from GitHub…");
+  results.classList.remove("hidden");
+  enterReviewStageLayout();
+  results.classList.add("cedar-review-results--mounted");
+  results.innerHTML = loadingSkeleton();
+  wireReviewChrome(results);
+
+  const payload = {
+    prUrl: session.prUrl,
+    token: session.token,
+    cursorApiKey: session.cursorApiKey,
+  };
+
+  const data = await streamCedarReview(payload);
+  try {
+    const healthRes = await fetch("/api/health");
+    window.__cedarServerHealth = await healthRes.json();
+  } catch {
+    /* keep prior health */
+  }
+  applyLoadedReviewSession(payload, data);
+  renderResults(results, data, { uiRestore });
+  const refreshedHead = data?.pull?.headSha ?? data?.gate?.headSha ?? "";
+  const refreshedShort = refreshedHead ? refreshedHead.slice(0, 7) : "latest";
+  if (!data.cursorReviewPending) {
+    setReviewProgress(100, "Review refreshed", `Now at ${refreshedShort} — diffs and code maps updated.`);
+    showOutlookNotification({
+      title: "Review updated",
+      message: `Pull request refreshed at ${refreshedShort}. Diffs, code maps, and architecture match the latest commit.`,
+      tone: "success",
+      icon: "refresh",
+      durationMs: 7000,
+    });
+    hideReviewProgressDock({ delayMs: 2000 });
+  } else {
+    showOutlookNotification({
+      title: "Review reloaded",
+      message: `At ${refreshedShort}. Cursor slice review is still running in the background.`,
+      tone: "info",
+      icon: "refresh",
+      durationMs: 8000,
+    });
+    const sliceTotal = (data.microPrs ?? []).filter((m) => (m.files?.length ?? m.fileCount ?? 0) > 0).length;
+    showReviewProgressDock();
+    setReviewProgress(55, "Cursor · macro review (entire PR)", `Macro first, then ${sliceTotal} slice(s)`);
+  }
+}
+
+setPrRefreshExecutor(rerunCurrentPrReview);
+setPrStaleNotifier(({ reviewedShort, headShort }) => {
+  showOutlookNotification({
+    title: "Stale pull request",
+    message: `New commits on GitHub. Cedar reviewed ${reviewedShort}; PR head is now ${headShort}.`,
+    tone: "warning",
+    icon: "refresh",
+    durationMs: 14_000,
+    actions: [{ label: "Refresh review", primary: true, onClick: () => requestPrRefresh() }],
+  });
+});

@@ -69,7 +69,7 @@ Return JSON only:
 Rules:
 - Only relabel nodes whose ids already exist in the input graph (pr, slice_*, file nodes).
 - Do not add new node ids; edges are already derived from the partition.
-- Prefer labels that name layer role (domain, application, api, config) when paths support it.
+- Prefer labels that name concrete types and classes from the changed source (e.g. UserService, OrderDto), not virtual slice or partition ids.
 - layout LR for wide multi-slice PRs; TB for vertical stack stories.`;
 
   const user = JSON.stringify({

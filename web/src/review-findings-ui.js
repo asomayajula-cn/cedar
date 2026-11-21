@@ -1,4 +1,6 @@
-import { FINDING_TAG_CLASS, getFindingMeta } from "../../src/finding-meta.js";
+import { FINDING_TAG_CLASS, getFindingMeta, coerceFindingLine } from "../../src/finding-meta.js";
+import { buildCursorFindingNumberIndex, renderFindingNumberBadge } from "./cursor-finding-numbers.js";
+import { renderReviewCommentHtml } from "./comment-html.js";
 import {
   findingAnchoredOnDiff,
   findingInlineOnDiff,
@@ -34,22 +36,17 @@ function renderCommentMeta(f) {
  * @param {*} r
  * @param {number} fi
  * @param {Set<string>} posted
- */
-/**
- * @param {*} f
- * @param {*} r
- * @param {number} fi
- * @param {Set<string>} posted
- * @param {{ arch?: boolean }} [opts]
+ * @param {{ arch?: boolean, findingNumber?: number }} [opts]
  */
 function renderCommentCard(f, r, fi, posted, opts) {
   const key = findingKey(r.componentId, f, fi);
   const ignored = isFindingIgnored(key);
   const onGithub = posted.has(key) || f.source === "github";
+  const line = coerceFindingLine(f.line);
+  const numberBadge =
+    opts?.findingNumber && opts.findingNumber > 0 ? renderFindingNumberBadge(opts.findingNumber) : "";
   const lineChip =
-    typeof f.line === "number" && f.line > 0
-      ? `<span class="cedar-badge cedar-badge-muted font-mono text-[9px]">L${f.line}</span>`
-      : "";
+    line != null ? `<span class="cedar-badge cedar-badge-muted cedar-badge-compact font-mono">L${line}</span>` : "";
   const jumpBtn = f.filename
     ? `<button type="button" class="cedar-btn-secondary cedar-btn-compact cedar-review-comment-jump" data-finding-jump data-filename="${escapeHtml(f.filename)}" data-finding-line="${typeof f.line === "number" ? f.line : ""}">Open in diff</button>`
     : "";
@@ -57,36 +54,44 @@ function renderCommentCard(f, r, fi, posted, opts) {
   const tag = f.tag ?? meta.tag;
   const priority = f.priority ?? meta.priority;
 
-  return `<li class="cedar-review-comment-card cedar-glass-subtle px-3 py-2.5${ignored ? " is-ignored" : ""}" data-finding-key="${escapeHtml(key)}">
-    <p class="cedar-review-comment-body text-sm leading-relaxed text-zinc-200">${escapeHtml(f.message)}</p>
-    <div class="cedar-review-comment-meta mt-2 flex flex-wrap items-center gap-1.5">
-      <span class="cedar-badge cedar-badge-ok text-[9px]">${opts?.arch ? "Architecture" : "Cursor"}</span>
-      ${renderCommentMeta(f)}
-      ${lineChip}
-      ${jumpBtn}
-      ${ignored ? '<span class="cedar-badge cedar-badge-muted">Dismissed</span>' : ""}
-      ${onGithub && f.source !== "github" ? '<span class="cedar-badge cedar-badge-ok">Posted</span>' : ""}
-    </div>
-    <div class="cedar-finding-actions mt-2 flex flex-wrap gap-1.5">
-      ${
-        ignored
-          ? `<button type="button" class="cedar-btn-secondary cedar-btn-compact" data-finding-unignore data-finding-key="${escapeHtml(key)}">Restore</button>`
-          : `<button type="button" class="cedar-btn-secondary cedar-btn-compact" data-finding-ignore data-finding-key="${escapeHtml(key)}">Dismiss</button>`
-      }
-      <button type="button" class="cedar-btn-secondary cedar-btn-compact" data-finding-comment
-        data-finding-key="${escapeHtml(key)}"
-        data-filename="${escapeHtml(f.filename ?? "")}"
-        data-finding-severity="${escapeHtml(f.severity ?? "info")}"
-        data-finding-rule="${escapeHtml(f.ruleId ?? "review")}"
-        data-finding-message="${escapeHtml(f.message)}"
-        data-finding-tag="${escapeHtml(tag)}"
-        data-finding-priority="${escapeHtml(priority)}"
-        data-finding-line="${typeof f.line === "number" && f.line > 0 ? f.line : ""}"
-        data-component-id="${escapeHtml(r.componentId)}"
-        data-component-name="${escapeHtml(r.componentName)}"
-        ${!f.filename || onGithub ? "disabled" : ""}
-        title="${!f.filename ? "No file line" : onGithub ? "Already on GitHub" : "Post inline on GitHub"}">${onGithub ? "On GitHub" : "Post comment"}</button>
-    </div>
+  const archClass = opts?.arch ? " cedar-arch-findings-card" : "";
+  const cardPad = opts?.arch ? " px-2.5 py-2" : " px-3 py-2.5";
+  const kind = opts?.arch ? "Architecture" : "Cursor";
+  return `<li class="cedar-review-comment-card cedar-glass-subtle${cardPad}${archClass}${ignored ? " is-ignored" : ""}" data-finding-key="${escapeHtml(key)}" data-cedar-comment-marker>
+    <details class="cedar-review-comment-details">
+      <summary class="cedar-review-comment-summary">
+        <span class="cedar-comment-marker-chip" aria-hidden="true" title="Review comment"></span>
+        <span class="cedar-badge cedar-badge-ok cedar-badge-compact">${kind}</span>
+        ${numberBadge}
+        ${renderCommentMeta(f)}
+        ${lineChip}
+        ${jumpBtn}
+        ${ignored ? '<span class="cedar-badge cedar-badge-muted">Dismissed</span>' : ""}
+        ${onGithub && f.source !== "github" ? '<span class="cedar-badge cedar-badge-ok cedar-badge-compact">Posted</span>' : ""}
+        <span class="cedar-review-comment-summary-label">Show comment</span>
+      </summary>
+      <div class="cedar-review-comment-body cedar-comment-html">${renderReviewCommentHtml(f.message)}</div>
+      <div class="cedar-finding-actions">
+        ${
+          ignored
+            ? `<button type="button" class="cedar-btn-secondary cedar-btn-compact" data-finding-unignore data-finding-key="${escapeHtml(key)}">Restore</button>`
+            : `<button type="button" class="cedar-btn-secondary cedar-btn-compact" data-finding-ignore data-finding-key="${escapeHtml(key)}">Dismiss</button>`
+        }
+        <button type="button" class="cedar-btn-secondary cedar-btn-compact" data-finding-comment
+          data-finding-key="${escapeHtml(key)}"
+          data-filename="${escapeHtml(f.filename ?? "")}"
+          data-finding-severity="${escapeHtml(f.severity ?? "info")}"
+          data-finding-rule="${escapeHtml(f.ruleId ?? "review")}"
+          data-finding-message="${escapeHtml(f.message)}"
+          data-finding-tag="${escapeHtml(tag)}"
+          data-finding-priority="${escapeHtml(priority)}"
+          data-finding-line="${line != null ? line : ""}"
+          data-component-id="${escapeHtml(r.componentId)}"
+          data-component-name="${escapeHtml(r.componentName)}"
+          ${!f.filename || onGithub ? "disabled" : ""}
+          title="${!f.filename ? "No file line" : onGithub ? "Already on GitHub" : "Post inline on GitHub"}">${onGithub ? "On GitHub" : "Post comment"}</button>
+      </div>
+    </details>
   </li>`;
 }
 
@@ -153,36 +158,9 @@ function sliceCursorEmptyMessage(r, session) {
   return `Cursor slice review did not run on this pass. In <strong class="font-medium text-zinc-400">Room configuration</strong>, paste your key and click <strong class="font-medium text-zinc-400">Save to .env</strong>, confirm the status shows <span class="font-mono text-zinc-500">In .env / API · set</span>, then <strong class="font-medium text-zinc-400">Start review</strong> and watch <strong class="font-medium text-zinc-400">Cursor · slice review</strong> in the log.`;
 }
 
-/**
- * @param {{ componentId: string, componentName: string, findings?: Array<unknown> }} sliceResult
- * @param {{ githubFindingsBySlice?: Record<string, unknown[]>, findingCommentsPosted?: Set<string> } | undefined} session
- */
-/**
- * Architecture-tagged findings for the top of each slice (not on the diff).
- *
- * @param {{ componentId: string, componentName: string }} sliceResult
- * @param {{ findingCommentsPosted?: Set<string> } | undefined} session
- */
-export function buildArchitectureFindingsHtml(sliceResult, session) {
-  const r = sliceResult;
-  const posted = session?.findingCommentsPosted ?? new Set();
-  const items = findingsForSlice(r.componentId, r)
-    .map((f, fi) => ({ f, fi }))
-    .filter(({ f, fi }) => !isFindingIgnored(findingKey(r.componentId, f, fi)))
-    .filter(({ f }) => isArchitectureFinding(f));
-
-  if (!items.length) return "";
-
-  const cards = items.map(({ f, fi }) => renderCommentCard(f, r, fi, posted, { arch: true })).join("");
-  return `<section class="cedar-arch-findings cedar-glass-subtle px-4 py-3" data-arch-findings="${escapeHtml(r.componentId)}" aria-labelledby="cedar-arch-findings-${escapeHtml(r.componentId)}">
-    <p class="cedar-label" id="cedar-arch-findings-${escapeHtml(r.componentId)}">Architecture</p>
-    <p class="cedar-arch-findings-hint mt-2 text-xs leading-relaxed text-zinc-500">Structure and boundaries for this slice — not shown inline on code lines.</p>
-    <ul class="mt-3 space-y-2">${cards}</ul>
-  </section>`;
-}
-
 export function buildFindingsListHtml(sliceResult, session) {
   const r = sliceResult;
+  const numberIndex = buildCursorFindingNumberIndex(session);
   const sliceFindings = findingsForSlice(r.componentId, r);
   const posted = session?.findingCommentsPosted ?? new Set();
   const activeFindings = sliceFindings.filter((f, fi) => !isFindingIgnored(findingKey(r.componentId, f, fi)));
@@ -190,34 +168,42 @@ export function buildFindingsListHtml(sliceResult, session) {
 
   if (sliceFindings.length === 0) {
     return {
-      html: `<p class="text-xs leading-relaxed text-zinc-500">${sliceCursorEmptyMessage(r, session)}</p>`,
+      html: `<p class="cedar-review-muted-prose">${sliceCursorEmptyMessage(r, session)}</p>`,
       activeCount: 0,
       inlineOnly: false,
-      archHtml: "",
     };
   }
 
-  const archHtml = buildArchitectureFindingsHtml(r, session);
   const codeInline = codeFindings.filter(findingInlineOnDiff);
-  const inlineOnly = codeFindings.length > 0 && codeInline.length === codeFindings.length;
+  const inlineOnly =
+    activeFindings.length > 0 &&
+    activeFindings.every((f) => !isArchitectureFinding(f) && findingInlineOnDiff(f));
 
-  if (inlineOnly && !archHtml) {
-    return { html: "", activeCount: activeFindings.length, inlineOnly: true, archHtml: "" };
-  }
-
-  if (inlineOnly && archHtml) {
-    return { html: "", activeCount: activeFindings.length, inlineOnly: true, archHtml };
+  if (inlineOnly) {
+    const outline = numberIndex.list
+      .filter((row) => {
+        const [componentId] = row.key.split("::");
+        return componentId === r.componentId;
+      })
+      .map(
+        (row) =>
+          `<li class="cedar-finding-outline-item"><span class="font-mono text-zinc-500">#${row.n}</span> <span class="font-mono text-[10px]">${escapeHtml(row.path)}${row.line != null ? `:${row.line}` : ""}</span> — ${escapeHtml(row.preview)}</li>`
+      )
+      .join("");
+  const html = `<p class="cedar-review-muted-prose">${codeInline.length} Cursor finding(s) on the diff — numbered <span class="font-mono">#1…#${numberIndex.total}</span> in the gutter when threads are collapsed.</p>${
+      outline ? `<ol class="cedar-finding-outline mt-2 list-decimal space-y-1 pl-4 text-[10px] text-zinc-400">${outline}</ol>` : ""
+    }`;
+    return { html, activeCount: activeFindings.length, inlineOnly: true };
   }
 
   const listFindings = sliceFindings
     .map((f, fi) => ({ f, fi }))
     .filter(({ f, fi }) => !isFindingIgnored(findingKey(r.componentId, f, fi)))
-    .filter(({ f }) => !isArchitectureFinding(f))
-    .filter(({ f }) => !findingInlineOnDiff(f));
+    .filter(({ f }) => isArchitectureFinding(f) || !findingInlineOnDiff(f));
 
   const onDiffNote =
     codeInline.length > 0
-      ? `<p class="text-xs leading-relaxed text-zinc-500">${codeInline.length} code finding(s) on the diff (<span class="text-zinc-400">Cursor · Draft</span>).</p>`
+      ? `<p class="cedar-review-muted-prose">${codeInline.length} code finding(s) on the diff (<span class="text-zinc-400">Cursor · Draft</span>).</p>`
       : "";
 
   if (listFindings.length === 0) {
@@ -225,7 +211,6 @@ export function buildFindingsListHtml(sliceResult, session) {
       html: onDiffNote,
       activeCount: activeFindings.length,
       inlineOnly: false,
-      archHtml,
     };
   }
 
@@ -240,11 +225,18 @@ export function buildFindingsListHtml(sliceResult, session) {
   const fileSections = [...byFile.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([path, items]) => {
-      const cards = items.map(({ f, fi }) => renderCommentCard(f, r, fi, posted)).join("");
+      const cards = items
+        .map(({ f, fi }) =>
+          renderCommentCard(f, r, fi, posted, {
+            arch: isArchitectureFinding(f),
+            findingNumber: numberIndex.byKey.get(findingKey(r.componentId, f, fi)),
+          })
+        )
+        .join("");
       const title =
         path === "_slice"
-          ? `<p class="cedar-file-review-group-label text-[10px] font-medium text-zinc-500">General</p>`
-          : `<p class="cedar-file-review-group-label font-mono text-[10px] text-zinc-400">${escapeHtml(path)}</p>`;
+          ? `<p class="cedar-file-review-group-label">General</p>`
+          : `<p class="cedar-file-review-group-label font-mono">${escapeHtml(path)}</p>`;
       return `<li class="cedar-file-review-group">
         ${title}
         <ul class="mt-1.5 space-y-2">${cards}</ul>
@@ -254,5 +246,5 @@ export function buildFindingsListHtml(sliceResult, session) {
 
   const html = `${onDiffNote}<ul class="cedar-findings-list cedar-findings-by-file space-y-4">${fileSections}</ul>`;
 
-  return { html, activeCount: activeFindings.length, inlineOnly: false, archHtml };
+  return { html, activeCount: activeFindings.length, inlineOnly: false };
 }

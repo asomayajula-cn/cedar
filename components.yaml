@@ -5,15 +5,26 @@ components:
     name: Schema & migrations
     paths:
       - "migrations/**"
+      - "**/migrations/**/*.sql"
+      - "**/db/migration/**"
+      - "**/db/changelog/**"
       - "**/src/main/resources/db/migration/**"
+      - "**/src/main/resources/db/changelog/**"
       - "**/flyway/**"
       - "**/liquibase/**"
+      - "**/supabase/migrations/**"
+      - "**/prisma/migrations/**"
+      - "**/schema/migrations/**"
+      - "**/sql/migrations/**"
+      - "**/V*__*.sql"
     depends_on: [domain]
 
   - id: domain
     name: Domain layer
     paths:
       - "**/src/main/java/**/domain/**"
+      - "**/src/main/java/**/model/**"
+      - "**/src/main/java/**/entity/**"
       - "internal/domain/**"
       - "src/domain/**"
     depends_on: []
@@ -23,6 +34,12 @@ components:
     paths:
       - "**/src/main/java/**/application/**"
       - "**/src/main/java/**/port/**"
+      - "**/src/main/java/**/service/**"
+      - "**/src/main/java/**/services/**"
+      - "**/src/main/java/**/mapper/**"
+      - "**/src/main/java/**/shift/**"
+      - "**/src/main/java/**/usecase/**"
+      - "**/src/main/java/**/usecases/**"
       - "internal/application/**"
       - "internal/usecase/**"
     depends_on: [domain]
@@ -33,9 +50,14 @@ components:
       - "**/src/main/java/**/repository/**"
       - "**/src/main/java/**/persistence/**"
       - "**/src/main/java/**/data/**"
+      - "**/src/main/java/**/dao/**"
+      - "**/src/main/java/**/jpa/**"
       - "**/*Repository.java"
       - "**/*Repository.kt"
       - "internal/store/**"
+      - "**/seeds/**/*.sql"
+      - "**/fixtures/**/*.sql"
+      - "**/testdata/**/*.sql"
     depends_on: [domain, application]
 
   - id: infrastructure
@@ -43,6 +65,10 @@ components:
     paths:
       - "**/src/main/java/**/infrastructure/**"
       - "**/src/main/java/**/adapter/**"
+      - "**/src/main/java/**/client/**"
+      - "**/src/main/java/**/log/**"
+      - "**/src/main/java/**/exception/**"
+      - "**/META-INF/spring.factories"
     depends_on: [domain, application, repository]
 
   - id: api
@@ -58,6 +84,9 @@ components:
     name: Persistence models
     paths:
       - "db/**"
+      - "**/persistence/**"
+      - "**/schemas/**/*.sql"
+      - "**/*.sql"
       - "**/prisma/**"
       - "**/drizzle/**"
     depends_on: [domain]
@@ -65,12 +94,15 @@ components:
   - id: config
     name: Runtime config · 12-factor (III)
     paths:
+      - "**/src/main/java/**/config/**"
+      - "**/src/main/java/**/properties/**"
       - "**/src/main/resources/application*.yml"
       - "**/src/main/resources/application*.yaml"
       - "**/src/main/resources/application*.properties"
       - "**/application*.yml"
       - "**/application*.yaml"
       - "**/application*.properties"
+      - "**/logging-configuration.json"
       - ".env.example"
     depends_on: []
 
@@ -79,10 +111,13 @@ components:
     paths:
       - "**/pom.xml"
       - "**/build.gradle*"
+      - "settings.gradle"
+      - "settings.gradle.kts"
       - "Dockerfile*"
       - "docker-compose*.yml"
       - "Procfile"
       - ".github/workflows/**"
+      - ".gitignore"
     depends_on: []
 
   - id: integration
@@ -105,6 +140,7 @@ components:
   - id: infra
     name: Platform & ops · 12-factor
     paths:
+      - "infra/**"
       - "terraform/**"
       - "k8s/**"
       - "docker/**"
@@ -115,6 +151,7 @@ components:
     name: Tests
     paths:
       - "**/src/test/**"
+      - "**/contract-test/**"
       - "**/__tests__/**"
       - "**/*.test.ts"
       - "**/*.spec.ts"

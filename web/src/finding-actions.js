@@ -1,15 +1,25 @@
-import { getFindingMeta, isCodeReviewFinding } from "../../src/finding-meta.js";
+import { getFindingMeta, isCodeReviewFinding, coerceFindingLine } from "../../src/finding-meta.js";
 
 /**
  * @param {string} componentId
  * @param {{ ruleId?: string, filename?: string }} f
  * @param {number} index
  */
+export const MACRO_FINDING_COMPONENT_ID = "__macro_pr__";
+
 export function findingKey(componentId, f, index) {
   if (f.githubCommentId != null) {
     return `${componentId}::github/review-comment::${f.filename ?? ""}::gh-${f.githubCommentId}`;
   }
   return `${componentId}::${f.ruleId ?? "finding"}::${f.filename ?? ""}::${index}`;
+}
+
+/**
+ * @param {{ ruleId?: string, filename?: string }} f
+ * @param {number} index
+ */
+export function macroFindingKey(f, index) {
+  return findingKey(MACRO_FINDING_COMPONENT_ID, f, index);
 }
 
 /**
@@ -48,7 +58,7 @@ export function findingInlineOnDiff(f) {
 
 export function findingAnchoredOnDiff(f) {
   const path = f.filename ? String(f.filename) : "";
-  const line = typeof f.line === "number" ? f.line : 0;
+  const line = coerceFindingLine(f.line) ?? 0;
   const message = f.message ? String(f.message).trim() : "";
   return Boolean(path && line >= 1 && message);
 }
@@ -141,7 +151,8 @@ export function wireFindingActions(root, refreshUi) {
     if (!(btn instanceof HTMLButtonElement)) return;
     if (btn.dataset.wiredFinding) return;
     btn.dataset.wiredFinding = "1";
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", (ev) => {
+      ev.stopPropagation();
       const path = btn.getAttribute("data-filename");
       const panel = btn.closest("[data-slice-panel]");
       if (!path || !(panel instanceof HTMLElement)) return;
