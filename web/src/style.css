@@ -3387,6 +3387,168 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 0.35rem 0.5rem;
+    position: relative;
+    z-index: 24;
+    pointer-events: auto;
+  }
+
+  body.cedar-code-map-expanded .cedar-review-rail-toolbar--code-map,
+  body.cedar-code-map-expanded #cedar-code-map-view-tablist {
+    pointer-events: auto;
+  }
+
+  body.cedar-code-map-expanded .cedar-code-map-view-tab {
+    cursor: pointer;
+    position: relative;
+    z-index: 1;
+  }
+
+  body.cedar-code-map-expanded .cedar-code-map-cy--flyout {
+    border-radius: 0.65rem;
+    box-sizing: border-box;
+  }
+
+  body.cedar-code-map-expanded .cedar-file-flow-stage.is-code-map-triptych .cedar-code-map-view-stack {
+    z-index: 1;
+  }
+
+  .cedar-code-map-build-status {
+    @apply min-w-0 flex-1 truncate text-[10px] font-medium normal-case tracking-normal;
+    color: var(--cedar-review-muted);
+  }
+
+  .cedar-code-map-build-status[data-state="building"] {
+    color: var(--cedar-review-foreground);
+    animation: cedar-code-map-pulse 1.2s ease-in-out infinite;
+  }
+
+  .cedar-code-map-build-status[data-state="building"]::before {
+    content: "";
+    display: inline-block;
+    width: 0.45rem;
+    height: 0.45rem;
+    margin-right: 0.35rem;
+    border-radius: 9999px;
+    background: rgb(139 92 246 / 0.9);
+    vertical-align: middle;
+    animation: cedar-code-map-dot 0.9s ease-in-out infinite;
+  }
+
+  .cedar-code-map-build-status[data-state="ready"] {
+    color: rgb(52 211 153 / 0.95);
+  }
+
+  .cedar-code-map-build-status[data-state="error"] {
+    color: rgb(248 113 113 / 0.95);
+  }
+
+  body.cedar-code-map-building #cedar-review-right-nav.cedar-code-map-flyout-panel {
+    box-shadow:
+      inset 0 0 0 1px rgb(139 92 246 / 0.35),
+      0 0 0 1px rgb(139 92 246 / 0.12);
+  }
+
+  .cedar-code-map-drawing {
+    @apply flex flex-col items-center justify-center gap-2 px-4 text-center;
+    min-height: 12rem;
+  }
+
+  .cedar-code-map-drawing-spinner {
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 9999px;
+    border: 2px solid rgb(139 92 246 / 0.25);
+    border-top-color: rgb(139 92 246 / 0.95);
+    animation: cedar-code-map-spin 0.75s linear infinite;
+  }
+
+  .cedar-code-map-drawing-title {
+    @apply text-sm font-medium;
+    color: var(--cedar-review-foreground);
+  }
+
+  .cedar-code-map-drawing-detail {
+    @apply text-[11px] leading-relaxed;
+    color: var(--cedar-review-muted);
+    max-width: 22rem;
+  }
+
+  .cedar-code-map-drawing-wait {
+    color: var(--cedar-review-foreground);
+    font-weight: 500;
+  }
+
+  .cedar-code-map-drawing-eta {
+    @apply text-[10px] leading-snug;
+    color: var(--cedar-review-muted);
+    max-width: 20rem;
+  }
+
+  .cedar-code-map-build-progress {
+    @apply h-0.5 w-full shrink-0 overflow-hidden;
+    background: rgb(139 92 246 / 0.15);
+  }
+
+  .cedar-code-map-build-progress:not([hidden])::after {
+    content: "";
+    display: block;
+    height: 100%;
+    width: 38%;
+    background: linear-gradient(90deg, rgb(139 92 246 / 0.35), rgb(167 139 250 / 0.95));
+    animation: cedar-code-map-progress 1.1s ease-in-out infinite;
+  }
+
+  @keyframes cedar-code-map-progress {
+    0% {
+      transform: translateX(-120%);
+    }
+    100% {
+      transform: translateX(320%);
+    }
+  }
+
+  .cedar-file-code-map-btn.is-processing {
+    opacity: 0.65;
+    pointer-events: none;
+    position: relative;
+  }
+
+  .cedar-file-code-map-btn.is-processing::after {
+    content: "";
+    position: absolute;
+    inset: 2px;
+    border-radius: 0.35rem;
+    border: 2px solid transparent;
+    border-top-color: rgb(139 92 246 / 0.9);
+    animation: cedar-code-map-spin 0.7s linear infinite;
+  }
+
+  .cedar-review-icon-rail-btn.is-processing {
+    opacity: 0.7;
+    pointer-events: none;
+  }
+
+  .cedar-file-flow-hint--building {
+    color: var(--cedar-review-foreground) !important;
+    font-weight: 500;
+  }
+
+  @keyframes cedar-code-map-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @keyframes cedar-code-map-dot {
+    0%,
+    100% {
+      opacity: 0.35;
+      transform: scale(0.85);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1);
+    }
   }
 
   .cedar-code-map-view-tabs--toolbar {
@@ -3400,6 +3562,76 @@
 
   body.cedar-code-map-expanded .cedar-code-map-view-tabs--toolbar {
     pointer-events: auto;
+    flex: none;
+    order: unset;
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    gap: 0.35rem;
+    padding: 0.3rem;
+    margin-right: 0;
+    grid-area: codemap-tabs;
+  }
+
+  body.cedar-code-map-expanded .cedar-code-map-view-tabs--toolbar .cedar-code-map-view-tab {
+    flex: 1 1 0;
+    min-width: 4.5rem;
+    padding: 0.4rem 0.5rem;
+    font-size: 11px;
+    line-height: 1.25;
+    text-transform: none;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+  }
+
+  body.cedar-code-map-expanded .cedar-review-rail-toolbar--code-map {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      "codemap-title codemap-status codemap-status"
+      "codemap-tabs codemap-zoom codemap-close";
+    align-items: center;
+    column-gap: 0.4rem;
+    row-gap: 0.45rem;
+  }
+
+  body.cedar-code-map-expanded .cedar-review-rail-toolbar--code-map .cedar-review-rail-title {
+    flex: none;
+    grid-area: codemap-title;
+    justify-self: start;
+  }
+
+  body.cedar-code-map-expanded .cedar-review-rail-toolbar--code-map .cedar-code-map-build-status {
+    flex: none;
+    grid-area: codemap-status;
+    justify-self: end;
+    min-width: 0;
+    max-width: min(14rem, 42vw);
+    text-align: right;
+  }
+
+  body.cedar-code-map-expanded .cedar-review-rail-toolbar--code-map .cedar-code-map-zoom-controls {
+    flex: none;
+    grid-area: codemap-zoom;
+    align-self: center;
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  body.cedar-code-map-expanded .cedar-review-rail-toolbar--code-map .cedar-code-map-expand-btn {
+    flex: none;
+    grid-area: codemap-close;
+    align-self: center;
+    margin-left: 0;
+  }
+
+  body.cedar-code-map-expanded #cedar-code-map-view-tablist[hidden] {
+    display: none !important;
+  }
+
+  body.cedar-code-map-expanded #cedar-code-map-view-tablist[hidden] ~ .cedar-code-map-zoom-controls {
+    grid-column: 2 / -1;
+    justify-self: end;
   }
 
   body.cedar-code-map-expanded .cedar-review-rail-toolbar--code-map .cedar-review-rail-title {
@@ -3411,7 +3643,8 @@
     display: inline-flex;
     align-items: center;
     gap: 0.2rem;
-    margin-right: 0.15rem;
+    margin-right: 0;
+    height: 1.65rem;
   }
 
   .cedar-code-map-zoom-btn {
@@ -3444,6 +3677,53 @@
 
   .cedar-code-map-expand-btn {
     justify-self: end;
+  }
+
+  .cedar-code-map-expand-btn.cedar-review-rail-edge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.65rem;
+    height: 1.65rem;
+    min-width: 1.65rem;
+    min-height: 1.65rem;
+    border-radius: 0.45rem;
+    padding: 0;
+    box-shadow: none;
+    color: var(--cedar-review-foreground);
+    border-color: var(--cedar-review-border);
+    background: var(--cedar-review-inset);
+  }
+
+  .cedar-code-map-expand-btn.cedar-review-rail-edge:hover {
+    color: var(--cedar-review-foreground);
+    border-color: var(--cedar-review-border-strong);
+    background: var(--cedar-review-surface);
+  }
+
+  .cedar-code-map-expand-btn .cedar-rail-edge-icon-wrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+  }
+
+  .cedar-code-map-expand-btn .cedar-rail-edge-icon {
+    width: 0.875rem;
+    height: 0.875rem;
+    display: block;
+    flex-shrink: 0;
+  }
+
+  body.cedar-code-map-expanded .cedar-review-rail-toolbar--code-map .cedar-code-map-expand-btn.cedar-review-rail-edge {
+    margin-left: 0;
+  }
+
+  body.cedar-code-map-expanded .cedar-review-rail-toolbar--code-map .cedar-code-map-zoom-btn,
+  body.cedar-code-map-expanded .cedar-review-rail-toolbar--code-map .cedar-code-map-expand-btn.cedar-review-rail-edge {
+    flex-shrink: 0;
+    vertical-align: middle;
   }
 
   body.cedar-code-map-expanded #main-stage,
@@ -3506,6 +3786,8 @@
     display: flex !important;
     position: fixed;
     z-index: 58;
+    color: var(--cedar-review-foreground);
+    pointer-events: auto;
     overscroll-behavior: contain;
     top: var(--cedar-code-map-flyout-top);
     right: 0;
@@ -3596,6 +3878,55 @@
     pointer-events: auto;
   }
 
+  body.cedar-code-map-expanded .cedar-file-flow-stage.is-code-map-triptych {
+    min-height: min(90vh, calc(100vh - 5.75rem)) !important;
+    gap: 0.35rem;
+    padding: 0.35rem 0.3rem 0.45rem !important;
+    border-color: var(--cedar-review-border-strong);
+    background-color: var(--cedar-review-inset);
+    background-image: radial-gradient(
+      circle at 50% 50%,
+      var(--cedar-review-stage-grid) 1px,
+      transparent 1px
+    );
+    background-size: 18px 18px;
+  }
+
+  body.cedar-code-map-expanded .cedar-review-rail-toolbar--code-map .cedar-code-map-zoom-btn,
+  body.cedar-code-map-expanded .cedar-review-rail-toolbar--code-map .cedar-code-map-expand-btn.cedar-review-rail-edge {
+    border-color: var(--cedar-review-border-strong);
+    background: var(--cedar-review-surface);
+    color: var(--cedar-review-foreground);
+  }
+
+  body.cedar-code-map-expanded .cedar-review-rail-toolbar--code-map .cedar-code-map-zoom-btn:hover,
+  body.cedar-code-map-expanded .cedar-review-rail-toolbar--code-map .cedar-code-map-expand-btn.cedar-review-rail-edge:hover {
+    border-color: var(--cedar-review-border-strong);
+    background: var(--cedar-review-card);
+  }
+
+  .cedar-code-map-expand-btn.cedar-review-rail-edge:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--cedar-review-surface), 0 0 0 4px var(--cedar-focus-ring, rgb(255 255 255 / 0.22));
+  }
+
+  body.cedar-code-map-expanded .cedar-review-rail-section--map:has(.is-code-map-triptych) .cedar-code-map-meta {
+    max-height: 5.25rem;
+    padding-bottom: 0.35rem;
+    margin-bottom: 0;
+  }
+
+  body.cedar-code-map-expanded .cedar-file-flow-stage.is-code-map-triptych .cedar-code-map-view-stack {
+    flex: 1 1 0;
+    min-height: min(68vh, calc(100vh - 11rem));
+    padding-left: 0.15rem !important;
+    padding-right: 0.1rem !important;
+  }
+
+  body.cedar-code-map-expanded .cedar-file-flow-stage.is-code-map-triptych .cedar-code-map-view-stage {
+    min-height: min(66vh, calc(100vh - 11.5rem));
+  }
+
   body.cedar-code-map-expanded .cedar-code-map-svg-host,
   body.cedar-code-map-expanded .cedar-code-map-cy,
   body.cedar-code-map-expanded .cedar-code-map-svg {
@@ -3628,16 +3959,6 @@
     padding-right: 0.1rem;
   }
 
-  body.cedar-code-map-expanded .cedar-file-flow-stage.is-code-map-triptych {
-    padding-left: 0.65rem;
-    padding-right: 0.45rem;
-  }
-
-  body.cedar-code-map-expanded .cedar-file-flow-stage.is-code-map-triptych .cedar-code-map-view-stack {
-    padding-left: 0.35rem;
-    padding-right: 0.15rem;
-    box-sizing: border-box;
-  }
 
   .cedar-review-rail-title {
     @apply min-w-0 flex-1 text-center text-[10px] font-semibold uppercase tracking-[0.12em];
@@ -5148,6 +5469,20 @@
     color: var(--cedar-review-muted);
   }
 
+  .cedar-file-flow-loading {
+    animation: cedar-code-map-pulse 1.2s ease-in-out infinite;
+  }
+
+  @keyframes cedar-code-map-pulse {
+    0%,
+    100% {
+      opacity: 0.55;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+
   .cedar-file-flow-profile {
     @apply w-full min-w-0 shrink-0 text-[10px] leading-snug;
     color: var(--cedar-review-muted);
@@ -5176,6 +5511,23 @@
   .cedar-code-map-profile-hint {
     @apply font-normal normal-case tracking-normal;
     color: var(--cedar-review-muted);
+  }
+
+  .cedar-code-map-source {
+    @apply ml-1 inline-flex rounded border px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide;
+    border-color: var(--cedar-review-border);
+    color: var(--cedar-review-muted);
+    background: var(--cedar-review-card);
+  }
+
+  .cedar-code-map-source--ai {
+    @apply border-violet-500/35 text-violet-200;
+    background: rgb(139 92 246 / 0.12);
+  }
+
+  .cedar-code-map-source--parser {
+    @apply border-amber-500/30 text-amber-200/90;
+    background: rgb(245 158 11 / 0.08);
   }
 
   .cedar-file-flow-what {
@@ -6309,13 +6661,19 @@
     background-color: var(--d2h-ins-highlight-bg-color);
   }
 
+  html[data-theme="day"] .cedar-gh-file-body .cedar-diff2html td.d2h-ins,
+  html[data-theme="day"] .cedar-gh-file-body .cedar-diff2html td.d2h-code-linenumber.d2h-ins,
+  html[data-theme="day"] .cedar-gh-file-body .cedar-diff2html td.d2h-code-side-linenumber.d2h-ins,
   html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme td.d2h-ins,
-  html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme td.d2h-ins .d2h-code-line-ctn {
+  html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme td.d2h-code-linenumber.d2h-ins {
     background-color: var(--d2h-ins-bg-color);
   }
 
+  html[data-theme="day"] .cedar-gh-file-body .cedar-diff2html td.d2h-del,
+  html[data-theme="day"] .cedar-gh-file-body .cedar-diff2html td.d2h-code-linenumber.d2h-del,
+  html[data-theme="day"] .cedar-gh-file-body .cedar-diff2html td.d2h-code-side-linenumber.d2h-del,
   html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme td.d2h-del,
-  html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme td.d2h-del .d2h-code-line-ctn {
+  html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme td.d2h-code-linenumber.d2h-del {
     background-color: var(--d2h-del-bg-color);
   }
 

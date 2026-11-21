@@ -11,6 +11,8 @@ import {
   functionalityStepsToMap,
 } from "./code-map-flyout-views.js";
 import { buildFlyoutModuleDeps, isFlyoutDepCruiserEligible } from "./dependency-cruiser-flyout.js";
+import { codeMapAiEnabled } from "./code-map-ai-toggle.js";
+import { generateAiCodeMapViews, mergeAiCodeMapIntoArtifacts } from "./ai-code-map.js";
 
 const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -31,7 +33,13 @@ export async function buildFileFlowArtifacts(filename, patch = "", opts = {}) {
     profile
   );
   const mermaid = `${COMPACT_MERMAID_INIT}\n${renderCodeMapMermaid(map)}`;
-  const [svg] = await Promise.all([renderCodeMapSvg(map)]);
+  let svg = null;
+  try {
+    svg = await renderCodeMapSvg(map);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`[cedar] code map SVG skipped for ${filename}: ${msg}`);
+  }
   const behaviorMap = toBehaviorCodeMap(raw, profile);
   const functionalityMap = functionalityStepsToMap(
     String(filename ?? ""),
@@ -45,10 +53,12 @@ export async function buildFileFlowArtifacts(filename, patch = "", opts = {}) {
   let moduleDepsMeta = null;
   let profileHint = profile.hint;
 
+  let depElements = null;
   if (isFlyoutDepCruiserEligible(filename)) {
     const depLayer = await buildFlyoutModuleDeps(repoRoot, String(filename ?? ""));
     moduleDepsMeta = depLayer?.meta ?? null;
     if (depLayer?.elements?.length) {
+      depElements = depLayer.elements;
       elements = [...elements, ...depLayer.elements];
     }
     if (depLayer?.bullets?.length) {
@@ -62,7 +72,7 @@ export async function buildFileFlowArtifacts(filename, patch = "", opts = {}) {
     }
   }
 
-  return {
+  let result = {
     mermaid,
     svg,
     whatItDoes: mergedSummary.lead || map.whatItDoes,
@@ -79,7 +89,38 @@ export async function buildFileFlowArtifacts(filename, patch = "", opts = {}) {
     codeMapStructure: summary.structure ?? null,
     codeMapModuleDeps: moduleDepsMeta,
     codeMapView: "structure",
+    codeMapAiDirected: false,
+    codeMapSource: "parser",
   };
+
+  const patchText = (patch ?? "").trim();
+  const aiRequested = opts.aiCodeMap ?? codeMapAiEnabled();
+  if (aiRequested && patchText.length > 0) {
+    try {
+      const plan = await generateAiCodeMapViews(String(filename ?? ""), patch ?? "", opts.status ?? "", {
+        raw,
+        profile,
+        summary: mergedSummary,
+      });
+      if (plan) {
+        result = mergeAiCodeMapIntoArtifacts(result, plan, depElements);
+        result.codeMapSource = "ai";
+      } else {
+        profileHint = `${profileHint} AI returned no diagram JSON — showing AST/diff parser map.`;
+        result.codeMapProfileHint = profileHint;
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`[cedar] AI code map skipped for ${filename}: ${msg}`);
+      profileHint = `${profileHint} AI map failed (${msg.slice(0, 72)}); using parser map.`;
+      result.codeMapProfileHint = profileHint;
+    }
+  } else if (!aiRequested) {
+    profileHint = `${profileHint} Parser map (AST/diff). Enable CEDAR_AI_CODE_MAP=auto for LLM-directed views.`;
+    result.codeMapProfileHint = profileHint;
+  }
+
+  return result;
 }
 
 /**

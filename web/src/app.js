@@ -23,6 +23,7 @@ import {
 } from "./diff-view.js";
 import {
   buildFileFlowCatalogFromMicroPrs,
+  ensureCodeMapToolbarIcons,
   refreshFileFlowRailTheme,
   setFileFlowCatalog,
   wireFileFlowRail,
@@ -379,6 +380,7 @@ export function mountApp(root) {
   };
 
   onAppThemeChange(() => {
+    ensureCodeMapToolbarIcons();
     const results = document.getElementById("results");
     if (results) {
       refreshDiffRendersForTheme(results);

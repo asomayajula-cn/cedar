@@ -39,9 +39,37 @@ html[data-theme="day"] {
   --cedar-gh-diff-fg: #1f2328;
   --cedar-gh-diff-muted: #57606a;
   --cedar-gh-diff-hover: #eaeef2;
-  --cedar-gh-diff-active: #ffffff;
+  --cedar-gh-diff-active: #eef2ff;
   --cedar-gh-diff-fallback: #1f2328;
   --cedar-gh-link: #0969da;
+  /* diff2html (light) — inherit from review shell so file diffs pick up add/del tints */
+  --d2h-bg-color: #ffffff;
+  --d2h-dim-color: #656d76;
+  --d2h-border-color: #d0d7de;
+  --d2h-line-border-color: #d8dee4;
+  --d2h-ins-bg-color: #e8fcef;
+  --d2h-ins-border-color: #7ee2a8;
+  --d2h-ins-highlight-bg-color: #acf4c0;
+  --d2h-del-bg-color: #fff1f0;
+  --d2h-del-border-color: #ffb4ab;
+  --d2h-del-highlight-bg-color: #ffd1cc;
+  --d2h-change-ins-color: #acf4c0;
+  --d2h-change-del-color: #ffd1cc;
+  --d2h-info-bg-color: #eff6ff;
+  --d2h-info-border-color: #bfdbfe;
+  --d2h-empty-placeholder-bg-color: #f6f8fa;
+  /* stale d2h-dark-color-scheme nodes still read --d2h-dark-* on day */
+  --d2h-dark-bg-color: #ffffff;
+  --d2h-dark-color: #1f2328;
+  --d2h-dark-border-color: #d0d7de;
+  --d2h-dark-line-border-color: #d8dee4;
+  --d2h-dark-ins-bg-color: #e8fcef;
+  --d2h-dark-ins-border-color: #7ee2a8;
+  --d2h-dark-del-bg-color: #fff1f0;
+  --d2h-dark-del-border-color: #ffb4ab;
+  --d2h-dark-change-ins-color: #acf4c0;
+  --d2h-dark-change-del-color: #ffd1cc;
+  --d2h-dark-empty-placeholder-bg-color: #f6f8fa;
 }
 
 html[data-theme="day"] body {
@@ -166,33 +194,41 @@ html[data-theme="day"] .cedar-diff2html.d2h-dark-color-scheme,
 html[data-theme="day"] .cedar-gh-file-body .d2h-wrapper.d2h-dark-color-scheme {
   color: #1f2328;
   --d2h-bg-color: #ffffff;
+  --d2h-dim-color: #656d76;
   --d2h-border-color: #d0d7de;
   --d2h-line-border-color: #d8dee4;
-  --d2h-ins-bg-color: #dafbe1;
-  --d2h-ins-border-color: #aceebb;
-  --d2h-ins-highlight-bg-color: #aceebb;
-  --d2h-del-bg-color: #ffebe9;
-  --d2h-del-border-color: #ffcecb;
-  --d2h-del-highlight-bg-color: #ffcecb;
-  --d2h-change-ins-color: #ccfccb;
-  --d2h-change-del-color: #ffd7d5;
-  --d2h-info-bg-color: #ddf4ff;
-  --d2h-info-border-color: #b6e3ff;
+  --d2h-line-hover-color: #f3f4f6;
+  --d2h-ins-bg-color: #e8fcef;
+  --d2h-ins-border-color: #7ee2a8;
+  --d2h-ins-highlight-bg-color: #acf4c0;
+  --d2h-del-bg-color: #fff1f0;
+  --d2h-del-border-color: #ffb4ab;
+  --d2h-del-highlight-bg-color: #ffd1cc;
+  --d2h-change-ins-color: #acf4c0;
+  --d2h-change-del-color: #ffd1cc;
+  --d2h-info-bg-color: #eff6ff;
+  --d2h-info-border-color: #bfdbfe;
   --d2h-empty-placeholder-bg-color: #f6f8fa;
+  --d2h-selected-color: rgb(79 70 229 / 0.14);
 }
 
 html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme .d2h-wrapper,
 html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme .d2h-diff-table,
 html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme .d2h-file-wrapper,
 html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme .d2h-file-diff,
-html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme .d2h-code-line-ctn,
 html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme .d2h-info,
 html[data-theme="day"] #main-stage.cedar-review-wide .cedar-gh-file-body .d2h-wrapper,
 html[data-theme="day"] #main-stage.cedar-review-wide .cedar-gh-file-body .d2h-file-wrapper,
-html[data-theme="day"] #main-stage.cedar-review-wide .cedar-gh-file-body .d2h-file-diff,
-html[data-theme="day"] #main-stage.cedar-review-wide .cedar-gh-file-body .d2h-code-line-ctn {
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-gh-file-body .d2h-file-diff {
   color: #1f2328;
   background-color: #ffffff;
+}
+
+/* Never paint code spans white — that hides add/del row tint from td.d2h-ins / td.d2h-del */
+html[data-theme="day"] .cedar-diff2html .d2h-code-line-ctn,
+html[data-theme="day"] .cedar-diff2html .d2h-code-line .d2h-code-line-ctn {
+  background: transparent !important;
+  color: #1f2328;
 }
 
 html[data-theme="day"] #main-stage.cedar-review-wide .cedar-gh-file,
@@ -230,14 +266,95 @@ html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme .d2h-code-side-li
   border-color: #d0d7de;
 }
 
-html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme td.d2h-ins .d2h-code-linenumber,
-html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme td.d2h-ins .d2h-code-side-linenumber {
+html[data-theme="day"] .cedar-diff2html td.d2h-ins,
+html[data-theme="day"] .cedar-diff2html td.d2h-code-linenumber.d2h-ins,
+html[data-theme="day"] .cedar-diff2html td.d2h-code-side-linenumber.d2h-ins {
+  background-color: var(--d2h-ins-bg-color) !important;
+  border-color: var(--d2h-ins-border-color);
+}
+
+html[data-theme="day"] .cedar-diff2html td.d2h-del,
+html[data-theme="day"] .cedar-diff2html td.d2h-code-linenumber.d2h-del,
+html[data-theme="day"] .cedar-diff2html td.d2h-code-side-linenumber.d2h-del {
+  background-color: var(--d2h-del-bg-color) !important;
+  border-color: var(--d2h-del-border-color);
+}
+
+html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme .d2h-code-linenumber,
+html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme .d2h-code-side-linenumber,
+html[data-theme="day"] .cedar-diff2html.d2h-dark-color-scheme .d2h-code-linenumber,
+html[data-theme="day"] .cedar-diff2html.d2h-dark-color-scheme .d2h-code-side-linenumber {
+  color: var(--d2h-dim-color);
+  background-color: #f6f8fa;
+  border-color: var(--d2h-line-border-color);
+}
+
+html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme td.d2h-ins,
+html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme td.d2h-del,
+html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme td.d2h-change,
+html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme td.d2h-ins .d2h-code-line-ctn,
+html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme td.d2h-del .d2h-code-line-ctn,
+html[data-theme="day"] .cedar-diff2html.d2h-dark-color-scheme td.d2h-ins .d2h-code-line-ctn,
+html[data-theme="day"] .cedar-diff2html.d2h-dark-color-scheme td.d2h-del .d2h-code-line-ctn {
+  color: #1f2328;
+}
+
+html[data-theme="day"] .cedar-diff2html td.d2h-ins,
+html[data-theme="day"] .cedar-diff2html td.d2h-del,
+html[data-theme="day"] .cedar-diff2html td.d2h-change {
+  border-color: var(--d2h-line-border-color);
+}
+
+html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme td.d2h-ins .d2h-code-line-ctn,
+html[data-theme="day"] .cedar-diff2html.d2h-dark-color-scheme td.d2h-ins .d2h-code-line-ctn {
   background-color: var(--d2h-ins-bg-color);
 }
 
-html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme td.d2h-del .d2h-code-linenumber,
-html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme td.d2h-del .d2h-code-side-linenumber {
+html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme td.d2h-del .d2h-code-line-ctn,
+html[data-theme="day"] .cedar-diff2html.d2h-dark-color-scheme td.d2h-del .d2h-code-line-ctn {
   background-color: var(--d2h-del-bg-color);
+}
+
+html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme .d2h-info,
+html[data-theme="day"] .cedar-diff2html.d2h-dark-color-scheme .d2h-info {
+  background-color: var(--d2h-info-bg-color);
+  border-color: var(--d2h-info-border-color);
+  color: #0550ae;
+}
+
+html[data-theme="day"] .cedar-diff2html .d2h-lines-added {
+  color: #1a7f37;
+  font-weight: 600;
+}
+
+html[data-theme="day"] .cedar-diff2html .d2h-lines-deleted {
+  color: #cf222e;
+  font-weight: 600;
+}
+
+html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme td.d2h-change .d2h-code-line del,
+html[data-theme="day"] .cedar-diff2html.d2h-dark-color-scheme td.d2h-change .d2h-code-line del {
+  background-color: var(--d2h-del-highlight-bg-color);
+  color: #1f2328;
+}
+
+html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme td.d2h-change .d2h-code-line ins,
+html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme td.d2h-ins ins,
+html[data-theme="day"] .cedar-diff2html.d2h-dark-color-scheme td.d2h-change .d2h-code-line ins,
+html[data-theme="day"] .cedar-diff2html.d2h-dark-color-scheme td.d2h-ins ins {
+  background-color: var(--d2h-ins-highlight-bg-color);
+  color: #1f2328;
+}
+
+html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme .d2h-code-line-prefix,
+html[data-theme="day"] .cedar-diff2html.d2h-dark-color-scheme .d2h-code-line-prefix {
+  color: #656d76;
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-gh-file-body .cedar-diff2html,
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-gh-file-body .d2h-wrapper,
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-gh-file-body .d2h-diff-table {
+  background-color: #ffffff;
 }
 
 html[data-theme="day"] .cedar-gh-diff-fallback {
@@ -684,6 +801,41 @@ html[data-theme="day"] body.cedar-code-map-expanded .cedar-code-map-flyout-panel
   border-color: var(--cedar-day-border-strong);
   box-shadow: -12px 0 40px rgb(15 23 42 / 0.18);
   background: var(--cedar-day-surface);
+}
+
+html[data-theme="day"] body.cedar-code-map-expanded .cedar-code-map-view-tabs {
+  background: #f4f4f5;
+  border-color: #d4d4d8;
+}
+
+html[data-theme="day"] body.cedar-code-map-expanded .cedar-code-map-view-tab {
+  color: rgb(63 63 70);
+}
+
+html[data-theme="day"] body.cedar-code-map-expanded .cedar-code-map-view-tab.is-active,
+html[data-theme="day"] body.cedar-code-map-expanded .cedar-code-map-view-tab[aria-selected="true"] {
+  background: #ffffff;
+  color: #18181b;
+  border-color: #a1a1aa;
+}
+
+html[data-theme="day"] body.cedar-code-map-expanded .cedar-code-map-cy--flyout {
+  background: #e4e4e7;
+  border: 1px solid var(--cedar-day-border-strong);
+}
+
+html[data-theme="day"] body.cedar-code-map-expanded .cedar-file-flow-stage.is-code-map-triptych {
+  background-color: #f8fafc;
+}
+
+html[data-theme="day"] body.cedar-code-map-expanded .cedar-code-map-flyout-splitter::after {
+  background: rgb(15 23 42 / 0.12);
+}
+
+html[data-theme="day"] body.cedar-code-map-expanded .cedar-code-map-flyout-splitter:hover::after,
+html[data-theme="day"] body.cedar-code-map-expanded .cedar-code-map-flyout-splitter:focus-visible::after,
+html[data-theme="day"] body.cedar-is-resizing-code-map-flyout .cedar-code-map-flyout-splitter::after {
+  background: rgb(15 23 42 / 0.22);
 }
 
 html[data-theme="day"] .cedar-code-map-backdrop {
@@ -1651,9 +1803,9 @@ html[data-theme="day"] .cedar-gh-diff-mode:hover {
 
 html[data-theme="day"] .cedar-gh-diff-font.is-active,
 html[data-theme="day"] .cedar-gh-diff-mode.is-active {
-  color: #1f2328;
-  background-color: #ffffff;
-  box-shadow: 0 1px 0 rgb(0 0 0 / 0.08);
+  color: rgb(49 46 129);
+  background-color: var(--cedar-gh-diff-active);
+  box-shadow: inset 0 0 0 1px rgb(79 70 229 / 0.22);
 }
 
 html[data-theme="day"] .cedar-gh-diff-empty {

@@ -1,10 +1,13 @@
+import { codeMapCloseExpandIconSvg } from "./cedar-icons.js";
 import { scheduleDiagramRefit } from "./diagram-ux.js";
+import { patchFromB64 } from "./diff-view.js";
 import { codeMapFileOverview } from "./code-map-file-overview.js";
 import { renderCodeMapOverviewHtml } from "./code-map-overview-render.js";
 import { enrichFlyoutArtifact } from "./code-map-flyout-enrich.js";
 import {
   destroyFileCodeMap,
   mountFileCodeMap,
+  switchCodeMapFlyoutView,
   wireCodeMapFlyoutWheel,
   nudgeCodeMapZoom,
   resetCodeMapView,
@@ -15,8 +18,32 @@ import {
 } from "./file-flow-canvas.js";
 
 /**
+ * @param {object | null | undefined} artifact
+ */
+function fileHasBuiltCodeMap(artifact) {
+  if (!artifact) return false;
+  return Boolean(
+    artifact.svg ||
+      artifact.mermaid ||
+      artifact.elements?.length ||
+      artifact.behaviorElements?.length ||
+      artifact.functionalityElements?.length
+  );
+}
+
+/** Full flyout needs Structure + Behavior + Functionality from the server (not structure-only cache). */
+function needsServerCodeMapBuild(stub) {
+  if (!stub) return true;
+  if (stub.lazy) return true;
+  if (!fileHasBuiltCodeMap(stub)) return true;
+  const hasBehavior = (stub.behaviorElements?.length ?? 0) > 0;
+  const hasFunctionality = (stub.functionalityElements?.length ?? 0) > 0;
+  return !hasBehavior || !hasFunctionality;
+}
+
+/**
+ * One catalog row per PR file; graphs are built on flyout open (lazy).
  * @param {object[]} microPrs
- * @returns {Record<string, { mermaid?: string | null, svg?: string | null, whatItDoes?: string | null, elements?: object[] | null }>}
  */
 export function buildFileFlowCatalogFromMicroPrs(microPrs) {
   const map = {};
@@ -24,7 +51,7 @@ export function buildFileFlowCatalogFromMicroPrs(microPrs) {
     for (const f of m.files ?? []) {
       const path = f.path ?? f.filename;
       if (!path) continue;
-      const artifact = {
+      const built = {
         mermaid: typeof f.flowMermaid === "string" ? f.flowMermaid : null,
         svg: typeof f.codeMapSvg === "string" ? f.codeMapSvg : null,
         whatItDoes: typeof f.codeMapWhat === "string" ? f.codeMapWhat : null,
@@ -50,15 +77,25 @@ export function buildFileFlowCatalogFromMicroPrs(microPrs) {
               : null,
         moduleDeps:
           f.codeMapModuleDeps && typeof f.codeMapModuleDeps === "object" ? f.codeMapModuleDeps : null,
+        aiDirected: Boolean(f.codeMapAiDirected),
+        source:
+          f.codeMapSource === "ai" || f.codeMapAiDirected
+            ? "ai"
+            : typeof f.codeMapSource === "string"
+              ? f.codeMapSource
+              : "parser",
+        lazy: false,
+        patch: typeof f.patch === "string" ? f.patch : null,
+        status: typeof f.status === "string" ? f.status : "modified",
       };
-      if (
-        artifact.svg ||
-        artifact.mermaid ||
-        artifact.elements?.length ||
-        artifact.behaviorElements?.length ||
-        artifact.functionalityElements?.length
-      ) {
-        map[path] = artifact;
+      if (fileHasBuiltCodeMap(built)) {
+        map[path] = built;
+      } else {
+        map[path] = {
+          lazy: true,
+          patch: typeof f.patch === "string" ? f.patch : "",
+          status: typeof f.status === "string" ? f.status : "modified",
+        };
       }
     }
   }
@@ -68,7 +105,197 @@ export function buildFileFlowCatalogFromMicroPrs(microPrs) {
 /** @type {string | null} */
 let activePath = null;
 
+/** @type {Map<string, Promise<object>>} */
+const codeMapBuildInflight = new Map();
+
+/** @type {number} */
+let codeMapFlyoutGeneration = 0;
+
+/**
+ * @param {"idle" | "building" | "ready" | "error"} state
+ * @param {string} [message]
+ */
+/**
+ * @param {string} path
+ * @param {boolean} busy
+ */
+function syncFileCodeMapButtons(path, busy) {
+  if (!path) return;
+  const buttons = document.querySelectorAll(
+    `[data-file-code-map="${CSS.escape(path)}"]`
+  );
+  buttons.forEach((btn) => {
+    if (!(btn instanceof HTMLButtonElement)) return;
+    btn.classList.toggle("is-processing", busy);
+    btn.disabled = busy;
+    btn.setAttribute("aria-busy", busy ? "true" : "false");
+    if (busy) {
+      btn.title = "Processing code map…";
+      btn.setAttribute("aria-label", `Processing code map for ${path}`);
+    } else {
+      btn.title = "Code map";
+      btn.setAttribute("aria-label", `Open code map for ${path}`);
+    }
+  });
+  const flyoutTab = document.querySelector("[data-code-map-flyout-tab]");
+  if (flyoutTab instanceof HTMLButtonElement) {
+    flyoutTab.classList.toggle("is-processing", busy);
+    flyoutTab.setAttribute("aria-busy", busy ? "true" : "false");
+  }
+}
+
+export function setCodeMapBuildStatus(state, message = "") {
+  const panel = document.getElementById("cedar-review-right-nav");
+  const statusEl = document.getElementById("cedar-code-map-build-status");
+  const progressEl = document.getElementById("cedar-code-map-build-progress");
+  const hintEl = document.querySelector(".cedar-code-map-meta .cedar-file-flow-hint");
+  const path = activePath;
+  document.body.classList.toggle("cedar-code-map-building", state === "building");
+
+  if (panel instanceof HTMLElement) {
+    panel.dataset.codeMapBuildState = state;
+  }
+
+  syncFileCodeMapButtons(path ?? "", state === "building");
+
+  if (progressEl instanceof HTMLElement) {
+    progressEl.hidden = state !== "building";
+    progressEl.setAttribute("aria-busy", state === "building" ? "true" : "false");
+    if (state === "building") {
+      progressEl.setAttribute("aria-valuetext", message || "Processing code map");
+    }
+  }
+
+  if (statusEl instanceof HTMLElement) {
+    if (state === "idle" || !message.trim()) {
+      statusEl.hidden = true;
+      statusEl.textContent = "";
+      statusEl.removeAttribute("data-state");
+    } else {
+      statusEl.hidden = false;
+      statusEl.dataset.state = state;
+      const prefix =
+        state === "building" ? "Processing" : state === "ready" ? "Ready" : "Error";
+      statusEl.textContent = message.trim() ? `${prefix} — ${message}` : prefix;
+    }
+  }
+
+  if (hintEl instanceof HTMLElement) {
+    if (state === "building") {
+      hintEl.hidden = false;
+      hintEl.classList.add("cedar-file-flow-hint--building");
+      hintEl.textContent =
+        message || "Processing — building Structure, Behavior, and Functionality. This may take a few seconds.";
+    } else if (state === "ready") {
+      hintEl.classList.remove("cedar-file-flow-hint--building");
+      hintEl.hidden = false;
+      hintEl.textContent =
+        "Structure / Behavior / Functionality drawn for this file. Switch tabs above the canvas.";
+    } else if (state === "error") {
+      hintEl.classList.remove("cedar-file-flow-hint--building");
+      hintEl.hidden = false;
+      hintEl.textContent = message;
+    } else if (state === "idle") {
+      hintEl.classList.remove("cedar-file-flow-hint--building");
+      if (!hintEl.textContent.includes("flyout")) {
+        hintEl.textContent =
+          "Maps build when you open this flyout for a file — not during slice review.";
+      }
+    }
+  }
+}
+
+/**
+ * @param {string} path
+ */
+function patchForFileFromDom(path) {
+  const article = document.querySelector(`.cedar-gh-file[data-file-path="${CSS.escape(path)}"]`);
+  if (!(article instanceof HTMLElement)) return "";
+  const b64 = article.getAttribute("data-patch-b64");
+  if (!b64) return "";
+  try {
+    return patchFromB64(b64);
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * @param {string} path
+ */
+function resolveCatalogStub(path) {
+  const catalog = window.__cedarFileFlows ?? {};
+  const hit = catalog[path];
+  if (hit) {
+    if (!hit.patch?.trim()) {
+      const patch = patchForFileFromDom(path);
+      if (patch) return { ...hit, patch };
+    }
+    return hit;
+  }
+  const patch = patchForFileFromDom(path);
+  if (!patch.trim()) return null;
+  const article = document.querySelector(`.cedar-gh-file[data-file-path="${CSS.escape(path)}"]`);
+  const status = article?.getAttribute("data-file-status") ?? "modified";
+  return { lazy: true, patch, status };
+}
+
+/**
+ * @param {string} path
+ * @param {object} stub
+ */
+async function fetchCodeMapForFile(path, stub) {
+  if (fileHasBuiltCodeMap(stub) && !needsServerCodeMapBuild(stub)) return stub;
+
+  const patch = stub.patch?.trim() ? stub.patch : patchForFileFromDom(path);
+  const workStub = { ...stub, patch, status: stub.status ?? "modified" };
+
+  const key = path;
+  const prior = codeMapBuildInflight.get(key);
+  if (prior) return prior;
+
+  const job = (async () => {
+    const res = await fetch("/api/code-map/file", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        path,
+        patch,
+        status: workStub.status ?? "modified",
+        parserOnly: true,
+      }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const msg = typeof body.error === "string" ? body.error : `HTTP ${res.status}`;
+      throw new Error(msg);
+    }
+    const merged = { ...stub, ...body, lazy: false };
+    const catalog = window.__cedarFileFlows ?? {};
+    catalog[path] = merged;
+    window.__cedarFileFlows = catalog;
+    return merged;
+  })()
+    .finally(() => {
+      codeMapBuildInflight.delete(key);
+    });
+
+  codeMapBuildInflight.set(key, job);
+  return job;
+}
+
 let codeMapExpandWired = false;
+
+/** Keep flyout close control on the shared × icon (day/night, stale HTML). */
+export function ensureCodeMapToolbarIcons() {
+  const btn = document.querySelector(".cedar-code-map-expand-btn[data-code-map-expand]");
+  if (!(btn instanceof HTMLButtonElement)) return;
+  const closeWrap = btn.querySelector(".cedar-code-map-expand-icon--close");
+  if (!(closeWrap instanceof HTMLElement)) return;
+  const path = closeWrap.querySelector("path")?.getAttribute("d") ?? "";
+  if (path.includes("M6 6l12 12")) return;
+  closeWrap.innerHTML = codeMapCloseExpandIconSvg("cedar-rail-edge-icon");
+}
 
 const CODE_MAP_FLYOUT_WIDTH_KEY = "cedar.codeMapFlyoutWidth";
 const CODE_MAP_FLYOUT_MIN = 380;
@@ -144,8 +371,10 @@ function ensureCodeMapBackdrop() {
  * @param {boolean} on
  */
 export function setCodeMapExpanded(on) {
+  ensureCodeMapToolbarIcons();
   document.body.classList.toggle("cedar-code-map-expanded", on);
   if (on) applyCodeMapFlyoutWidth(readCodeMapFlyoutWidth());
+  if (!on) setCodeMapBuildStatus("idle");
   const backdrop = ensureCodeMapBackdrop();
   backdrop.hidden = !on;
   parkCodeMapFlyoutOnBody(on);
@@ -207,6 +436,7 @@ function wireCodeMapExpand(_root) {
   if (staleBackdrop instanceof HTMLElement) staleBackdrop.hidden = true;
   ensureCodeMapFlyoutInWorkspace();
   applyCodeMapFlyoutWidth(readCodeMapFlyoutWidth());
+  ensureCodeMapToolbarIcons();
 
   wireCodeMapFlyoutWheel();
   wireCodeMapTriptychTabs();
@@ -322,6 +552,12 @@ export function setFileFlowCatalog(map) {
 export function openFileCodeMapForPath(path, opts = {}) {
   const expand = opts.expand !== false;
   if (!path?.trim()) return;
+  const leaf = path.split("/").pop() ?? path;
+  activePath = path;
+  const stub = resolveCatalogStub(path);
+  if (!stub || needsServerCodeMapBuild(stub)) {
+    setCodeMapBuildStatus("building", `Code map for ${leaf} — please wait…`);
+  }
   document.querySelectorAll(".cedar-gh-file.is-file-flow-active").forEach((el) => {
     el.classList.remove("is-file-flow-active");
   });
@@ -331,8 +567,17 @@ export function openFileCodeMapForPath(path, opts = {}) {
   if (article instanceof HTMLElement) {
     article.classList.add("is-file-flow-active");
   }
-  setActiveFileFlow(path);
-  if (expand) setCodeMapExpanded(true);
+  const start = () => setActiveFileFlow(path);
+  if (expand) {
+    setCodeMapExpanded(true);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        start();
+      });
+    });
+  } else {
+    start();
+  }
 }
 
 /**
@@ -390,7 +635,9 @@ function setActiveFileFlow(path) {
     profileEl.hidden = false;
     profileEl.dataset.codeMapDetail = detail ?? "";
     profileEl.dataset.codeMapProfile = profile;
-    profileEl.innerHTML = `<span class="cedar-code-map-profile cedar-code-map-profile--${escapeHtml(profile)}">${escapeHtml(label)}</span>`;
+    const source = artifact?.source === "ai" || artifact?.aiDirected ? "ai" : "parser";
+    const sourceLabel = source === "ai" ? "AI-directed" : "Parser (AST/diff)";
+    profileEl.innerHTML = `<span class="cedar-code-map-profile cedar-code-map-profile--${escapeHtml(profile)}">${escapeHtml(label)}</span> <span class="cedar-code-map-source cedar-code-map-source--${escapeHtml(source)}" title="How Structure / Behavior / Functionality graphs were built">${escapeHtml(sourceLabel)}</span>`;
     if (hint) {
       profileEl.insertAdjacentHTML(
         "beforeend",
@@ -404,6 +651,7 @@ function setActiveFileFlow(path) {
     if (whatEl instanceof HTMLElement) whatEl.textContent = "";
     setProfile(null);
     setFileOverview(null);
+    setCodeMapBuildStatus("idle");
     destroyFileCodeMap();
     syncCodeMapExpandButton();
     stage.innerHTML = `<p class="cedar-file-flow-empty">Click a file to open its code map — symbols, calls, and dependencies.</p>`;
@@ -411,48 +659,123 @@ function setActiveFileFlow(path) {
   }
 
   pathEl.textContent = path;
-  const catalog = window.__cedarFileFlows ?? {};
-  const artifact = catalog[path];
-  if (
-    !artifact?.svg &&
-    !artifact?.mermaid &&
-    !artifact?.elements?.length &&
-    !artifact?.behaviorElements?.length &&
-    !artifact?.functionalityElements?.length
-  ) {
+  const stub = resolveCatalogStub(path);
+  if (!stub) {
     if (whatEl instanceof HTMLElement) whatEl.textContent = "";
     setProfile(null);
     setFileOverview(null);
     destroyFileCodeMap();
+    setCodeMapBuildStatus("idle");
     syncCodeMapExpandButton();
-    stage.innerHTML = `<p class="cedar-file-flow-empty">No code map for this file yet — re-run review if the file was just changed.</p>`;
+    stage.innerHTML = `<p class="cedar-file-flow-empty">This file isn’t in the current review slices — re-run review after it appears in the diff.</p>`;
     return;
   }
 
-  const baseArtifact = enrichFlyoutArtifact(artifact);
-  setProfile(baseArtifact);
-  setFileOverview(baseArtifact);
+  const flyoutGen = ++codeMapFlyoutGeneration;
+  const isStale = () => flyoutGen !== codeMapFlyoutGeneration || activePath !== path;
+  const leaf = path.split("/").pop() ?? path;
 
-  void loadFlyoutArtifactWithModuleDeps(path, baseArtifact)
-    .then((loaded) => {
+  const showLoading = (label) => {
+    destroyFileCodeMap();
+    setProfile(null);
+    setFileOverview(null);
+    setCodeMapBuildStatus("building", label);
+    stage.innerHTML = `<div class="cedar-file-flow-empty cedar-file-flow-loading cedar-code-map-drawing" role="status" aria-live="polite" aria-busy="true">
+      <span class="cedar-code-map-drawing-spinner" aria-hidden="true"></span>
+      <p class="cedar-code-map-drawing-title">${escapeHtml(label)}</p>
+      <p class="cedar-code-map-drawing-detail cedar-code-map-drawing-wait">Processing on the server — Structure, Behavior, and Functionality for <span class="font-mono">${escapeHtml(leaf)}</span></p>
+      <p class="cedar-code-map-drawing-eta">Usually a few seconds. The <strong>[]</strong> button stays disabled until the map is ready.</p>
+    </div>`;
+  };
+
+  const mountArtifact = (artifact) => {
+    if (isStale()) return;
+    const baseArtifact = enrichFlyoutArtifact(artifact);
+    setProfile(baseArtifact);
+    setFileOverview(baseArtifact);
+
+    const runMount = async () => {
+      if (!document.body.classList.contains("cedar-code-map-expanded")) {
+        await new Promise((resolve) => {
+          requestAnimationFrame(() => requestAnimationFrame(resolve));
+        });
+      }
+      const loaded = await loadFlyoutArtifactWithModuleDeps(path, baseArtifact);
+      if (isStale()) return false;
       const merged = enrichFlyoutArtifact(loaded ?? baseArtifact);
       setFileOverview(merged);
       return mountFileCodeMap(stage, merged, path);
-    })
-    .then((ok) => {
-    if (!ok && artifact.mermaid) {
-      stage.innerHTML = `<pre class="cedar-file-flow-fallback">${escapeHtml(artifact.mermaid)}</pre>`;
-      return;
-    }
-    wireCodeMapFlyoutWheel(stage);
-    syncCodeMapExpandButton();
-    scheduleDiagramRefit(stage.closest("#results") ?? document);
-    refitActiveCodeMap();
-    requestAnimationFrame(() => {
-      refitActiveCodeMap();
-      stage.dispatchEvent(new CustomEvent("cedar-file-flow-resize", { bubbles: true }));
-    });
-  });
+    };
+
+    void runMount().then((ok) => {
+        if (isStale()) return;
+        if (!ok) {
+          if (artifact.mermaid) {
+            setCodeMapBuildStatus("error", "Canvas mount failed — showing Mermaid fallback");
+            stage.innerHTML = `<pre class="cedar-file-flow-fallback">${escapeHtml(artifact.mermaid)}</pre>`;
+            return;
+          }
+          setCodeMapBuildStatus("error", "Could not draw the code map in the flyout");
+          stage.innerHTML = `<p class="cedar-file-flow-empty">Could not layout the map. Widen the flyout or click <strong>[]</strong> again.</p>`;
+          return;
+        }
+        setCodeMapBuildStatus("ready", `Code map drawn for ${leaf}`);
+        syncFileCodeMapButtons(path, false);
+        const activeView = stage.dataset.cedarActiveCodeMapView ?? "structure";
+        switchCodeMapFlyoutView(activeView);
+        wireCodeMapFlyoutWheel(stage);
+        syncCodeMapExpandButton();
+        scheduleDiagramRefit(stage.closest("#results") ?? document);
+        refitActiveCodeMap();
+        requestAnimationFrame(() => {
+          refitActiveCodeMap();
+          stage.dispatchEvent(new CustomEvent("cedar-file-flow-resize", { bubbles: true }));
+        });
+      });
+  };
+
+  if (fileHasBuiltCodeMap(stub) && !needsServerCodeMapBuild(stub)) {
+    setCodeMapBuildStatus("ready", `Showing cached map for ${leaf}`);
+    mountArtifact(stub);
+  } else if (fileHasBuiltCodeMap(stub) && needsServerCodeMapBuild(stub)) {
+    showLoading(`Drawing Structure, Behavior & Functionality for ${leaf}…`);
+    void fetchCodeMapForFile(path, stub)
+      .then((artifact) => {
+        if (isStale()) return;
+        if (!fileHasBuiltCodeMap(artifact)) {
+          setCodeMapBuildStatus("error", "Server returned an empty map");
+          stage.innerHTML = `<p class="cedar-file-flow-empty">Could not build a code map for this file.</p>`;
+          return;
+        }
+        mountArtifact(artifact);
+      })
+      .catch((err) => {
+        if (isStale()) return;
+        const msg = err instanceof Error ? err.message : String(err);
+        setCodeMapBuildStatus("error", msg);
+        syncFileCodeMapButtons(path, false);
+        stage.innerHTML = `<p class="cedar-file-flow-empty">Code map failed: ${escapeHtml(msg)}</p>`;
+      });
+  } else {
+    showLoading(`Drawing code map for ${leaf}…`);
+    void fetchCodeMapForFile(path, stub)
+      .then((artifact) => {
+        if (isStale()) return;
+        if (!fileHasBuiltCodeMap(artifact)) {
+          setCodeMapBuildStatus("error", "Server returned an empty map");
+          stage.innerHTML = `<p class="cedar-file-flow-empty">Could not build a code map for this file.</p>`;
+          return;
+        }
+        mountArtifact(artifact);
+      })
+      .catch((err) => {
+        if (isStale()) return;
+        const msg = err instanceof Error ? err.message : String(err);
+        setCodeMapBuildStatus("error", msg);
+        syncFileCodeMapButtons(path, false);
+        stage.innerHTML = `<p class="cedar-file-flow-empty">Code map failed: ${escapeHtml(msg)}</p>`;
+      });
+  }
   syncCodeMapExpandButton();
 }
 

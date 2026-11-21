@@ -78,7 +78,11 @@ export function toBehaviorCodeMap(map, profile = null) {
 
   const entryNode = kept.find((n) => n.kind === "entry");
   if (entryNode) {
-    entryNode.label = "Runtime behavior";
+    const leaf = String(map.fileLabel ?? map.header ?? "module")
+      .replace(/^…\//, "")
+      .replace(/\s*·\s*structure.*$/i, "")
+      .trim();
+    entryNode.label = leaf ? `${leaf} · execution` : "Entrypoint · execution";
   }
 
   if (kept.length > BEHAVIOR_CAP) {

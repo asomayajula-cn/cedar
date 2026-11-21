@@ -297,6 +297,62 @@ function syncActiveCodeMapEngine(stage) {
  * @param {HTMLElement} panel
  * @param {HTMLElement} host
  */
+/**
+ * Wait until the flyout stack has measurable size (day/night — same layout path).
+ * @param {HTMLElement} stage
+ * @param {number} [maxFrames]
+ */
+async function waitForCodeMapFlyoutLayout(stage, maxFrames = 20) {
+  for (let i = 0; i < maxFrames; i++) {
+    const panel = activeCodeMapViewPanel(stage) ?? stage.querySelector(".cedar-code-map-view-stage");
+    const host = panel?.querySelector(".cedar-code-map-cy");
+    const stack = stage.querySelector(".cedar-code-map-view-stack");
+    const rect =
+      host instanceof HTMLElement
+        ? host.getBoundingClientRect()
+        : stack instanceof HTMLElement
+          ? stack.getBoundingClientRect()
+          : null;
+    if (rect && rect.width >= 20 && rect.height >= 20) return true;
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+  }
+  return false;
+}
+
+/**
+ * @param {HTMLElement} stage
+ * @param {string[]} tabKeys
+ * @param {string} activeKey
+ */
+async function mountAllCodeMapTriptychViews(stage, tabKeys, activeKey) {
+  const jobs = triptychViewJobs.get(stage);
+  if (!jobs?.size || !tabKeys.length) return;
+
+  await waitForCodeMapFlyoutLayout(stage);
+
+  ensureCodeMapViewMounted(stage, activeKey);
+  for (const key of tabKeys) {
+    if (key !== activeKey) ensureCodeMapViewMounted(stage, key);
+  }
+
+  await new Promise((resolve) => requestAnimationFrame(resolve));
+
+  for (const [viewKey, job] of jobs) {
+    if (!(job.host instanceof HTMLElement)) continue;
+    job.panel.style.removeProperty("visibility");
+    job.panel.style.removeProperty("pointer-events");
+    if (!job.mounted) continue;
+    layoutViewPanelHost(job.panel, job.host);
+    const api = codeMapCyApiForHost(job.host);
+    api?.resize?.();
+    if (viewKey === activeKey) {
+      lastFitSizeByStage.delete(stage);
+      fitCodeMapCy(stage, job.host);
+    }
+  }
+  syncActiveCodeMapEngine(stage);
+}
+
 function layoutViewPanelHost(panel, host) {
   if (getComputedStyle(panel).position === "static") {
     panel.style.position = "relative";
@@ -329,12 +385,15 @@ export function switchCodeMapFlyoutView(view) {
   const allowed = new Set(["structure", "behavior", "functionality"]);
   const key = allowed.has(view) ? view : "structure";
   const sameTab = stage.dataset.cedarActiveCodeMapView === key;
+  if (!sameTab) lastFitSizeByStage.delete(stage);
   stage.dataset.cedarActiveCodeMapView = key;
   for (const panel of stage.querySelectorAll(".cedar-code-map-view-stage")) {
     if (!(panel instanceof HTMLElement)) continue;
     const on = panel.dataset.codeMapView === key;
     panel.hidden = !on;
     panel.classList.toggle("is-active", on);
+    panel.style.removeProperty("visibility");
+    panel.style.removeProperty("pointer-events");
     if (on) panel.setAttribute("tabindex", "0");
     else panel.removeAttribute("tabindex");
   }
@@ -346,15 +405,19 @@ export function switchCodeMapFlyoutView(view) {
     syncActiveCodeMapEngine(stage);
     if (panel2 instanceof HTMLElement && host2 instanceof HTMLElement) {
       layoutViewPanelHost(panel2, host2);
-      const rect = host2.getBoundingClientRect();
-      if (rect.width >= 8 && rect.height >= 8) {
-        fitCodeMapCy(stage, host2);
-      } else {
-        requestAnimationFrame(() => {
-          layoutViewPanelHost(panel2, host2);
+      const runFit = () => {
+        const api = codeMapCyApiForHost(host2);
+        api?.resize?.();
+        const rect = host2.getBoundingClientRect();
+        if (rect.width >= 8 && rect.height >= 8) {
           fitCodeMapCy(stage, host2);
-        });
-      }
+        }
+      };
+      runFit();
+      requestAnimationFrame(() => {
+        layoutViewPanelHost(panel2, host2);
+        runFit();
+      });
     }
     delete stage.dataset.cedarMapTabSwitching;
   };
@@ -399,14 +462,6 @@ function ensureCodeMapViewMounted(stage, viewKey) {
   const job = jobs?.get(viewKey);
   if (!job) return;
 
-  const panelHidden =
-    job.panel.hidden ||
-    job.panel.getAttribute("hidden") !== null ||
-    getComputedStyle(job.panel).display === "none";
-  if (panelHidden && viewKey !== getActiveCodeMapViewKey(stage)) {
-    return;
-  }
-
   const registerJobCy = (api) => {
     if (!api) return;
     cyByHost.set(job.host, api);
@@ -424,23 +479,39 @@ function ensureCodeMapViewMounted(stage, viewKey) {
     return;
   }
 
-  layoutViewPanelHost(job.panel, job.host);
-  const mounted = mountCodeMapCy(job.host, {
-    elements: job.elements,
-    rankdir: job.rankdir,
-    viewKey,
-    onReady: (api) => {
-      registerJobCy(api);
-      layoutViewPanelHost(job.panel, job.host);
-      fitCodeMapCy(stage, job.host);
-      if (getActiveCodeMapViewKey(stage) === viewKey) {
-        syncActiveCodeMapEngine(stage);
-      }
-    },
-  });
-  job.mounted = Boolean(mounted);
-  if (mounted) {
-    registerJobCy(codeMapCyApiForHost(job.host));
+  const wasHidden = job.panel.hidden;
+  try {
+    if (wasHidden) {
+      job.panel.hidden = false;
+      job.panel.style.visibility = "hidden";
+      job.panel.style.pointerEvents = "none";
+    }
+    layoutViewPanelHost(job.panel, job.host);
+    const mounted = mountCodeMapCy(job.host, {
+      elements: job.elements,
+      rankdir: job.rankdir,
+      viewKey,
+      onReady: (api) => {
+        registerJobCy(api);
+        layoutViewPanelHost(job.panel, job.host);
+        fitCodeMapCy(stage, job.host);
+        if (getActiveCodeMapViewKey(stage) === viewKey) {
+          syncActiveCodeMapEngine(stage);
+        }
+      },
+    });
+    job.mounted = Boolean(mounted);
+    if (mounted) {
+      registerJobCy(codeMapCyApiForHost(job.host));
+    }
+  } finally {
+    if (wasHidden) {
+      const active = getActiveCodeMapViewKey(stage);
+      const show = viewKey === active;
+      job.panel.hidden = !show;
+      job.panel.style.removeProperty("visibility");
+      job.panel.style.removeProperty("pointer-events");
+    }
   }
 }
 
@@ -458,12 +529,19 @@ export function wireCodeMapTriptychTabs() {
   if (document.documentElement.dataset.cedarTriptychTabsWired === "1") return;
   document.documentElement.dataset.cedarTriptychTabsWired = "1";
 
-  document.addEventListener("click", (e) => {
-    const btn = e.target instanceof Element ? e.target.closest("[data-code-map-view-tab]") : null;
-    if (!(btn instanceof HTMLButtonElement)) return;
-    e.preventDefault();
-    activateCodeMapViewFromTabButton(btn);
-  });
+  document.addEventListener(
+    "click",
+    (e) => {
+      const btn = e.target instanceof Element ? e.target.closest("[data-code-map-view-tab]") : null;
+      if (!(btn instanceof HTMLButtonElement)) return;
+      const panel = document.getElementById("cedar-review-right-nav");
+      if (!(panel instanceof HTMLElement) || !panel.contains(btn)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      activateCodeMapViewFromTabButton(btn);
+    },
+    true
+  );
 
   document.addEventListener("keydown", (e) => {
     const t = e.target;
@@ -958,7 +1036,7 @@ export async function mountFileCodeMap(stage, artifact, filePath = "") {
     ]);
 
     const activeKey = getActiveCodeMapViewKey(stage);
-    const allowedActive = CODE_MAP_VIEW_ORDER.includes(/** @type {any} */ (activeKey))
+    let allowedActive = CODE_MAP_VIEW_ORDER.includes(/** @type {any} */ (activeKey))
       ? activeKey
       : "structure";
     /** @type {Map<string, { elements: object[], rankdir: string, panel: HTMLElement, host: HTMLElement, mounted: boolean }>} */
@@ -1007,6 +1085,15 @@ export async function mountFileCodeMap(stage, artifact, filePath = "") {
 
     if (!jobs.size) return false;
 
+    if (!tabKeys.includes(allowedActive)) {
+      allowedActive = tabKeys[0] ?? "structure";
+    }
+    for (const [viewKey, job] of jobs) {
+      const show = viewKey === allowedActive;
+      job.panel.hidden = !show;
+      job.panel.classList.toggle("is-active", show);
+    }
+
     stage.dataset.cedarActiveCodeMapView = allowedActive;
     triptychViewJobs.set(stage, jobs);
     renderCodeMapViewTabBar(tabKeys, allowedActive);
@@ -1020,11 +1107,16 @@ export async function mountFileCodeMap(stage, artifact, filePath = "") {
       stage.dataset.cedarMapNeedsFlyoutFit = "1";
     }
 
-    ensureCodeMapViewMounted(stage, allowedActive);
+    await mountAllCodeMapTriptychViews(stage, tabKeys, allowedActive);
+
     const first = jobs.get(allowedActive);
     if (!first?.mounted) {
       destroyStage(stage);
       return false;
+    }
+    const allMounted = tabKeys.every((key) => jobs.get(key)?.mounted);
+    if (!allMounted) {
+      console.warn("[cedar] code map triptych: one or more views failed to mount", tabKeys);
     }
     activeCyApi = cyByHost.get(first.host) ?? null;
     if (activeCyApi) setStageMapEngines(stage, { cy: activeCyApi });
@@ -1140,7 +1232,11 @@ export async function remountFileCodeMapForTheme() {
   const jobs = triptychViewJobs.get(stage);
   if (jobs?.size) {
     for (const [viewKey, job] of jobs) {
-      if (!job.mounted || !(job.host instanceof HTMLElement)) continue;
+      if (!(job.host instanceof HTMLElement)) continue;
+      if (!job.mounted) {
+        ensureCodeMapViewMounted(stage, viewKey);
+        continue;
+      }
       mountCodeMapCy(job.host, {
         elements: job.elements,
         rankdir: job.rankdir,
@@ -1149,6 +1245,11 @@ export async function remountFileCodeMapForTheme() {
       });
       job.mounted = true;
     }
+    await mountAllCodeMapTriptychViews(
+      stage,
+      CODE_MAP_VIEW_ORDER.filter((k) => jobs.has(k)),
+      getActiveCodeMapViewKey(stage)
+    );
   }
 
   const mermaidHost = stage.querySelector(".cedar-file-flow-mermaid[data-mermaid-source]");

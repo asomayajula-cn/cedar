@@ -166,3 +166,50 @@ html[data-theme="night"] #cedar-review-panel-architecture .text-zinc-400,
 :root:not([data-theme="day"]) .cedar-diff2html.d2h-dark-color-scheme td.d2h-del .d2h-code-side-linenumber {
   background-color: var(--d2h-del-bg-color);
 }
+
+/* Code-map flyout — Structure / Behavior / Functionality (night) */
+html[data-theme="night"] body.cedar-code-map-expanded .cedar-code-map-flyout-panel,
+:root:not([data-theme="day"]) body.cedar-code-map-expanded .cedar-code-map-flyout-panel {
+  border-color: var(--cedar-review-border-strong);
+  box-shadow: -16px 0 48px rgb(0 0 0 / 0.45);
+  background: var(--cedar-review-rail);
+}
+
+html[data-theme="night"] body.cedar-code-map-expanded .cedar-code-map-view-tabs,
+:root:not([data-theme="day"]) body.cedar-code-map-expanded .cedar-code-map-view-tabs {
+  background: rgb(0 0 0 / 0.35);
+  border-color: rgb(255 255 255 / 0.1);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04);
+}
+
+html[data-theme="night"] body.cedar-code-map-expanded .cedar-code-map-view-tab,
+:root:not([data-theme="day"]) body.cedar-code-map-expanded .cedar-code-map-view-tab {
+  color: rgb(161 161 170);
+}
+
+html[data-theme="night"] body.cedar-code-map-expanded .cedar-code-map-view-tab.is-active,
+html[data-theme="night"] body.cedar-code-map-expanded .cedar-code-map-view-tab[aria-selected="true"],
+:root:not([data-theme="day"]) body.cedar-code-map-expanded .cedar-code-map-view-tab.is-active,
+:root:not([data-theme="day"]) body.cedar-code-map-expanded .cedar-code-map-view-tab[aria-selected="true"] {
+  background: rgb(255 255 255 / 0.08);
+  color: rgb(244 244 245);
+  border-color: rgb(255 255 255 / 0.12);
+}
+
+html[data-theme="night"] body.cedar-code-map-expanded .cedar-code-map-cy--flyout,
+:root:not([data-theme="day"]) body.cedar-code-map-expanded .cedar-code-map-cy--flyout {
+  background: #0c0c0e;
+  border: 1px solid #3f3f46;
+}
+
+html[data-theme="night"] body.cedar-code-map-expanded .cedar-file-flow-stage.is-code-map-triptych,
+:root:not([data-theme="day"]) body.cedar-code-map-expanded .cedar-file-flow-stage.is-code-map-triptych {
+  background-color: rgb(9 9 11 / 0.55);
+}
+
+html[data-theme="night"] body.cedar-code-map-expanded .cedar-code-map-expand-btn.cedar-review-rail-edge:focus-visible,
+:root:not([data-theme="day"]) body.cedar-code-map-expanded .cedar-code-map-expand-btn.cedar-review-rail-edge:focus-visible {
+  box-shadow:
+    0 0 0 2px var(--cedar-review-rail),
+    0 0 0 4px rgb(255 255 255 / 0.18);
+}

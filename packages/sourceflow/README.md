@@ -30,7 +30,9 @@ mountSourceFlow(container, {
 });
 ```
 
-Parsing runs on the Cedar server (`buildFileFlowArtifacts`); the browser receives `elements` plus summary fields for Structure / Behavior / Layout.
+Parsing runs when the code-map flyout opens: `POST /api/code-map/file` with the file patch builds Structure / Behavior / Functionality (`buildFileFlowArtifacts` on the server). Review slices only carry `path` + `patch` until then.
+
+With `CEDAR_AI_CODE_MAP=auto`, that endpoint also calls the AI provider (`src/ai-code-map.js`) to author the three views from the patch + parser skeleton.
 
 ## License
 

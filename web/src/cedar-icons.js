@@ -48,9 +48,9 @@ export function codeMapExpandIconSvg(className = "h-4 w-4") {
 }
 
 /** Close expanded code map. */
-export function codeMapCloseExpandIconSvg(className = "h-4 w-4") {
+export function codeMapCloseExpandIconSvg(className = "cedar-rail-edge-icon") {
   return `<svg class="${className}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-    <path stroke="currentColor" stroke-width="1.5" stroke-linecap="round" d="M9 9 4 4M9 15 4 20M15 9l5-4M15 15l5 4"/>
+    <path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M6 6l12 12M18 6 6 18"/>
   </svg>`;
 }
 

@@ -65,6 +65,13 @@ export function renderCodeMapFlyoutPanelHtml() {
         ></div>
         <header class="cedar-review-rail-toolbar cedar-review-rail-toolbar--code-map">
           <p class="cedar-review-rail-title cedar-rail-label mb-0 shrink-0">Code map</p>
+          <p
+            id="cedar-code-map-build-status"
+            class="cedar-code-map-build-status"
+            role="status"
+            aria-live="polite"
+            hidden
+          ></p>
           <div
             id="cedar-code-map-view-tablist"
             class="cedar-code-map-view-tabs cedar-code-map-view-tabs--toolbar min-w-0 flex-1"
@@ -87,10 +94,17 @@ export function renderCodeMapFlyoutPanelHtml() {
             <span class="cedar-rail-edge-icon-wrap cedar-code-map-expand-icon--close" aria-hidden="true">${codeMapCloseExpandIconSvg("cedar-rail-edge-icon")}</span>
           </button>
         </header>
+        <div
+          id="cedar-code-map-build-progress"
+          class="cedar-code-map-build-progress"
+          role="progressbar"
+          aria-valuetext="Processing code map"
+          hidden
+        ></div>
         <div class="cedar-review-rail-body cedar-file-flow-rail cedar-review-rail-section--map min-h-0 min-w-0 flex-1">
           <div class="cedar-code-map-meta">
             <p id="cedar-file-flow-profile" class="cedar-file-flow-profile" hidden></p>
-            <p class="cedar-file-flow-hint">Choose a file, then switch Structure / Behavior / Functionality in the toolbar above the map.</p>
+            <p class="cedar-file-flow-hint">Maps build when you open this flyout for a file — not during slice review. Use Structure / Behavior / Functionality tabs above the canvas.</p>
             <p id="cedar-file-flow-path" class="cedar-file-flow-path font-mono" aria-label="Selected file">Select a file in the diff</p>
             <div id="cedar-file-flow-overview" class="cedar-code-map-overview" hidden aria-live="polite"></div>
             <div id="cedar-file-flow-summary" class="cedar-code-map-summary" hidden aria-hidden="true"></div>

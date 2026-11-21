@@ -29,7 +29,6 @@ import { sliceReviewRequested } from "./slice-review-toggle.js";
 import { renderReviewDiagrams } from "./diagram-graphviz.js";
 import { orderMicroPrsForLayout } from "./diagram-layout.js";
 import { buildDiagramGraph } from "./diagram-graph.js";
-import { buildFileFlowArtifacts } from "./file-flow-diagram.js";
 import { resolveArchitectureVisual } from "./ai-architecture-visual.js";
 import { breakoutCacheKey, readBreakoutCache, writeBreakoutCache } from "./breakout-cache.js";
 import { resolveAiModel } from "./default-model.js";
@@ -416,32 +415,13 @@ export async function runPrReviewPipeline(opts) {
         description: m.description,
         rationale: m.rationale,
         dependsOn: m.dependsOn,
-        files: await Promise.all(
-          m.files.map(async (f) => {
-            const flow = await buildFileFlowArtifacts(f.filename, f.patch ?? "", { status: f.status });
-            return {
-              path: f.filename,
-              status: f.status,
-              additions: f.additions,
-              deletions: f.deletions,
-              patch: f.patch ?? null,
-              flowMermaid: flow.mermaid ?? null,
-              codeMapSvg: flow.svg ?? null,
-              codeMapWhat: flow.whatItDoes ?? null,
-              codeMapElements: flow.elements ?? null,
-              codeMapBehaviorElements: flow.behaviorElements ?? null,
-              codeMapFunctionalityElements: flow.functionalityElements ?? null,
-              codeMapDetail: flow.codeMapDetail ?? null,
-              codeMapProfile: flow.codeMapProfile ?? null,
-              codeMapProfileLabel: flow.codeMapProfileLabel ?? null,
-              codeMapProfileHint: flow.codeMapProfileHint ?? null,
-              codeMapSummary: flow.codeMapSummary ?? null,
-              codeMapLayout: flow.codeMapLayout ?? null,
-              codeMapStructure: flow.codeMapStructure ?? null,
-              codeMapModuleDeps: flow.codeMapModuleDeps ?? null,
-            };
-          })
-        ),
+        files: m.files.map((f) => ({
+          path: f.filename,
+          status: f.status,
+          additions: f.additions,
+          deletions: f.deletions,
+          patch: f.patch ?? null,
+        })),
       }))
     ),
     microResults,

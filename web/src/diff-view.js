@@ -100,10 +100,14 @@ function diffSchemeClass() {
 export function refreshDiffThemeClasses(root = document) {
   const scheme = diffSchemeClass();
   const drop = scheme === "d2h-light-color-scheme" ? "d2h-dark-color-scheme" : "d2h-light-color-scheme";
-  root.querySelectorAll(".cedar-diff2html, .d2h-wrapper, .d2h-file-wrapper").forEach((el) => {
-    el.classList.remove(drop);
-    el.classList.add(scheme);
-  });
+  root
+    .querySelectorAll(
+      ".cedar-diff2html, .d2h-wrapper, .d2h-file-wrapper, .d2h-file-diff, .d2h-diff-table"
+    )
+    .forEach((el) => {
+      el.classList.remove(drop);
+      el.classList.add(scheme);
+    });
 }
 
 /**
@@ -147,7 +151,7 @@ function patchToB64(patch) {
 /**
  * @param {string} b64
  */
-function patchFromB64(b64) {
+export function patchFromB64(b64) {
   return decodeURIComponent(escape(atob(b64)));
 }
 

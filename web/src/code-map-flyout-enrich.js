@@ -61,7 +61,7 @@ export function deriveBehaviorElements(elements) {
   const entryId = entry?.data?.id ?? "behavior_entry_client";
   const fallbackNodes = entry
     ? [entry]
-    : [{ data: { id: entryId, label: "Runtime behavior", kind: "entry" } }];
+    : [{ data: { id: entryId, label: "Execution · call sites", kind: "entry" } }];
   const id = "behavior_none_client";
   return [
     ...fallbackNodes,
@@ -104,7 +104,7 @@ export function deriveFunctionalityElements(artifact) {
   elements.push({
     data: {
       id: entryId,
-      label: "File role",
+      label: "Capability workflow",
       kind: "entry",
     },
   });
@@ -132,17 +132,21 @@ export function deriveFunctionalityElements(artifact) {
 export function enrichFlyoutArtifact(artifact) {
   if (!artifact || typeof artifact !== "object") return artifact;
   const structure = artifact.elements ?? [];
-  if (!structure.length) return artifact;
-
   const serverBehavior = artifact.behaviorElements ?? [];
-  const behaviorElements =
-    serverBehavior.length > 0 ? serverBehavior : deriveBehaviorElements(structure);
-
   const serverFn = artifact.functionalityElements ?? [];
+  if (!structure.length && !serverBehavior.length && !serverFn.length) return artifact;
+
+  const behaviorElements =
+    serverBehavior.length > 0
+      ? serverBehavior
+      : structure.length
+        ? deriveBehaviorElements(structure)
+        : serverBehavior;
+
   const functionalityElements =
     serverFn.length > 0
       ? serverFn
-      : deriveFunctionalityElements({ ...artifact, behaviorElements });
+      : deriveFunctionalityElements({ ...artifact, behaviorElements, elements: structure });
 
   return {
     ...artifact,

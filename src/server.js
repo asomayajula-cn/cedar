@@ -20,6 +20,7 @@ import { resolveComposerReviewMode } from "./composer-review-mode.js";
 import { sliceReviewRequested } from "./slice-review-toggle.js";
 import { answerPrChatQuestion, prChatProviderLabel } from "./pr-chat.js";
 import { cedarAiDiagramMode } from "./diagram-visual-mode.js";
+import { codeMapAiRequested, codeMapAiEnabled } from "./code-map-ai-toggle.js";
 import { ensureCursorBridge, bridgeBaseUrl, isBridgeManaged } from "./cursor-bridge-spawn.js";
 import { warmCursorBridgeSession } from "./cursor-bridge-client.js";
 import { runWithReviewProgress } from "./review-progress.js";
@@ -28,6 +29,8 @@ import { ENV_FILE_PATH, envFileExists, upsertProjectEnv } from "./env-file.js";
 import { runWithReviewCredentials } from "./review-credentials.js";
 import { hydrateMicroPrsFromReport, runBackgroundCursorReview } from "./cursor-review-background.js";
 import { buildFlyoutModuleDeps } from "./dependency-cruiser-flyout.js";
+import { buildFileFlowArtifactsSafe } from "./file-flow-build-safe.js";
+import { codeMapFlowToFlyoutPayload } from "./code-map-api-payload.js";
 import { createClient, fetchPullRequest } from "./github.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -58,6 +61,8 @@ app.get("/api/health", (_req, res) => {
     composerReviewMode: resolveComposerReviewMode(),
     partitionMode: process.env.CEDAR_PARTITION_MODE ?? "auto",
     aiDiagram: cedarAiDiagramMode(),
+    codeMapAiOn: codeMapAiEnabled(),
+    codeMapAiRequested: codeMapAiRequested(),
     breakoutCache: process.env.CEDAR_BREAKOUT_CACHE !== "false",
     aiModel: resolveAiModel(),
     cursorModel: resolveCursorModel(),
@@ -492,6 +497,36 @@ app.post("/api/pr/head", async (req, res) => {
   } catch (err) {
     const explained = explainGithubError(err, { action: "read this pull request" });
     res.status(/** @type {{ status?: number }} */ (err)?.status ?? 500).json(explained);
+  }
+});
+
+/** Build Structure / Behavior / Functionality when the code-map flyout opens (not during slice review). */
+app.post("/api/code-map/file", async (req, res) => {
+  const body = req.body ?? {};
+  const filePath = typeof body.path === "string" ? body.path.trim() : "";
+  const patch = typeof body.patch === "string" ? body.patch : "";
+  const status = typeof body.status === "string" ? body.status : "modified";
+  const aiCodeMap =
+    body.aiCodeMap === false || body.parserOnly === true ? false : undefined;
+  if (!filePath) {
+    res.status(400).json({ error: "path is required" });
+    return;
+  }
+  if (filePath.includes("..") || path.isAbsolute(filePath)) {
+    res.status(400).json({ error: "path must be repository-relative" });
+    return;
+  }
+  try {
+    const flow = await buildFileFlowArtifactsSafe(filePath, patch, { status, aiCodeMap });
+    const payload = codeMapFlowToFlyoutPayload(flow);
+    if (!payload) {
+      res.status(422).json({ error: "Could not build code map for this file" });
+      return;
+    }
+    res.json(payload);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: message });
   }
 });
 
