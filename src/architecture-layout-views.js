@@ -9,6 +9,7 @@ import { normalizeSliceId } from "./architecture-model.js";
 import { formatPrHubLabel, mermaidFlowNodeLabel } from "./diagram-labels.js";
 import { buildPrArchitectureLayers } from "./pr-architecture-layers.js";
 import { mermaidParticipantAlias, mermaidSafeText } from "./mermaid-sanitize.js";
+import { buildClassMembersIndex } from "./architecture-source-symbols.js";
 import { layerAccent, layerAccentForTheme } from "./diagram-colors.js";
 
 const MAX_LAYERS = 16;
@@ -101,18 +102,34 @@ export function buildCompleteLayoutViews(microPrs, breakouts, pull, target, slic
   const sliceNums = sliceNumberById instanceof Map ? sliceNumberById : new Map(Object.entries(sliceNumberById ?? {}));
 
   return {
-    components: buildComponentsClassDiagram(layers, registry, sliceNums),
+    components: buildComponentsClassDiagram(layers, registry, sliceNums, buildClassMembersIndex(layers)),
     flow: buildRequestFlowDiagram(layers, active, pull, target),
     events: buildEventsSequenceDiagram(layers, active, registry),
   };
 }
 
 /**
+ * @param {string} member
+ */
+function mermaidUmlMember(member) {
+  return String(member)
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, "'")
+    .replace(/#/g, "")
+    .replace(/;/g, ",")
+    .replace(/[\r\n]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 56);
+}
+
+/**
  * @param {PrArchitectureLayer[]} layers
  * @param {ReturnType<typeof buildClassRegistry>} registry
  * @param {Map<string, number>} sliceNums
+ * @param {Map<string, { fields: string[], methods: string[] }>} [membersByType]
  */
-function buildComponentsClassDiagram(layers, registry, sliceNums) {
+function buildComponentsClassDiagram(layers, registry, sliceNums, membersByType = new Map()) {
   void sliceNums;
   if (!layers.length) {
     return 'classDiagram\n  class EmptyPR["No changed layers"]';
@@ -135,7 +152,17 @@ function buildComponentsClassDiagram(layers, registry, sliceNums) {
     declared.add(c.mermaidId);
     lines.push(`  class ${c.mermaidId}["${mermaidSafeText(c.typeName)}"]`);
     paintClass(c.mermaidId, c.layerId);
-    if (c.layer.summary && c.mermaidId === registry.layerToAnchor.get(c.layerId)) {
+    const mem = membersByType.get(c.typeName);
+    const fields = mem?.fields ?? [];
+    const methods = mem?.methods ?? [];
+    if (fields.length || methods.length) {
+      for (const f of fields) {
+        lines.push(`  ${c.mermaidId} : +${mermaidUmlMember(f)}`);
+      }
+      for (const m of methods) {
+        lines.push(`  ${c.mermaidId} : +${mermaidUmlMember(m)}`);
+      }
+    } else if (c.layer.summary && c.mermaidId === registry.layerToAnchor.get(c.layerId)) {
       lines.push(`  ${c.mermaidId} : ${mermaidSafeText(c.layer.summary)}`);
     }
   }

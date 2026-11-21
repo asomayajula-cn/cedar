@@ -2836,6 +2836,8 @@
     border-radius: 0;
     padding: 0.35rem 0;
     font-size: 10px;
+    text-align: center;
+    text-wrap: balance;
   }
 
   #main-stage.cedar-review-wide .cedar-review-layout--icon-nav #cedar-review-left-nav.cedar-review-left-nav {
@@ -4446,12 +4448,16 @@
     border-color: rgb(16 185 129 / 0.35);
     background: rgb(16 185 129 / 0.1);
     color: rgb(209 250 229);
+    text-align: center;
+    text-wrap: balance;
   }
 
   .cedar-review-left-nav-gate--pending {
     border-color: rgb(245 158 11 / 0.35);
     background: rgb(245 158 11 / 0.1);
     color: rgb(254 243 199);
+    text-align: center;
+    text-wrap: balance;
   }
 
   #main-stage.cedar-review-wide .cedar-review-layout--three-col .cedar-review-center {

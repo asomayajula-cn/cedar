@@ -221,7 +221,7 @@ export function renderLoadingReviewCenterMain() {
   return `<div id="review-progress-panel" class="cedar-main-tabpanel cedar-review-stage cedar-review-loading-panel">
           <div class="cedar-review-progress-head cedar-review-loading-head">
             <span class="cedar-review-progress-status-dot" aria-hidden="true"></span>
-            <p class="cedar-review-progress-label mb-0">Review in progress</p>
+            <p class="cedar-review-progress-label mb-0">Review in progress…</p>
           </div>
           <p id="review-progress-status" class="cedar-review-progress-status">Connecting…</p>
           <ul id="review-progress-log" class="review-progress-log cedar-review-progress-log" aria-live="polite"></ul>
