@@ -97,7 +97,7 @@ export function renderCodeMapFlyoutPanelHtml() {
             <p id="cedar-file-flow-what" class="cedar-file-flow-what" hidden aria-hidden="true"></p>
           </div>
           <div id="cedar-file-flow-stage" class="cedar-file-flow-stage min-h-0 flex-1">
-            <p class="cedar-file-flow-empty text-balance text-center">Open <strong>Slices</strong>, then use the <strong>[]</strong> control on a file header for its architecture map.</p>
+            <p class="cedar-file-flow-empty text-balance text-center">Open <strong>Review</strong>, pick a file, then use <strong>[]</strong> on the diff header for that file&rsquo;s code map (Structure / Behavior / Functionality).</p>
           </div>
         </div>
       </aside>`;

@@ -315,7 +315,7 @@ export function setFileFlowCatalog(map) {
 }
 
 /**
- * Select a file and open its architecture / code map (flyout expanded by default).
+ * Select a file and open its per-file code map (flyout expanded by default).
  * @param {string} path
  * @param {{ expand?: boolean }} [opts]
  */

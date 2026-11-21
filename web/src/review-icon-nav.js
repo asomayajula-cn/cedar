@@ -303,7 +303,7 @@ export function wireReviewIconNav(root, onMainTab) {
     setLeftDrawerPanel(layout, next);
     if (next === "files" || tab === "files") refreshFilesDrawerPanel(root);
     if (next === "findings" || tab === "findings") refreshFindingsDrawerPanel(root);
-    if (next === "slices" || tab === "slices") onMainTab?.(root, "slices");
+    /* Left rail drawers (slices list, files, etc.) do not change the center Architecture vs Review tab. */
     if (next === "findings" || tab === "findings") onMainTab?.(root, "slices");
   });
 }

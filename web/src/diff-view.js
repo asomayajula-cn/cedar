@@ -34,7 +34,7 @@ function countPatchAddDel(patch) {
 
 function renderFileCodeMapButton(path) {
   const p = escapeHtml(path);
-  return `<button type="button" class="cedar-file-code-map-btn diagram-tool-btn" data-file-code-map="${p}" title="Code map" aria-label="Open architecture map for ${p}">
+  return `<button type="button" class="cedar-file-code-map-btn diagram-tool-btn" data-file-code-map="${p}" title="Code map" aria-label="Open code map for ${p}">
     ${codeMapExpandIconSvg("cedar-file-code-map-icon")}
   </button>`;
 }

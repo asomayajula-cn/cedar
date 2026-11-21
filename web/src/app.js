@@ -117,7 +117,7 @@ function wireReviewChrome(root) {
  * @param {ParentNode} root
  * @param {"architecture" | "slices"} [mainTab]
  */
-function focusReviewWorkspace(root, mainTab = "slices") {
+function focusReviewWorkspace(root, mainTab = "architecture") {
   activateReviewMainTab(root, mainTab);
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
@@ -1099,19 +1099,25 @@ function activateReviewMainTab(root, mainTab = "architecture") {
   if (mainStage instanceof HTMLElement) {
     mainStage.classList.toggle("cedar-review-slices-focus", mainTab === "slices");
   }
+  const iconLayout = root.querySelector(".cedar-review-layout--icon-nav");
+  if (iconLayout instanceof HTMLElement) {
+    iconLayout.querySelectorAll(".cedar-review-icon-rail-btn").forEach((btn) => {
+      if (!(btn instanceof HTMLButtonElement) || btn.hasAttribute("data-code-map-flyout-tab")) return;
+      const arch = btn.getAttribute("data-review-tab") === "architecture";
+      const active = arch ? mainTab === "architecture" : mainTab === "slices" && !arch;
+      if (arch || btn.getAttribute("data-left-drawer-tab") === "slices") {
+        btn.classList.toggle("is-active", active);
+        btn.setAttribute("aria-pressed", active ? "true" : "false");
+      }
+    });
+  }
+
   if (mainTab === "architecture") {
+    ensurePrArchitectureView(root);
     requestAnimationFrame(() => {
+      ensurePrArchitectureView(root);
       requestAnimationFrame(() => {
-        remountCompleteLayoutPanZoom(root);
-        refitPanZoomDiagrams(root);
-        const host = root.querySelector("#cedar-cy-slices");
-        if (host?.dataset.cyMountPending === "1" && window.__cedarOverviewGraph) {
-          const { resolveGraph, getStatusMap } = window.__cedarOverviewGraph;
-          mountArchitectureGraphs(root, resolveGraph(), getStatusMap(), {
-            force: true,
-            onFail: () => showToast("Architecture diagram could not render.", "error"),
-          });
-        }
+        ensurePrArchitectureView(root);
         window.dispatchEvent(new Event("resize"));
       });
     });
@@ -1626,6 +1632,158 @@ const COMPLETE_LAYOUT_MERMAID_SLOTS = [
   { key: "events", sel: "#cedar-mermaid-events" },
 ];
 
+/** @type {WeakMap<HTMLElement, () => void>} */
+const completeLayoutDrawByHost = new WeakMap();
+
+/**
+ * @param {ParentNode} host
+ * @param {{ components?: string, flow?: string, events?: string }} views
+ */
+function seedCompleteLayoutMermaidSources(host, views) {
+  const root =
+    host instanceof HTMLElement ? host : host?.querySelector?.("#architecture-read-mermaid");
+  if (!(root instanceof HTMLElement) || !views) return;
+  for (const { key, sel } of COMPLETE_LAYOUT_MERMAID_SLOTS) {
+    const pre = root.querySelector(sel);
+    const source = views[key];
+    if (pre instanceof HTMLElement && source?.trim()) {
+      pre.dataset.mermaidSource = source;
+    }
+  }
+}
+
+/**
+ * PR-level Architecture tab only (overview + complete layout). File code maps use the flyout.
+ * @param {ParentNode} root
+ */
+function resolveSessionLayoutViews() {
+  const session = window.__cedarSession;
+  if (!session) return null;
+  const cached = session.layoutViews;
+  if (cached && (cached.components?.trim() || cached.flow?.trim() || cached.events?.trim())) {
+    return cached;
+  }
+  const b = session.layoutViewsBuild;
+  if (b?.diagramMicroPrs?.length) {
+    const views = buildCompleteLayoutViews(
+      b.diagramMicroPrs,
+      b.breakouts,
+      b.pull,
+      b.target,
+      b.sliceNumberById,
+      getResolvedTheme()
+    );
+    session.layoutViews = views;
+    return views;
+  }
+  const fromBreakouts = session.data?.breakouts?.diagramLayoutViews ?? null;
+  if (fromBreakouts) session.layoutViews = fromBreakouts;
+  return fromBreakouts;
+}
+
+/**
+ * @param {ParentNode} scope
+ * @param {{ components?: string, flow?: string, events?: string }} views
+ * @param {{ force?: boolean }} [opts]
+ */
+function completeLayoutSlotNeedsRender(mermaidHost, views) {
+  if (!(mermaidHost instanceof HTMLElement) || !views) return false;
+  return COMPLETE_LAYOUT_MERMAID_SLOTS.some(({ key, sel }) => {
+    const source = views[key];
+    if (!source?.trim()) return false;
+    const pre = mermaidHost.querySelector(sel);
+    if (!(pre instanceof HTMLElement)) return true;
+    const svg = pre.querySelector("svg");
+    if (!(svg instanceof SVGSVGElement)) return true;
+    const vb = svg.viewBox?.baseVal;
+    if (vb && vb.width > 4 && vb.height > 4) return false;
+    const w = svg.width?.baseVal?.value ?? 0;
+    const h = svg.height?.baseVal?.value ?? 0;
+    return w < 8 || h < 8;
+  });
+}
+
+/**
+ * @param {ParentNode} scope
+ * @param {{ components?: string, flow?: string, events?: string }} views
+ * @param {{ force?: boolean }} [opts]
+ */
+function mountPrCompleteLayoutDiagrams(scope, views, opts = {}) {
+  const mermaidHost = scope.querySelector("#architecture-read-mermaid");
+  if (!(mermaidHost instanceof HTMLElement) || !views) return Promise.resolve(0);
+  seedCompleteLayoutMermaidSources(mermaidHost, views);
+  const force = opts.force === true;
+  if (!force && !completeLayoutSlotNeedsRender(mermaidHost, views)) {
+    wireArchitectureZoomControls(scope);
+    remountCompleteLayoutPanZoom(scope);
+    refitPanZoomDiagrams(scope);
+    return Promise.resolve(3);
+  }
+  return mountCompleteLayoutViews(mermaidHost, views).then((drew) => {
+    if (!drew) return drew;
+    if (allMountedCompleteLayout(mermaidHost, views)) {
+      mermaidHost.dataset.mermaidLayoutsMounted = "1";
+    }
+    activateDiagramUx(mermaidHost);
+    wireArchitectureZoomControls(scope);
+    remountCompleteLayoutPanZoom(scope);
+    refitPanZoomDiagrams(scope);
+    return drew;
+  });
+}
+
+/**
+ * @param {HTMLElement} host
+ * @param {{ components?: string, flow?: string, events?: string }} views
+ */
+function allMountedCompleteLayout(host, views) {
+  return COMPLETE_LAYOUT_MERMAID_SLOTS.every(({ key, sel }) => {
+    const slot = host.querySelector(sel);
+    return slot?.querySelector("svg") || !views[key]?.trim();
+  });
+}
+
+/**
+ * @param {ParentNode} root
+ */
+function ensurePrArchitectureView(root) {
+  const panel = root.querySelector("#cedar-review-panel-architecture");
+  if (panel instanceof HTMLElement && panel.hidden) return;
+
+  const scope =
+    root instanceof HTMLElement && root.id === "results"
+      ? root
+      : (root.querySelector("#results") ?? root);
+
+  const views = resolveSessionLayoutViews();
+  const mermaidHost = scope.querySelector("#architecture-read-mermaid");
+  if (mermaidHost instanceof HTMLElement && views) {
+    let draw = completeLayoutDrawByHost.get(mermaidHost);
+    if (!draw) {
+      wireCompleteLayoutViews(scope, views);
+      draw = completeLayoutDrawByHost.get(mermaidHost);
+    }
+    void mountPrCompleteLayoutDiagrams(scope, views, { force: true });
+  }
+
+  const payload = window.__cedarOverviewGraph;
+  if (payload) {
+    const graph = payload.resolveGraph();
+    if (isRenderableDiagramGraph(graph)) {
+      mountArchitectureGraphs(scope, graph, payload.getStatusMap(), {
+        force: true,
+        onFail: () => showToast("Architecture diagram could not render.", "error"),
+      });
+    }
+  }
+
+  wireArchitectureZoomControls(scope);
+  requestAnimationFrame(() => {
+    remountCompleteLayoutPanZoom(scope);
+    refitPanZoomDiagrams(scope);
+  });
+}
+
 /**
  * Rebuild Complete layout Mermaid sources for the active UI theme (day/night accents).
  * @param {ParentNode} root
@@ -1644,14 +1802,9 @@ function refreshCompleteLayoutMermaidSources(root) {
   );
   const host = root.querySelector("#architecture-read-mermaid");
   if (!(host instanceof HTMLElement)) return views;
-  for (const { key, sel } of COMPLETE_LAYOUT_MERMAID_SLOTS) {
-    const pre = host.querySelector(sel);
-    const source = views[key];
-    if (pre instanceof HTMLElement && source?.trim()) {
-      pre.dataset.mermaidSource = source;
-    }
-  }
+  seedCompleteLayoutMermaidSources(host, views);
   if (session) session.layoutViews = views;
+  completeLayoutDrawByHost.get(host)?.();
   return views;
 }
 
@@ -1674,18 +1827,19 @@ function resolveOverviewDiagramGraph(breakouts, diagramMicroPrs, pull, target) {
  */
 function wireArchitectureOverviewGraph(root, payload) {
   const draw = () => {
-    const panel = root.querySelector("#cedar-review-panel-architecture");
-    if (panel instanceof HTMLElement && panel.hidden) return;
     const graph = payload.resolveGraph();
     if (!isRenderableDiagramGraph(graph)) {
-      showToast("Architecture diagram could not render.", "error");
       return;
     }
+    const panel = root.querySelector("#cedar-review-panel-architecture");
+    const panelHidden = panel instanceof HTMLElement && panel.hidden;
     mountArchitectureGraphs(root, graph, payload.getStatusMap(), {
-      force: true,
-      onFail: () => showToast("Architecture diagram could not render.", "error"),
+      force: !panelHidden,
+      onFail: () => {
+        if (!panelHidden) showToast("Architecture diagram could not render.", "error");
+      },
     });
-    requestAnimationFrame(() => refitPanZoomDiagrams(root));
+    if (!panelHidden) requestAnimationFrame(() => refitPanZoomDiagrams(root));
   };
 
   root.querySelectorAll("[data-review-tab]").forEach((btn) => {
@@ -1706,31 +1860,19 @@ function wireCompleteLayoutViews(root, views) {
   const host = root.querySelector("#architecture-read-mermaid");
   if (!(host instanceof HTMLElement)) return;
 
-  const allMounted = () =>
-    COMPLETE_LAYOUT_MERMAID_SLOTS.every(({ key, sel }) => {
-      const slot = host.querySelector(sel);
-      return slot?.querySelector("svg") || !views[key]?.trim();
-    });
+  seedCompleteLayoutMermaidSources(host, views);
 
   const draw = () => {
     const panel = root.querySelector("#cedar-review-panel-architecture");
-    if (panel instanceof HTMLElement && panel.hidden) return;
-    if (allMounted()) {
-      remountCompleteLayoutPanZoom(host);
-      wireArchitectureZoomControls(root);
-      requestAnimationFrame(() => refitPanZoomDiagrams(host));
-      return;
-    }
-    void mountCompleteLayoutViews(host, views).then((drew) => {
-      if (!drew) showToast("Complete layout diagrams could not render.", "error");
-      if (allMounted()) host.dataset.mermaidLayoutsMounted = "1";
-      else delete host.dataset.mermaidLayoutsMounted;
-      activateDiagramUx(host);
-      wireArchitectureZoomControls(root);
-      requestAnimationFrame(() => refitPanZoomDiagrams(host));
+    const panelHidden = panel instanceof HTMLElement && panel.hidden;
+    void mountPrCompleteLayoutDiagrams(root, views, { force: !panelHidden }).then((drew) => {
+      if (!drew && !panelHidden) {
+        showToast("Complete layout diagrams could not render.", "error");
+      }
     });
   };
 
+  completeLayoutDrawByHost.set(host, draw);
   wireArchitectureZoomControls(root);
 
   root.querySelectorAll("[data-review-tab]").forEach((btn) => {
@@ -1885,9 +2027,12 @@ function renderResults(container, data, opts = {}) {
   const prLayerStackHtml = renderPrLayerStack(activeArchitectureIds);
 
   const showArchitectureRead =
+    archSliceCount > 0 ||
+    hasLayoutViews ||
     showArchitectureSection ||
     architectureReadSummary ||
-    architectureReadNotes.length ||
+    architectureReadNotes.length > 0 ||
+    Boolean(breakouts?.architectureSummary) ||
     Boolean(composite);
 
   const activeSlices = activeSlicesForDiagram;
@@ -1896,7 +2041,8 @@ function renderResults(container, data, opts = {}) {
   const showFullPrSlice = fullPrFiles.length > 0;
   const defaultSliceId = activeSlices[0]?.componentId ?? (showFullPrSlice ? FULL_PR_SLICE_ID : "");
   const hasArchitectureContent = Boolean(breakouts?.architectureSummary) || showArchitectureRead;
-  const defaultMainTab = activeSlices.length > 0 ? "slices" : hasArchitectureContent ? "architecture" : "slices";
+  const defaultMainTab =
+    archSliceCount > 0 || hasLayoutViews || hasArchitectureContent ? "architecture" : "slices";
   const initialMainTab =
     uiRestore?.mainTab === "architecture" || uiRestore?.mainTab === "slices" ? uiRestore.mainTab : defaultMainTab;
   const initialSliceId = uiRestore?.sliceId ?? defaultSliceId;
@@ -2220,6 +2366,7 @@ function renderResults(container, data, opts = {}) {
   });
 
   if (hasLayoutViews && layoutViews) {
+    if (window.__cedarSession) window.__cedarSession.layoutViews = layoutViews;
     wireCompleteLayoutViews(container, layoutViews);
     wireDiagramResizeListeners(container);
   }
@@ -2256,6 +2403,9 @@ function renderResults(container, data, opts = {}) {
   applySliceNavTypography();
   finishReviewUi(container);
   if (!uiRestore?.mainTab) focusReviewWorkspace(container, initialMainTab);
+  if (initialMainTab === "architecture") {
+    requestAnimationFrame(() => ensurePrArchitectureView(container));
+  }
 }
 
 function bindApproveHandlers(root) {
