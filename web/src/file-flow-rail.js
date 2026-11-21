@@ -603,4 +603,5 @@ export function wireFileFlowRail(root) {
  */
 export function refreshFileFlowRailTheme() {
   syncCodeMapExpandButton();
+  refitActiveCodeMap();
 }

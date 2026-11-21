@@ -27,8 +27,7 @@ import {
   setFileFlowCatalog,
   wireFileFlowRail,
 } from "./file-flow-rail.js";
-import { refitActiveCodeMap } from "./file-flow-canvas.js";
-import { remountCodeMapCyForTheme } from "./code-map-cytoscape-mount.js";
+import { refitActiveCodeMap, remountFileCodeMapForTheme } from "./file-flow-canvas.js";
 import { FULL_PR_SLICE_ID, isFullPrSliceId, mergeAllPrFiles } from "./full-pr-slice.js";
 import { loadDiffReviewComments, repaintAllDiffComments, setCommentToast } from "./diff-comments.js";
 import { applySliceNavTypography, getDiffFontSettings, initDiffFontFromServer } from "./diff-font.js";
@@ -366,11 +365,15 @@ export function mountApp(root) {
     applyDiagramFontCssVar();
     refreshThemeAwareChrome(results);
     remountCytoscapeForTheme();
-    remountCodeMapCyForTheme();
+    refreshCompleteLayoutMermaidSources(results);
+    void remountFileCodeMapForTheme();
     refreshFileFlowRailTheme();
     void remountMermaidDiagrams(results).then(() => {
-      refreshFileFlowRailTheme();
-      scheduleDiagramRefit(results);
+      remountCompleteLayoutPanZoom(results);
+      void remountFileCodeMapForTheme().then(() => {
+        refreshFileFlowRailTheme();
+        scheduleDiagramRefit(results);
+      });
     });
     scheduleDiagramRefit(results);
   };
@@ -1624,6 +1627,35 @@ const COMPLETE_LAYOUT_MERMAID_SLOTS = [
 ];
 
 /**
+ * Rebuild Complete layout Mermaid sources for the active UI theme (day/night accents).
+ * @param {ParentNode} root
+ */
+function refreshCompleteLayoutMermaidSources(root) {
+  const session = window.__cedarSession;
+  const b = session?.layoutViewsBuild;
+  if (!b?.diagramMicroPrs?.length) return null;
+  const views = buildCompleteLayoutViews(
+    b.diagramMicroPrs,
+    b.breakouts,
+    b.pull,
+    b.target,
+    b.sliceNumberById,
+    getResolvedTheme()
+  );
+  const host = root.querySelector("#architecture-read-mermaid");
+  if (!(host instanceof HTMLElement)) return views;
+  for (const { key, sel } of COMPLETE_LAYOUT_MERMAID_SLOTS) {
+    const pre = host.querySelector(sel);
+    const source = views[key];
+    if (pre instanceof HTMLElement && source?.trim()) {
+      pre.dataset.mermaidSource = source;
+    }
+  }
+  if (session) session.layoutViews = views;
+  return views;
+}
+
+/**
  * @param {object} breakouts
  * @param {object[]} diagramMicroPrs
  * @param {{ number?: number, title?: string }} pull
@@ -1788,6 +1820,9 @@ function renderResults(container, data, opts = {}) {
       dependsOn: m.dependsOn ?? [],
       files: (m.files ?? []).map((f) => ({
         filename: f.path ?? f.filename,
+        path: f.path ?? f.filename,
+        patch: typeof f.patch === "string" ? f.patch : "",
+        status: f.status,
         additions: f.additions ?? 0,
         deletions: f.deletions ?? 0,
       })),
@@ -1813,14 +1848,24 @@ function renderResults(container, data, opts = {}) {
   );
 
   let layoutViews = breakouts?.diagramLayoutViews ?? null;
-  if (!layoutViews && diagramMicroPrs.length) {
+  if (diagramMicroPrs.length) {
     layoutViews = buildCompleteLayoutViews(
       diagramMicroPrs,
       breakouts,
       { number: pull.number, title: pull.title },
       { owner: target?.owner, repo: target?.repo },
-      sliceNumberById
+      sliceNumberById,
+      getResolvedTheme()
     );
+    if (window.__cedarSession) {
+      window.__cedarSession.layoutViewsBuild = {
+        diagramMicroPrs,
+        breakouts,
+        pull: { number: pull.number, title: pull.title },
+        target: { owner: target?.owner, repo: target?.repo },
+        sliceNumberById,
+      };
+    }
   }
   const hasLayoutViews = Boolean(
     layoutViews &&

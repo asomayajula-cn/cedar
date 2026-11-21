@@ -358,20 +358,37 @@ app.post("/api/macro-review/post", async (req, res) => {
 
 app.post("/api/comment", async (req, res) => {
   const token = req.body?.token ?? process.env.GITHUB_TOKEN;
-  const { path, line, side, body, headSha, owner, repo, pr, prUrl, componentId, componentName } = req.body ?? {};
+  const {
+    path,
+    line,
+    side,
+    body,
+    headSha,
+    owner,
+    repo,
+    pr,
+    prUrl,
+    componentId,
+    componentName,
+    in_reply_to,
+  } = req.body ?? {};
 
   if (!token) {
     res.status(400).json({ error: "GitHub token required" });
     return;
   }
-  if (!path || typeof path !== "string") {
-    res.status(400).json({ error: "path required" });
-    return;
-  }
-  const lineNum = Number(line);
-  if (!Number.isFinite(lineNum) || lineNum < 1) {
-    res.status(400).json({ error: "valid line required" });
-    return;
+  const inReplyToNum = in_reply_to != null ? Number(in_reply_to) : NaN;
+  const isThreadReply = Number.isFinite(inReplyToNum) && inReplyToNum > 0;
+  if (!isThreadReply) {
+    if (!path || typeof path !== "string") {
+      res.status(400).json({ error: "path required" });
+      return;
+    }
+    const lineNum = Number(line);
+    if (!Number.isFinite(lineNum) || lineNum < 1) {
+      res.status(400).json({ error: "valid line required" });
+      return;
+    }
   }
   if (!body || typeof body !== "string" || !body.trim()) {
     res.status(400).json({ error: "comment body required" });
@@ -385,13 +402,14 @@ app.post("/api/comment", async (req, res) => {
       repo,
       pr,
       token,
-      path,
-      line: lineNum,
-      side: side === "LEFT" ? "LEFT" : "RIGHT",
+      path: isThreadReply ? undefined : path,
+      line: isThreadReply ? undefined : Number(line),
+      side: isThreadReply ? undefined : side === "LEFT" ? "LEFT" : "RIGHT",
       body,
       headSha,
       componentId,
       componentName,
+      in_reply_to: isThreadReply ? inReplyToNum : undefined,
     });
     res.json(result);
   } catch (err) {

@@ -331,7 +331,7 @@ export function mountCodeMapCy(host, opts) {
     maxZoom: DIAGRAM_ZOOM_MAX,
     wheelSensitivity: 0.2,
     userPanningEnabled: true,
-    userZoomingEnabled: false,
+    userZoomingEnabled: true,
     boxSelectionEnabled: false,
     pixelRatio: Math.min(2, typeof window !== "undefined" ? window.devicePixelRatio : 1),
   });

@@ -20,6 +20,7 @@ import { resolvePrTarget } from "./parse-pr-url.js";
  *   headSha?: string,
  *   componentId?: string,
  *   componentName?: string,
+ *   in_reply_to?: number,
  * }} opts
  */
 export async function submitInlineDiffComment(opts) {
@@ -40,15 +41,21 @@ export async function submitInlineDiffComment(opts) {
     throw new Error("Comment cannot be empty");
   }
 
+  const inReplyTo =
+    opts.in_reply_to != null && Number.isFinite(Number(opts.in_reply_to))
+      ? Number(opts.in_reply_to)
+      : undefined;
+
   const comment = await createPullRequestReviewComment(octokit, {
     owner: target.owner,
     repo: target.repo,
     pull_number: target.pr,
-    commit_id: commitId,
-    path: opts.path,
-    line: opts.line,
-    side: opts.side ?? "RIGHT",
+    commit_id: inReplyTo ? undefined : commitId,
+    path: inReplyTo ? undefined : opts.path,
+    line: inReplyTo ? undefined : opts.line,
+    side: inReplyTo ? undefined : opts.side ?? "RIGHT",
     body: commentBody,
+    in_reply_to: inReplyTo,
   });
 
   return {

@@ -6,6 +6,7 @@ import {
   mountCodeMapCy,
   unmountCodeMapCy,
   getCodeMapCyApi,
+  remountCodeMapCyForTheme,
 } from "./code-map-cytoscape-mount.js";
 import { enrichFlyoutArtifact } from "./code-map-flyout-enrich.js";
 import { unmountCodeMapXyflow } from "./code-map-xyflow-mount.jsx";
@@ -39,6 +40,19 @@ const pzByHost = new WeakMap();
 
 /** Minimum drawable height for the code-map viewport (px). */
 const CODE_MAP_MIN_STAGE_H = 520;
+
+const CODE_MAP_MERMAID_PZ_OPTS = {
+  zoomScaleSensitivity: 0.28,
+  maxZoom: 12,
+  minZoom: 0.08,
+  fit: true,
+  center: true,
+  controlIconsEnabled: false,
+  panEnabled: true,
+  zoomEnabled: true,
+  mouseWheelZoomEnabled: true,
+  preventMouseEventsDefault: true,
+};
 
 /** @type {WeakMap<HTMLElement, () => void>} */
 const reflowHandlerByStage = new WeakMap();
@@ -791,14 +805,34 @@ export function wireCodeMapFlyoutWheel(_stage) {
 }
 
 /**
- * Wheel over flyout map area (pointer position — not only event target).
  * @param {WheelEvent} e
  */
+function isPointerOverCodeMapStage(e) {
+  const stage = document.getElementById("cedar-file-flow-stage");
+  if (!(stage instanceof HTMLElement) || !stage.classList.contains("is-code-map-active")) return false;
+  const sr = stage.getBoundingClientRect();
+  if (sr.width < 8 || sr.height < 8) return false;
+  if (e.clientX < sr.left || e.clientX > sr.right || e.clientY < sr.top || e.clientY > sr.bottom) {
+    return false;
+  }
+  const meta = stage.closest(".cedar-file-flow-rail, .cedar-review-rail-section--map")?.querySelector(".cedar-code-map-meta");
+  if (meta instanceof HTMLElement) {
+    const mr = meta.getBoundingClientRect();
+    if (e.clientX >= mr.left && e.clientX <= mr.right && e.clientY >= mr.top && e.clientY <= mr.bottom) {
+      return false;
+    }
+  }
+  return true;
+}
+
 export function isCodeMapFlyoutWheelTarget(e) {
-  if (!document.body.classList.contains("cedar-code-map-expanded")) return false;
+  if (!document.body.classList.contains("cedar-code-map-expanded") && !isPointerOverCodeMapStage(e)) return false;
   const panel = document.getElementById("cedar-review-right-nav");
   if (!(panel instanceof HTMLElement)) return false;
   if (getComputedStyle(panel).display === "none") return false;
+  if (!document.body.classList.contains("cedar-code-map-expanded") && isPointerOverCodeMapStage(e)) {
+    return true;
+  }
   const pr = panel.getBoundingClientRect();
   if (pr.width < 8 || pr.height < 8) return false;
   if (e.clientX < pr.left || e.clientX > pr.right || e.clientY < pr.top || e.clientY > pr.bottom) {
@@ -864,7 +898,7 @@ async function mountCodeMapSvgStage(stage, artifact) {
       controlIconsEnabled: false,
       panEnabled: true,
       zoomEnabled: true,
-      mouseWheelZoomEnabled: false,
+      mouseWheelZoomEnabled: true,
       preventMouseEventsDefault: true,
     });
     activePanZoom = pz;
@@ -1046,14 +1080,32 @@ export async function mountFileCodeMap(stage, artifact, filePath = "") {
   }
 
   if (artifact.mermaid?.trim()) {
+    const wrap = document.createElement("div");
+    wrap.className = "cedar-code-map-svg-host";
+    wrap.dataset.codeMapLayout = "mermaid";
     const host = document.createElement("div");
     host.className = "cedar-file-flow-mermaid cedar-mermaid-source";
     host.dataset.mermaidSource = artifact.mermaid;
-    stage.appendChild(host);
-    layoutCodeMapViewport(stage, host);
+    wrap.appendChild(host);
+    stage.appendChild(wrap);
+    layoutCodeMapViewport(stage, wrap);
     const ok = await renderArchitectureMermaid(artifact.mermaid, host);
     if (ok) {
       host.classList.add("cedar-file-flow-mermaid--fill");
+      const svg = host.querySelector("svg");
+      if (svg instanceof SVGSVGElement) {
+        try {
+          const pz = svgPanZoom(svg, CODE_MAP_MERMAID_PZ_OPTS);
+          activePanZoom = pz;
+          /** @type {any} */ (wrap).__cedarPz = pz;
+          pzByHost.set(wrap, pz);
+          setStageMapEngines(stage, { pz });
+          wireCodeMapFlyoutWheel(stage);
+          wireCodeMapSvgResize(stage, wrap, svg, pz);
+        } catch (err) {
+          console.warn("[cedar] file-flow mermaid pan/zoom failed", err);
+        }
+      }
     }
     return ok;
   }
@@ -1071,6 +1123,79 @@ export function destroyFileCodeMap() {
   }
   activePanZoom = null;
   activeCyApi = null;
+}
+
+/**
+ * Same Structure / Behavior / Functionality maps and file-flow Mermaid in day and night:
+ * remount Cytoscape styles, re-render Mermaid, restore pan/zoom.
+ */
+export async function remountFileCodeMapForTheme() {
+  remountCodeMapCyForTheme();
+
+  const stage = document.getElementById("cedar-file-flow-stage");
+  if (!(stage instanceof HTMLElement) || !stage.classList.contains("is-code-map-active")) {
+    return;
+  }
+
+  const jobs = triptychViewJobs.get(stage);
+  if (jobs?.size) {
+    for (const [viewKey, job] of jobs) {
+      if (!job.mounted || !(job.host instanceof HTMLElement)) continue;
+      mountCodeMapCy(job.host, {
+        elements: job.elements,
+        rankdir: job.rankdir,
+        viewKey,
+        onReady: (api) => api.fitView(),
+      });
+      job.mounted = true;
+    }
+  }
+
+  const mermaidHost = stage.querySelector(".cedar-file-flow-mermaid[data-mermaid-source]");
+  if (!(mermaidHost instanceof HTMLElement)) {
+    refitActiveCodeMap();
+    return;
+  }
+  const source = mermaidHost.dataset.mermaidSource;
+  if (!source?.trim()) {
+    refitActiveCodeMap();
+    return;
+  }
+
+  const wrap = mermaidHost.closest(".cedar-code-map-svg-host");
+  const prevPz = wrap instanceof HTMLElement ? pzByHost.get(wrap) ?? activePanZoom : null;
+  if (prevPz) {
+    try {
+      prevPz.destroy();
+    } catch {
+      /* */
+    }
+    if (wrap instanceof HTMLElement) pzByHost.delete(wrap);
+    if (activePanZoom === prevPz) activePanZoom = null;
+  }
+
+  const ok = await renderArchitectureMermaid(source, mermaidHost);
+  if (!ok) {
+    refitActiveCodeMap();
+    return;
+  }
+
+  mermaidHost.classList.add("cedar-file-flow-mermaid--fill");
+  const svg = mermaidHost.querySelector("svg");
+  if (wrap instanceof HTMLElement && svg instanceof SVGSVGElement) {
+    try {
+      const pz = svgPanZoom(svg, CODE_MAP_MERMAID_PZ_OPTS);
+      activePanZoom = pz;
+      /** @type {any} */ (wrap).__cedarPz = pz;
+      pzByHost.set(wrap, pz);
+      setStageMapEngines(stage, { pz });
+      wireCodeMapSvgResize(stage, wrap, svg, pz);
+    } catch (err) {
+      console.warn("[cedar] file-flow mermaid theme remount pan/zoom failed", err);
+    }
+  }
+
+  refitActiveCodeMap();
 }
 
 /**

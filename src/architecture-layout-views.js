@@ -10,7 +10,7 @@ import { formatPrHubLabel, mermaidFlowNodeLabel } from "./diagram-labels.js";
 import { buildPrArchitectureLayers } from "./pr-architecture-layers.js";
 import { mermaidParticipantAlias, mermaidSafeText } from "./mermaid-sanitize.js";
 import { buildClassMembersIndex } from "./architecture-source-symbols.js";
-import { layerAccent, layerAccentForTheme } from "./diagram-colors.js";
+import { layerAccentForTheme } from "./diagram-colors.js";
 
 const MAX_LAYERS = 16;
 
@@ -94,18 +94,56 @@ function buildClassRegistry(layers) {
  * @param {{ title?: string, number?: number }} [pull]
  * @param {{ owner?: string, repo?: string }} [target]
  * @param {Record<string, number> | Map<string, number>} [sliceNumberById]
+ * @param {"day" | "night"} [theme]
  */
-export function buildCompleteLayoutViews(microPrs, breakouts, pull, target, sliceNumberById) {
+export function buildCompleteLayoutViews(microPrs, breakouts, pull, target, sliceNumberById, theme = "night") {
   const layers = buildPrArchitectureLayers(microPrs, breakouts).slice(0, MAX_LAYERS);
   const active = new Set(layers.map((l) => normalizeSliceId(l.id)));
   const registry = buildClassRegistry(layers);
   const sliceNums = sliceNumberById instanceof Map ? sliceNumberById : new Map(Object.entries(sliceNumberById ?? {}));
+  const diagramTheme = theme === "day" ? "day" : "night";
 
   return {
-    components: buildComponentsClassDiagram(layers, registry, sliceNums, buildClassMembersIndex(layers)),
-    flow: buildRequestFlowDiagram(layers, active, pull, target),
+    components: buildComponentsClassDiagram(
+      layers,
+      registry,
+      sliceNums,
+      buildClassMembersIndex(layers),
+      diagramTheme
+    ),
+    flow: buildRequestFlowDiagram(layers, active, pull, target, diagramTheme),
     events: buildEventsSequenceDiagram(layers, active, registry),
   };
+}
+
+/**
+ * @param {Map<string, { fields: string[], methods: string[] }>} membersByType
+ * @param {string} typeName
+ */
+function resolveTypeMembers(membersByType, typeName) {
+  const want = String(typeName ?? "").trim();
+  if (!want || !membersByType?.size) return null;
+  const direct = membersByType.get(want);
+  if (direct && (direct.fields?.length || direct.methods?.length)) return direct;
+
+  const lower = want.toLowerCase();
+  for (const [k, v] of membersByType) {
+    if (k.toLowerCase() === lower && (v.fields?.length || v.methods?.length)) return v;
+  }
+
+  const short = want.split(/[./]/).pop() ?? want;
+  if (short && short !== want) {
+    for (const [k, v] of membersByType) {
+      const kShort = k.split(/[./]/).pop() ?? k;
+      if (
+        (k === short || kShort === short || k.endsWith(`.${short}`) || k.endsWith(`/${short}`)) &&
+        (v.fields?.length || v.methods?.length)
+      ) {
+        return v;
+      }
+    }
+  }
+  return direct ?? null;
 }
 
 /**
@@ -128,8 +166,9 @@ function mermaidUmlMember(member) {
  * @param {ReturnType<typeof buildClassRegistry>} registry
  * @param {Map<string, number>} sliceNums
  * @param {Map<string, { fields: string[], methods: string[] }>} [membersByType]
+ * @param {"day" | "night"} [theme]
  */
-function buildComponentsClassDiagram(layers, registry, sliceNums, membersByType = new Map()) {
+function buildComponentsClassDiagram(layers, registry, sliceNums, membersByType = new Map(), theme = "night") {
   void sliceNums;
   if (!layers.length) {
     return 'classDiagram\n  class EmptyPR["No changed layers"]';
@@ -141,7 +180,7 @@ function buildComponentsClassDiagram(layers, registry, sliceNums, membersByType 
 
   /** @param {string} className @param {string} layerId */
   const paintClass = (className, layerId) => {
-    const accent = layerAccentForTheme(normalizeSliceId(layerId), "day");
+    const accent = layerAccentForTheme(normalizeSliceId(layerId), theme);
     lines.push(
       `  style ${className} fill:${accent.fill},stroke:${accent.stroke},stroke-width:1.5px,color:${accent.text}`
     );
@@ -152,7 +191,7 @@ function buildComponentsClassDiagram(layers, registry, sliceNums, membersByType 
     declared.add(c.mermaidId);
     lines.push(`  class ${c.mermaidId}["${mermaidSafeText(c.typeName)}"]`);
     paintClass(c.mermaidId, c.layerId);
-    const mem = membersByType.get(c.typeName);
+    const mem = resolveTypeMembers(membersByType, c.typeName);
     const fields = mem?.fields ?? [];
     const methods = mem?.methods ?? [];
     if (fields.length || methods.length) {
@@ -193,24 +232,31 @@ function buildComponentsClassDiagram(layers, registry, sliceNums, membersByType 
  * @param {{ title?: string, number?: number }} [pull]
  * @param {{ owner?: string, repo?: string }} [target]
  */
-function buildRequestFlowDiagram(layers, active, pull, target) {
+function buildRequestFlowDiagram(layers, active, pull, target, theme = "night") {
   if (!layers.length) {
     return "flowchart LR\n  empty[No layers in PR]";
   }
 
   const prLabel = mermaidSafeText(formatPrHubLabel(pull, target));
+  const isDay = theme === "day";
   const lines = [
     "flowchart LR",
-    "  classDef pr fill:#fafafa,stroke:#171717,stroke-width:2px,color:#0a0a0a",
-    "  classDef layer fill:#141414,stroke:#737373,stroke-width:1px,color:#f5f5f5",
-    "  classDef ops fill:#0a0a0a,stroke:#525252,stroke-width:1px,color:#a3a3a3",
+    isDay
+      ? "  classDef pr fill:#fafafa,stroke:#171717,stroke-width:2px,color:#0a0a0a"
+      : "  classDef pr fill:#27272a,stroke:#e5e5e5,stroke-width:2px,color:#fafafa",
+    isDay
+      ? "  classDef layer fill:#f4f4f5,stroke:#71717a,stroke-width:1px,color:#18181b"
+      : "  classDef layer fill:#141414,stroke:#737373,stroke-width:1px,color:#f5f5f5",
+    isDay
+      ? "  classDef ops fill:#fafafa,stroke:#a1a1aa,stroke-width:1px,color:#52525b"
+      : "  classDef ops fill:#0a0a0a,stroke:#525252,stroke-width:1px,color:#a3a3a3",
     `  pr(("${prLabel}")):::pr`,
   ];
 
   const layerClassNames = new Map();
   for (const layer of layers) {
     const key = normalizeSliceId(layer.id);
-    const accent = layerAccent(key);
+    const accent = layerAccentForTheme(key, theme);
     const className = `cedar_${safeIdent(key)}`;
     layerClassNames.set(key, className);
     lines.push(

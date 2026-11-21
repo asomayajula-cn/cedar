@@ -187,7 +187,10 @@ export function buildFindingsListHtml(sliceResult, session) {
       })
       .map(
         (row) =>
-          `<li class="cedar-finding-outline-item"><span class="font-mono text-zinc-500">#${row.n}</span> <span class="font-mono text-[10px]">${escapeHtml(row.path)}${row.line != null ? `:${row.line}` : ""}</span> — ${escapeHtml(row.preview)}</li>`
+          `<li class="cedar-finding-outline-item cedar-finding-outline-item--with-actions">
+            <span class="cedar-finding-outline-item-main"><span class="font-mono text-zinc-500">#${row.n}</span> <span class="font-mono text-[10px]">${escapeHtml(row.path)}${row.line != null ? `:${row.line}` : ""}</span> — ${escapeHtml(row.preview)}</span>
+            <button type="button" class="cedar-btn-secondary cedar-btn-compact" data-finding-ignore data-finding-key="${escapeHtml(row.key)}" title="Dismiss draft">Dismiss</button>
+          </li>`
       )
       .join("");
   const html = `<p class="cedar-review-muted-prose">${codeInline.length} Cursor finding(s) on the diff — numbered <span class="font-mono">#1…#${numberIndex.total}</span> in the gutter when threads are collapsed.</p>${

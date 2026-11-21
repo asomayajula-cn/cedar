@@ -221,6 +221,50 @@ function normalizeSequenceSvg(svg) {
   }
 }
 
+/**
+ * Cedar UML class boxes set per-class `color:` in Mermaid source; member lines can still
+ * pick up the wrong global text color after day/night switches — align compartment text.
+ * @param {SVGSVGElement} svg
+ * @param {string} graph
+ */
+function normalizeClassDiagramSvg(svg, graph) {
+  const theme = getResolvedTheme();
+  const fallback = theme === "day" ? "#18181b" : "#f5f5f5";
+  /** @type {Map<string, string>} */
+  const colorByClassId = new Map();
+  const styleRe =
+    /^\s*style\s+(\S+)\s+fill:[^,]+,stroke:[^,]+(?:,stroke-width:[^,]+)?,color:(#[^\s,]+)/gm;
+  let m;
+  while ((m = styleRe.exec(graph))) {
+    colorByClassId.set(m[1], m[2]);
+  }
+
+  const painted = new Set();
+  for (const [classId, color] of colorByClassId) {
+    const escapePartial = classId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const groups = svg.querySelectorAll(`[id*="${classId}"], [id^="classId-${escapePartial}"]`);
+    for (const g of groups) {
+      g.querySelectorAll("text, tspan").forEach((node) => {
+        if (node instanceof SVGElement) {
+          node.setAttribute("fill", color);
+          painted.add(node);
+        }
+      });
+    }
+  }
+
+  svg.querySelectorAll("g.classGroup text, g.classGroup tspan, .classText, .classText tspan").forEach((node) => {
+    if (!(node instanceof SVGElement) || painted.has(node)) return;
+    const cur = node.getAttribute("fill") ?? "";
+    if (!cur || cur === "#333" || cur === "#000" || cur === "#000000" || cur === "#f5f5f5" || cur === "#fafafa") {
+      node.setAttribute("fill", fallback);
+    }
+  });
+
+  svg.style.maxWidth = "none";
+  svg.style.height = "auto";
+}
+
 function fitDiagramZoomToStage(wrap) {
   const stage = wrap.querySelector(".diagram-complete-layout");
   const svg = wrap.querySelector("svg");
@@ -516,7 +560,9 @@ export async function renderArchitectureMermaid(source, pre) {
       svgEl.setAttribute("preserveAspectRatio", "xMidYMid meet");
       if (isSequenceDiagram) {
         normalizeSequenceSvg(svgEl);
-      } else if (!isClassDiagram) {
+      } else if (isClassDiagram) {
+        normalizeClassDiagramSvg(svgEl, graph);
+      } else {
         svgEl.style.marginInline = "auto";
       }
     }
@@ -986,7 +1032,10 @@ export function mountDiagramPanViewport(wrap, pre, attempt = 0) {
     }
     try {
       const pz = bindPanZoom(wrap, svg, { fillViewport: false, fillWidth: false });
-      if (pz) wireDiagramStageResize(wrap, svg);
+      if (pz) {
+        wireDiagramStageResize(wrap, svg);
+        wireDiagramWheelZoom(wrap, stage);
+      }
     } catch (err) {
       console.warn("[cedar] diagram pan/zoom mount failed", err);
     }

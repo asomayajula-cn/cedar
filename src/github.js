@@ -93,10 +93,12 @@ export async function fetchPullRequestFiles(octokit, pr) {
  *   line: number,
  *   side?: "LEFT" | "RIGHT",
  *   body: string,
+ *   in_reply_to?: number,
  * }} opts
  */
 export async function createPullRequestReviewComment(octokit, opts) {
-  const { data } = await octokit.pulls.createReviewComment({
+  /** @type {Parameters<typeof octokit.pulls.createReviewComment>[0]} */
+  const payload = {
     owner: opts.owner,
     repo: opts.repo,
     pull_number: opts.pull_number,
@@ -105,7 +107,15 @@ export async function createPullRequestReviewComment(octokit, opts) {
     path: opts.path,
     line: opts.line,
     side: opts.side ?? "RIGHT",
-  });
+  };
+  if (opts.in_reply_to != null && Number.isFinite(opts.in_reply_to)) {
+    payload.in_reply_to = opts.in_reply_to;
+    delete payload.commit_id;
+    delete payload.path;
+    delete payload.line;
+    delete payload.side;
+  }
+  const { data } = await octokit.pulls.createReviewComment(payload);
   return data;
 }
 

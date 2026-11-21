@@ -7,7 +7,7 @@ import { fileFlowKind, rulesForFileFlowKind, scanLinesIntoBuckets } from "./file
 import { walkPatchLines } from "./patch-review.js";
 
 const MAX_NAMES_PER_SLICE = 12;
-const MAX_MEMBERS_PER_TYPE = 6;
+const MAX_MEMBERS_PER_TYPE = 10;
 
 /**
  * @param {string} label
@@ -171,8 +171,11 @@ export function extractClassMembersFromMicroPr(micro) {
     if (!patch.trim()) continue;
 
     const rules = rulesForFileFlowKind(fileFlowKind(path), path);
-  /** @type {string | null} */
-    let currentType = classNamesFromPatch(patch, path)[0] ?? typeNameFromFilename(path) ?? null;
+    const fileTypes = classNamesFromPatch(patch, path);
+    const fallbackType = typeNameFromFilename(path);
+    for (const t of [...fileTypes, fallbackType].filter(Boolean)) ensure(t);
+    /** @type {string | null} */
+    let currentType = fileTypes[0] ?? fallbackType ?? null;
 
     for (const row of walkPatchLines(patch)) {
       if (row.kind === "del") continue;
@@ -209,9 +212,18 @@ export function extractClassMembersFromMicroPr(micro) {
       .map((r) => r.text)
       .join("\n");
     const buckets = scanLinesIntoBuckets(addedText, rules);
-    const primary = ensure(currentType ?? typeNameFromFilename(path));
-    if (primary) {
-      for (const label of [...(buckets.Functions ?? []), ...(buckets.Methods ?? []), ...(buckets.Operations ?? [])]) {
+    const methodLabels = [
+      ...(buckets.Functions ?? []),
+      ...(buckets.Methods ?? []),
+      ...(buckets.Operations ?? []),
+    ];
+    const typeTargets = [
+      ...new Set([currentType, fallbackType, ...fileTypes].filter(Boolean)),
+    ];
+    for (const typeKey of typeTargets) {
+      const primary = ensure(typeKey);
+      if (!primary) continue;
+      for (const label of methodLabels) {
         const stub = methodStubFromLabel(label);
         if (stub && primary.methods.size < MAX_MEMBERS_PER_TYPE) primary.methods.add(stub);
       }

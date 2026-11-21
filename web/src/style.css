@@ -5337,6 +5337,29 @@
     height: auto;
   }
 
+  .cedar-file-flow-stage .cedar-code-map-svg-host[data-code-map-layout="mermaid"] {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: min(52vh, 26rem);
+    overflow: hidden;
+    border-radius: 0.5rem;
+    border: 1px solid rgb(255 255 255 / 0.08);
+    background-color: #050505;
+    background-image:
+      radial-gradient(120% 85% at 50% -10%, rgb(30 58 138 / 0.18) 0%, transparent 52%),
+      radial-gradient(circle at 50% 50%, rgb(255 255 255 / 0.035) 1px, transparent 1px);
+    background-size: auto, 20px 20px;
+  }
+
+  html[data-theme="day"] .cedar-file-flow-stage .cedar-code-map-svg-host[data-code-map-layout="mermaid"] {
+    border-color: rgb(203 213 225 / 0.85);
+    background-color: #f8fafc;
+    background-image:
+      radial-gradient(120% 85% at 50% -10%, rgb(59 130 246 / 0.1) 0%, transparent 55%),
+      radial-gradient(circle at 50% 50%, rgb(15 23 42 / 0.05) 1px, transparent 1px);
+    background-size: auto, 20px 20px;
+  }
+
   .cedar-gh-file.is-file-flow-active {
     @apply ring-1 ring-emerald-500/30;
   }
@@ -6808,6 +6831,27 @@
 
   .cedar-diff-comment-card-time {
     color: #8b949e;
+  }
+
+  .cedar-diff-comment-card-head .cedar-diff-comment-dismiss {
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+
+  .cedar-diff-comment-card-head .cedar-diff-comment-thread-link + .cedar-diff-comment-dismiss {
+    margin-left: 0;
+  }
+
+  .cedar-finding-outline-item--with-actions {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .cedar-finding-outline-item-main {
+    min-width: 0;
+    flex: 1 1 auto;
   }
 
   .cedar-diff-comment-thread-link {

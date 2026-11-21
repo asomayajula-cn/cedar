@@ -3,6 +3,7 @@ import { collectCursorDraftCommentsForDiff } from "./cursor-diff-comments.js";
 export { collectCursorDraftCommentsForDiff };
 
 import { renderReviewCommentHtml } from "./comment-html.js";
+import { wireFindingActions } from "./finding-actions.js";
 
 /** @typedef {{ id: number, path: string, line: number, side: string, body: string, html_url?: string, user?: string | null, created_at?: string, source?: "github" | "cursor" | "cursor-macro", findingKey?: string }} ReviewComment */
 
@@ -329,11 +330,16 @@ function renderCommentThreadSlide(items, opts = {}) {
         : isCursorDraft
           ? "cedar-diff-comment-card cedar-diff-comment-card--cursor"
           : "cedar-diff-comment-card";
-      return `<article class="${cardClass}">
+      const dismissBtn =
+        isCursorDraft && c.findingKey
+          ? `<button type="button" class="cedar-btn-secondary cedar-btn-compact cedar-diff-comment-dismiss" data-finding-ignore data-finding-key="${escapeHtml(c.findingKey)}" title="Dismiss draft">Dismiss</button>`
+          : "";
+      return `<article class="${cardClass}"${c.findingKey ? ` data-finding-key="${escapeHtml(c.findingKey)}"` : ""}>
         <header class="cedar-diff-comment-card-head">
           ${who}
           ${when ? `<span class="cedar-diff-comment-card-time">${when}</span>` : ""}
           ${link}
+          ${dismissBtn}
         </header>
         <div class="cedar-diff-comment-card-body cedar-comment-html">${renderReviewCommentHtml(c.body)}</div>
       </article>`;
@@ -624,6 +630,11 @@ function paintCommentsForBody(body, comments, path) {
   });
 
   wireCommentThreads(body);
+  wireFindingActions(body, () => {
+    const root = body.closest("#results") ?? document.getElementById("results");
+    if (root instanceof HTMLElement) repaintAllDiffComments(root);
+    window.__cedarPatchFindings?.();
+  });
   const filesHost = body.closest(".cedar-gh-files-changed");
   if (filesHost instanceof HTMLElement) {
     applyCommentsHostVisibility(filesHost);
