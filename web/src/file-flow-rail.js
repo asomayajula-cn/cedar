@@ -602,7 +602,5 @@ export function wireFileFlowRail(root) {
  * @param {ParentNode} root
  */
 export function refreshFileFlowRailTheme() {
-  const path = activePath;
-  if (path) setActiveFileFlow(path);
-  else setActiveFileFlow(null);
+  syncCodeMapExpandButton();
 }

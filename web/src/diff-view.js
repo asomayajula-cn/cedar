@@ -6,9 +6,31 @@ import {
   wireDiffFontControls,
 } from "./diff-font.js";
 import { codeMapExpandIconSvg } from "./cedar-icons.js";
-import { collectReadablePatchText } from "../../src/file-flow-semantic.js";
 import { defaultInlineCommentsVisible, wireDiffComments } from "./diff-comments.js";
 import { getResolvedTheme } from "./theme.js";
+
+/**
+ * @param {string} patch
+ */
+function countPatchAddDel(patch) {
+  let added = 0;
+  let removed = 0;
+  for (const raw of patch.split("\n")) {
+    if (!raw) continue;
+    if (
+      raw.startsWith("+++") ||
+      raw.startsWith("---") ||
+      raw.startsWith("@@") ||
+      raw.startsWith("diff ") ||
+      raw.startsWith("\\")
+    ) {
+      continue;
+    }
+    if (raw.startsWith("+")) added += 1;
+    else if (raw.startsWith("-")) removed += 1;
+  }
+  return { added, removed };
+}
 
 function renderFileCodeMapButton(path) {
   const p = escapeHtml(path);
@@ -155,19 +177,19 @@ export function normalizeReviewFile(file) {
   if (!Number.isFinite(deletions)) deletions = 0;
   const patch = typeof file.patch === "string" ? file.patch : "";
   if (patch.trim() && additions === 0 && deletions === 0) {
-    const stats = collectReadablePatchText(patch);
+    const stats = countPatchAddDel(patch);
     if (stats.added > 0 || stats.removed > 0) {
       additions = stats.added;
       deletions = stats.removed;
     }
   }
   return {
-    ...file,
     path,
     filename: path,
+    status: file.status,
     additions,
     deletions,
-    patch: patch || file.patch,
+    patch: patch || file.patch || null,
   };
 }
 

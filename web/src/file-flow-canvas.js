@@ -597,8 +597,14 @@ function wireCodeMapSvgResize(stage, host, svg, pz) {
   const rail = stage.closest(".cedar-file-flow-rail");
   const nav = stage.closest(".cedar-review-right-nav");
   const layout = stage.closest(".cedar-review-layout--three-col");
+  let resizeTicking = false;
   const ro = new ResizeObserver(() => {
-    fitCodeMapSvg(stage, host, svg, pz);
+    if (resizeTicking) return;
+    resizeTicking = true;
+    requestAnimationFrame(() => {
+      resizeTicking = false;
+      fitCodeMapSvg(stage, host, svg, pz);
+    });
   });
   ro.observe(stage);
   if (rail instanceof HTMLElement) ro.observe(rail);
@@ -645,8 +651,14 @@ function wireCodeMapCyResize(stage, host) {
   const rail = stage.closest(".cedar-file-flow-rail");
   const nav = stage.closest(".cedar-review-right-nav");
   const layout = stage.closest(".cedar-review-layout--three-col");
+  let resizeTicking = false;
   const ro = new ResizeObserver(() => {
-    fitCodeMapCy(stage, host);
+    if (resizeTicking) return;
+    resizeTicking = true;
+    requestAnimationFrame(() => {
+      resizeTicking = false;
+      fitCodeMapCy(stage, host);
+    });
   });
   ro.observe(stage);
   if (rail instanceof HTMLElement) ro.observe(rail);
@@ -1007,7 +1019,15 @@ export async function mountFileCodeMap(stage, artifact, filePath = "") {
     const rail = stage.closest(".cedar-file-flow-rail");
     const nav = stage.closest(".cedar-review-right-nav");
     const layout = stage.closest(".cedar-review-layout--three-col");
-    const ro = new ResizeObserver(() => reflow());
+    let roTicking = false;
+    const ro = new ResizeObserver(() => {
+      if (roTicking) return;
+      roTicking = true;
+      requestAnimationFrame(() => {
+        roTicking = false;
+        reflow();
+      });
+    });
     ro.observe(stage);
     ro.observe(stack);
     if (rail instanceof HTMLElement) ro.observe(rail);

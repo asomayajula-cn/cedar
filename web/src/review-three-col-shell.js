@@ -213,14 +213,6 @@ export function renderReviewMainTabsHeadHtml(opts = {}) {
               <span>Architecture</span>
             </button>
           </div>
-          <button type="button"
-            class="cedar-review-rail-edge cedar-review-rail-edge--in-tabs cedar-code-map-flyout-tab"
-            data-code-map-flyout-tab
-            aria-pressed="false"
-            aria-label="Open code map"
-            title="Code map"${placeholder ? " hidden" : ""}>
-            ${codeMapExpandIconSvg("cedar-rail-edge-icon")}
-          </button>
         </header>
       </div>`;
 }

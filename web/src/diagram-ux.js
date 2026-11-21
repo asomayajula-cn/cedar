@@ -457,9 +457,6 @@ export async function remountMermaidDiagrams(root = document) {
       }
     }),
   );
-  if (architecturePanelVisible(root)) {
-    remountCompleteLayoutPanZoom(root);
-  }
   scheduleDiagramRefit(root);
 }
 
@@ -829,8 +826,14 @@ function wireDiagramStageResize(wrap, svg) {
   if (resizeObserverByWrap.has(wrap)) return;
   const stage = wrap.querySelector(".diagram-complete-layout");
   if (!(stage instanceof HTMLElement)) return;
+  let resizeTicking = false;
   const ro = new ResizeObserver(() => {
-    if (panZoomByWrap.has(wrap)) syncPanZoomViewport(wrap, { fit: true });
+    if (!panZoomByWrap.has(wrap) || resizeTicking) return;
+    resizeTicking = true;
+    requestAnimationFrame(() => {
+      resizeTicking = false;
+      if (panZoomByWrap.has(wrap)) syncPanZoomViewport(wrap, { fit: true });
+    });
   });
   ro.observe(stage);
   resizeObserverByWrap.set(wrap, ro);
