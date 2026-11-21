@@ -123,3 +123,46 @@ html[data-theme="night"] #cedar-review-panel-architecture .text-zinc-400,
 :root:not([data-theme="day"]) #cedar-review-panel-architecture .text-zinc-400 {
   @apply text-zinc-400;
 }
+
+/* GitHub-style unified diff (dark) — gutters + add/del/highlight */
+:root:not([data-theme="day"]) .cedar-diff2html.d2h-dark-color-scheme {
+  --d2h-bg-color: #0d1117;
+  --d2h-border-color: #30363d;
+  --d2h-dim-color: #6e7681;
+  --d2h-line-border-color: #21262d;
+  --d2h-line-hover-color: #161b22;
+  --d2h-ins-bg-color: rgb(46 160 67 / 0.15);
+  --d2h-ins-border-color: rgb(46 160 67 / 0.35);
+  --d2h-ins-highlight-bg-color: rgb(46 160 67 / 0.42);
+  --d2h-del-bg-color: rgb(248 81 73 / 0.15);
+  --d2h-del-border-color: rgb(248 81 73 / 0.35);
+  --d2h-del-highlight-bg-color: rgb(248 81 73 / 0.42);
+  --d2h-change-ins-color: rgb(46 160 67 / 0.28);
+  --d2h-change-del-color: rgb(248 81 73 / 0.28);
+  --d2h-info-bg-color: rgb(56 139 253 / 0.12);
+  --d2h-info-border-color: rgb(56 139 253 / 0.35);
+  --d2h-empty-placeholder-bg-color: #161b22;
+}
+
+:root:not([data-theme="day"]) .cedar-diff2html.d2h-dark-color-scheme .d2h-code-linenumber,
+:root:not([data-theme="day"]) .cedar-diff2html.d2h-dark-color-scheme .d2h-code-side-linenumber {
+  color: #6e7681;
+  background-color: #0d1117;
+  border-color: #30363d;
+}
+
+:root:not([data-theme="day"]) .cedar-diff2html.d2h-dark-color-scheme .d2h-code-linenumber.d2h-cntx,
+:root:not([data-theme="day"]) .cedar-diff2html.d2h-dark-color-scheme .d2h-code-side-linenumber.d2h-cntx {
+  color: #6e7681;
+  background-color: #0d1117;
+}
+
+:root:not([data-theme="day"]) .cedar-diff2html.d2h-dark-color-scheme td.d2h-ins .d2h-code-linenumber,
+:root:not([data-theme="day"]) .cedar-diff2html.d2h-dark-color-scheme td.d2h-ins .d2h-code-side-linenumber {
+  background-color: var(--d2h-ins-bg-color);
+}
+
+:root:not([data-theme="day"]) .cedar-diff2html.d2h-dark-color-scheme td.d2h-del .d2h-code-linenumber,
+:root:not([data-theme="day"]) .cedar-diff2html.d2h-dark-color-scheme td.d2h-del .d2h-code-side-linenumber {
+  background-color: var(--d2h-del-bg-color);
+}

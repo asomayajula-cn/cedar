@@ -40,12 +40,20 @@ export function setReviewProgress(pct, label, detail) {
   const labelEl = document.getElementById("cedar-review-progress-label");
   const detailEl = document.getElementById("cedar-review-progress-detail");
   const pctEl = document.getElementById("cedar-review-progress-pct");
+  const track = dock.querySelector(".cedar-review-progress-track");
   const clamped = Math.max(0, Math.min(100, Math.round(pct)));
   if (fill instanceof HTMLElement) fill.style.width = `${clamped}%`;
   if (labelEl) labelEl.textContent = label;
   if (detailEl) detailEl.textContent = detail ?? "";
   if (pctEl) pctEl.textContent = `${clamped}%`;
-  dock.setAttribute("aria-valuenow", String(clamped));
+  const state = clamped >= 100 ? "done" : clamped > 0 ? "running" : "idle";
+  dock.dataset.state = state;
+  if (track instanceof HTMLElement) {
+    track.setAttribute("aria-valuenow", String(clamped));
+    track.setAttribute("aria-valuemin", "0");
+    track.setAttribute("aria-valuemax", "100");
+    track.setAttribute("aria-label", label);
+  }
   lastProgress = { pct: clamped, label, detail: detail ?? "" };
 }
 
@@ -111,16 +119,16 @@ export function hideReviewProgressDock(opts) {
 }
 
 export function renderReviewProgressDockHtml() {
-  return `<div id="cedar-review-progress-dock" class="cedar-review-progress-dock cedar-glass mb-5 px-4 py-3 sm:px-5" role="region" aria-label="Review progress"
-    aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden>
-    <div class="flex flex-wrap items-center justify-between gap-2">
-      <p id="cedar-review-progress-label" class="text-xs font-medium text-zinc-200">Review</p>
-      <span id="cedar-review-progress-pct" class="font-mono text-[10px] tabular-nums text-zinc-500">0%</span>
+  return `<div id="cedar-review-progress-dock" class="cedar-review-progress-dock" data-state="idle" role="region" aria-label="Review progress" hidden>
+    <div class="cedar-review-progress-head">
+      <span class="cedar-review-progress-status-dot" aria-hidden="true"></span>
+      <p id="cedar-review-progress-label" class="cedar-review-progress-label">Review</p>
+      <span id="cedar-review-progress-pct" class="cedar-review-progress-pct">0%</span>
     </div>
-    <div class="cedar-review-progress-track mt-2" aria-hidden="true">
+  <div class="cedar-review-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Review">
       <div id="cedar-review-progress-fill" class="cedar-review-progress-fill"></div>
     </div>
-    <p id="cedar-review-progress-detail" class="mt-1.5 text-[10px] leading-snug text-zinc-500"></p>
+    <p id="cedar-review-progress-detail" class="cedar-review-progress-detail"></p>
   </div>`;
 }
 

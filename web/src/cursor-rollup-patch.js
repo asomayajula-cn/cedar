@@ -13,18 +13,19 @@ function summarizeCursorSliceReview(microResults) {
   for (const r of microResults ?? []) {
     if (r.status === "skipped") continue;
     const cr = r.cursorReview;
-    if (!cr) continue;
-    slicesAttempted += 1;
     const comments = (r.reviewComments ?? []).filter(isCodeReviewFinding);
-    const count = comments.length || Math.max(0, Number(cr.count) || 0);
+    const count = comments.length || Math.max(0, Number(cr?.count) || 0);
+    let status = cr?.status ?? (count > 0 ? "ok" : "empty");
+    if (!cr && count === 0) status = "pending";
+    if (cr) slicesAttempted += 1;
     total += count;
     if (count > 0) slicesWithFindings += 1;
     bySlice.push({
       componentId: r.componentId,
       componentName: r.componentName,
       count,
-      status: cr.status ?? (count > 0 ? "ok" : "empty"),
-      error: cr.error,
+      status,
+      error: cr?.error,
     });
   }
 

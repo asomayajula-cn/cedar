@@ -210,14 +210,7 @@ async function postFindingAsComment(btn, refreshUi) {
   const lineAttr = btn.getAttribute("data-finding-line");
   const parsedLine = lineAttr ? Number.parseInt(lineAttr, 10) : 0;
   const line = Number.isFinite(parsedLine) && parsedLine > 0 ? parsedLine : firstAddedLineInPatch(patch);
-  const tag = btn.getAttribute("data-finding-tag") ?? "";
-  const priority = btn.getAttribute("data-finding-priority") ?? "";
-  const tagLabel = tag ? tag.charAt(0).toUpperCase() + tag.slice(1) : "";
-  const chips = [priority, tagLabel].filter(Boolean);
-  const body =
-    chips.length > 0
-      ? `${message.trim()}\n\n---\n_${chips.join(" · ")} · Cedar review_`
-      : `${message.trim()}\n\n---\n_Cedar review_`;
+  const body = message.trim();
 
   btn.disabled = true;
   const prev = btn.textContent;

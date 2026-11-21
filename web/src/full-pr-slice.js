@@ -1,3 +1,5 @@
+import { normalizeReviewFile } from "./diff-view.js";
+
 /** Synthetic slice id — all PR files in one diff viewer (not a review partition). */
 export const FULL_PR_SLICE_ID = "__full_pr__";
 
@@ -16,14 +18,15 @@ export function mergeAllPrFiles(microPrs) {
   const byPath = new Map();
   for (const m of microPrs ?? []) {
     for (const f of m.files ?? []) {
-      const path = f.path ?? f.filename;
+      const norm = normalizeReviewFile(f);
+      const path = norm.path;
       if (!path || byPath.has(path)) continue;
       byPath.set(path, {
         path,
-        status: f.status ?? "modified",
-        additions: f.additions ?? 0,
-        deletions: f.deletions ?? 0,
-        patch: f.patch ?? null,
+        status: norm.status ?? "modified",
+        additions: norm.additions,
+        deletions: norm.deletions,
+        patch: norm.patch ?? null,
       });
     }
   }

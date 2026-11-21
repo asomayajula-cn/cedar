@@ -394,6 +394,41 @@ async function ensureMermaid() {
  * Re-render Mermaid diagrams after day/night theme switch.
  * @param {ParentNode} [root]
  */
+/**
+ * @param {HTMLElement} wrap
+ */
+function isCompleteLayoutMermaidWrap(wrap) {
+  return wrap instanceof HTMLElement && Boolean(wrap.querySelector(".diagram-complete-layout"));
+}
+
+/**
+ * @param {ParentNode} [root]
+ */
+function architecturePanelVisible(root = document) {
+  const panel =
+    root instanceof Document
+      ? root.getElementById("cedar-review-panel-architecture")
+      : root.querySelector?.("#cedar-review-panel-architecture") ??
+        document.getElementById("cedar-review-panel-architecture");
+  return panel instanceof HTMLElement && !panel.hidden;
+}
+
+/**
+ * Re-bind pan/zoom viewports for Complete layout Mermaid panels (e.g. after tab show or theme remount).
+ * @param {ParentNode} [root]
+ */
+export function remountCompleteLayoutPanZoom(root = document) {
+  if (!architecturePanelVisible(root)) return;
+  root.querySelectorAll("[data-diagram-wrap]").forEach((wrap) => {
+    if (!isCompleteLayoutMermaidWrap(wrap)) return;
+    const pre =
+      wrap.querySelector(".cedar-mermaid-source.mermaid-rendered") ??
+      wrap.querySelector("[data-mermaid-source]");
+    if (!(pre instanceof HTMLElement) || !pre.querySelector("svg")) return;
+    mountDiagramPanViewport(wrap, pre);
+  });
+}
+
 export async function remountMermaidDiagrams(root = document) {
   invalidateMermaidTheme();
   const pres = root.querySelectorAll("[data-mermaid-source]");
@@ -408,12 +443,23 @@ export async function remountMermaidDiagrams(root = document) {
       if (ok && wrap instanceof HTMLElement) {
         const svg = pre.querySelector("svg");
         if (svg instanceof SVGSVGElement) {
-          if (wrap.classList.contains("diagram-stage-panzoom")) mountDiagramPanViewport(wrap, pre);
-          else queuePanFit(wrap, svg);
+          if (isCompleteLayoutMermaidWrap(wrap)) {
+            if (architecturePanelVisible(root)) mountDiagramPanViewport(wrap, pre);
+          } else {
+            const stage = wrap.querySelector(".diagram-complete-layout, .diagram-stage-panzoom");
+            if (stage?.classList.contains("diagram-stage-panzoom") || wrap.querySelector(".diagram-stage-panzoom")) {
+              mountDiagramPanViewport(wrap, pre);
+            } else {
+              queuePanFit(wrap, svg);
+            }
+          }
         }
       }
     }),
   );
+  if (architecturePanelVisible(root)) {
+    remountCompleteLayoutPanZoom(root);
+  }
   scheduleDiagramRefit(root);
 }
 
@@ -896,12 +942,17 @@ function teardownDiagramZoomMounts(wrap) {
  * @param {HTMLElement} wrap
  * @param {HTMLElement} pre
  */
-export function mountDiagramPanViewport(wrap, pre) {
+/**
+ * @param {HTMLElement} wrap
+ * @param {HTMLElement} pre
+ * @param {number} [attempt]
+ */
+export function mountDiagramPanViewport(wrap, pre, attempt = 0) {
   const stage = wrap.querySelector(".diagram-complete-layout");
   const svg = pre.querySelector("svg");
   if (!(stage instanceof HTMLElement) || !(svg instanceof SVGSVGElement)) return;
 
-  teardownDiagramZoomMounts(wrap);
+  if (attempt === 0) teardownDiagramZoomMounts(wrap);
 
   stage.classList.add("diagram-stage-panzoom");
   stage.classList.remove("diagram-stage-sequence");
@@ -915,23 +966,31 @@ export function mountDiagramPanViewport(wrap, pre) {
   pre.style.display = "block";
   pre.style.margin = "0";
   pre.style.minHeight = "0";
+  pre.style.visibility = "visible";
 
   svg.style.display = "block";
   svg.style.maxWidth = "none";
   svg.style.margin = "0";
+  svg.style.visibility = "visible";
 
   if (pre.id) registerMermaidDiagramHost(pre.id, wrap);
 
+  const bind = () => {
+    const { w, h } = sizeDiagramStageHost(stage, pre);
+    if ((w < 16 || h < 16) && attempt < 28) {
+      requestAnimationFrame(() => mountDiagramPanViewport(wrap, pre, attempt + 1));
+      return;
+    }
+    try {
+      const pz = bindPanZoom(wrap, svg, { fillViewport: false, fillWidth: false });
+      if (pz) wireDiagramStageResize(wrap, svg);
+    } catch (err) {
+      console.warn("[cedar] diagram pan/zoom mount failed", err);
+    }
+  };
+
   requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      sizeDiagramStageHost(stage, pre);
-      try {
-        const pz = bindPanZoom(wrap, svg, { fillViewport: false, fillWidth: false });
-        if (pz) wireDiagramStageResize(wrap, svg);
-      } catch (err) {
-        console.warn("[cedar] diagram pan/zoom mount failed", err);
-      }
-    });
+    requestAnimationFrame(bind);
   });
 }
 

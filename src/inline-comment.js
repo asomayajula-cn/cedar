@@ -40,11 +40,6 @@ export async function submitInlineDiffComment(opts) {
     throw new Error("Comment cannot be empty");
   }
 
-  const prefix =
-    opts.componentId || opts.componentName
-      ? `**Cedar · ${opts.componentName ?? opts.componentId}**\n\n`
-      : "**Cedar review comment**\n\n";
-
   const comment = await createPullRequestReviewComment(octokit, {
     owner: target.owner,
     repo: target.repo,
@@ -53,7 +48,7 @@ export async function submitInlineDiffComment(opts) {
     path: opts.path,
     line: opts.line,
     side: opts.side ?? "RIGHT",
-    body: `${prefix}${commentBody}`,
+    body: commentBody,
   });
 
   return {

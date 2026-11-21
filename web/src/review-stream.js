@@ -26,7 +26,8 @@ export function applyReviewStreamEvent(event, statusEl, logEl) {
   }
   if (logEl && (event.type === "phase" || event.type === "activity")) {
     const line = document.createElement("li");
-    line.className = "review-progress-line";
+    const status = event.type === "phase" ? String(event.status ?? "running") : "activity";
+    line.className = `review-progress-line cedar-review-progress-log-line is-${status}`;
     const t = new Date().toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
     const body =
       event.type === "phase"

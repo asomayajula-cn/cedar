@@ -398,16 +398,15 @@ function applyCommentsHostVisibility(host) {
  * @param {HTMLElement} row
  */
 function primaryGutterForRow(row) {
-  const newCell = row.querySelector(".line-num2");
-  if (newCell) {
-    const g = newCell.closest(".d2h-code-linenumber");
+  const oldCell = row.querySelector(".line-num1");
+  if (oldCell) {
+    const g = oldCell.closest(".d2h-code-linenumber, .d2h-code-side-linenumber");
     if (g instanceof HTMLElement) return g;
   }
-  const side = row.querySelector("td.d2h-code-side-linenumber");
-  if (side instanceof HTMLElement && !row.querySelector(".d2h-del")) return side;
-  const gutters = row.querySelectorAll(".cedar-diff-gutter");
+  const gutters = row.querySelectorAll(".d2h-code-linenumber, .d2h-code-side-linenumber");
   if (gutters.length === 0) return null;
-  return gutters[gutters.length - 1] instanceof HTMLElement ? gutters[gutters.length - 1] : null;
+  const first = gutters[0];
+  return first instanceof HTMLElement ? first : null;
 }
 
 /**
@@ -430,10 +429,25 @@ function setGutterCommentCount(codeRow, count) {
     gutter.appendChild(badge);
   }
   badge.textContent = String(count);
+  badge.setAttribute("role", "button");
+  badge.tabIndex = 0;
   badge.setAttribute(
     "aria-label",
-    `${count} review comment${count === 1 ? "" : "s"} — click line to show`
+    `${count} review comment${count === 1 ? "" : "s"} — click to show`
   );
+  if (!badge.dataset.wiredGutterCount) {
+    badge.dataset.wiredGutterCount = "1";
+    const openThread = (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      toggleThreadForCodeRow(codeRow);
+    };
+    badge.addEventListener("click", openThread);
+    badge.addEventListener("keydown", (ev) => {
+      if (ev.key !== "Enter" && ev.key !== " ") return;
+      openThread(ev);
+    });
+  }
 }
 
 /**
@@ -698,26 +712,30 @@ function wireDiffBodyComments(body) {
     row.classList.add("cedar-diff-comment-row");
 
     row.querySelectorAll(".d2h-code-linenumber, .d2h-code-side-linenumber").forEach((gutter) => {
-      if (!(gutter instanceof HTMLElement)) return;
-      gutter.classList.add("cedar-diff-gutter");
-      if (!gutter.querySelector(".cedar-diff-add-comment")) {
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "cedar-diff-add-comment";
-        btn.title = "Add review comment";
-        btn.setAttribute("aria-label", "Add review comment");
-        btn.textContent = "+";
-        gutter.appendChild(btn);
-        btn.addEventListener("click", (ev) => {
-          ev.preventDefault();
-          ev.stopPropagation();
-          openCommentPopoverForRow(row, path);
-        });
-      }
+      if (gutter instanceof HTMLElement) gutter.classList.add("cedar-diff-gutter");
     });
+
+  const leftGutter = primaryGutterForRow(row);
+  if (leftGutter instanceof HTMLElement && !leftGutter.querySelector(".cedar-diff-add-comment")) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "cedar-diff-add-comment";
+    btn.title = "Add review comment";
+    btn.setAttribute("aria-label", "Add review comment");
+    btn.textContent = "+";
+    leftGutter.appendChild(btn);
+    btn.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      openCommentPopoverForRow(row, path);
+    });
+  }
 
     const openFromRow = (ev) => {
       if (ev.target instanceof HTMLElement && ev.target.closest(".cedar-diff-add-comment")) return;
+      if (ev.target instanceof HTMLElement && ev.target.closest(".cedar-diff-comment-gutter-count")) {
+        return;
+      }
       const filesHost = row.closest(".cedar-gh-files-changed");
       const globalCommentsOn =
         filesHost instanceof HTMLElement && commentsHostVisible(filesHost);

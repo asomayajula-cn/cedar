@@ -9,6 +9,13 @@ html[data-theme="day"] {
   --cedar-day-surface-sunken: #ececee;
   --cedar-day-border: rgb(228 228 231);
   --cedar-day-border-strong: rgb(212 212 216);
+  --cedar-accent: rgb(79 70 229);
+  --cedar-accent-strong: rgb(99 102 241);
+  --cedar-accent-muted: rgb(79 70 229 / 0.1);
+  --cedar-accent-subtle: rgb(79 70 229 / 0.06);
+  --cedar-success: rgb(5 150 105);
+  --cedar-success-muted: rgb(16 185 129 / 0.12);
+  --cedar-focus-ring: rgb(79 70 229 / 0.35);
   --cedar-day-shadow-sm: 0 1px 2px rgb(15 23 42 / 0.04);
   --cedar-day-shadow-md: 0 4px 16px -6px rgb(15 23 42 / 0.1), 0 1px 0 rgb(255 255 255 / 0.85) inset;
   --cedar-day-ring-offset: #ffffff;
@@ -25,6 +32,16 @@ html[data-theme="day"] {
   --cedar-review-foreground: rgb(24 24 27);
   --cedar-review-muted: rgb(82 82 91);
   --cedar-review-stage-grid: rgb(15 23 42 / 0.06);
+  --cedar-gh-diff-bg: #ffffff;
+  --cedar-gh-diff-panel: #f6f8fa;
+  --cedar-gh-diff-inset: #ffffff;
+  --cedar-gh-diff-border: #d0d7de;
+  --cedar-gh-diff-fg: #1f2328;
+  --cedar-gh-diff-muted: #57606a;
+  --cedar-gh-diff-hover: #eaeef2;
+  --cedar-gh-diff-active: #ffffff;
+  --cedar-gh-diff-fallback: #1f2328;
+  --cedar-gh-link: #0969da;
 }
 
 html[data-theme="day"] body {
@@ -144,7 +161,9 @@ html[data-theme="day"] .cedar-slice-panel {
   background: var(--cedar-day-surface);
 }
 
-html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme {
+html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme,
+html[data-theme="day"] .cedar-diff2html.d2h-dark-color-scheme,
+html[data-theme="day"] .cedar-gh-file-body .d2h-wrapper.d2h-dark-color-scheme {
   color: #1f2328;
   --d2h-bg-color: #ffffff;
   --d2h-border-color: #d0d7de;
@@ -167,7 +186,34 @@ html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme .d2h-diff-table,
 html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme .d2h-file-wrapper,
 html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme .d2h-file-diff,
 html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme .d2h-code-line-ctn,
-html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme .d2h-info {
+html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme .d2h-info,
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-gh-file-body .d2h-wrapper,
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-gh-file-body .d2h-file-wrapper,
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-gh-file-body .d2h-file-diff,
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-gh-file-body .d2h-code-line-ctn {
+  color: #1f2328;
+  background-color: #ffffff;
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-gh-file,
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-gh-file-body {
+  background-color: #ffffff;
+  border-color: #d0d7de;
+}
+
+html[data-theme="day"] .cedar-diff2html .d2h-file-header,
+html[data-theme="day"] .cedar-diff2html .d2h-sticky-header,
+html[data-theme="day"] .cedar-diff2html.d2h-dark-color-scheme .d2h-file-header {
+  background-color: #f6f8fa;
+  border-bottom-color: #d0d7de;
+  color: #1f2328;
+}
+
+html[data-theme="day"] .cedar-diff2html.d2h-dark-color-scheme td.d2h-cntx,
+html[data-theme="day"] .cedar-diff2html.d2h-dark-color-scheme .d2h-code-line-ctn,
+html[data-theme="day"] .cedar-diff2html.d2h-dark-color-scheme .d2h-code-linenumber.d2h-cntx,
+html[data-theme="day"] .cedar-diff2html.d2h-dark-color-scheme .d2h-code-side-linenumber.d2h-cntx {
+  background-color: #ffffff;
   color: #1f2328;
 }
 
@@ -182,6 +228,16 @@ html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme .d2h-code-side-li
   color: #57606a;
   background-color: #f6f8fa;
   border-color: #d0d7de;
+}
+
+html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme td.d2h-ins .d2h-code-linenumber,
+html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme td.d2h-ins .d2h-code-side-linenumber {
+  background-color: var(--d2h-ins-bg-color);
+}
+
+html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme td.d2h-del .d2h-code-linenumber,
+html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme td.d2h-del .d2h-code-side-linenumber {
+  background-color: var(--d2h-del-bg-color);
 }
 
 html[data-theme="day"] .cedar-gh-diff-fallback {
@@ -206,7 +262,14 @@ html[data-theme="day"] .cedar-diff-gutter:focus-within {
 
 html[data-theme="day"] .cedar-diff-add-comment {
   color: #ffffff;
-  background: rgb(9 105 218 / 0.9);
+  background: #0969da;
+  box-shadow: 0 0 0 1px rgb(9 105 218 / 0.4);
+}
+
+html[data-theme="day"] .cedar-diff-add-comment:hover,
+html[data-theme="day"] .cedar-diff-add-comment:focus-visible {
+  background: #0550ae;
+  box-shadow: 0 0 0 2px rgb(9 105 218 / 0.45);
 }
 
 html[data-theme="day"] #cedar-theme-toggle .cedar-theme-icon-sun {
@@ -490,11 +553,17 @@ html[data-theme="day"] .cedar-pr-header-title {
   @apply text-zinc-900 hover:text-zinc-700;
 }
 
-html[data-theme="day"] .cedar-pr-header-eyebrow,
 html[data-theme="day"] .cedar-pr-stale-banner {
   border-color: rgb(245 158 11 / 0.45);
   background: rgb(255 251 235);
   color: rgb(120 53 15);
+}
+
+html[data-theme="day"] .cedar-pr-header-eyebrow {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: rgb(113 113 122);
 }
 
 html[data-theme="day"] .cedar-pr-stale-banner-label {
@@ -706,24 +775,262 @@ html[data-theme="day"] .cedar-file-flow-stage.is-code-map-active {
 
 html[data-theme="day"] #main-stage.cedar-review-wide {
   background: var(--cedar-day-canvas);
+  background-image: radial-gradient(rgb(15 23 42 / 0.06) 1px, transparent 1px);
+  background-size: 18px 18px;
 }
 
 html[data-theme="day"] #main-stage.cedar-review-wide #results.cedar-review-results--mounted {
+  background: var(--cedar-day-surface);
+  border-color: var(--cedar-day-border-strong);
+  box-shadow: var(--cedar-day-shadow-md);
+  gap: 0;
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide #results.cedar-review-results--mounted > .cedar-review-progress-dock,
+html[data-theme="day"] #main-stage.cedar-review-wide #results.cedar-review-results--mounted > .cedar-pr-header--pending.cedar-review-stage-band,
+html[data-theme="day"] #main-stage.cedar-review-wide #results.cedar-review-results--mounted > .cedar-review-view-band,
+html[data-theme="day"] #main-stage.cedar-review-wide #results.cedar-review-results--mounted .cedar-pr-header.cedar-glass,
+html[data-theme="day"] #main-stage.cedar-review-wide #results.cedar-review-results--mounted .cedar-pr-header--flat {
+  background: var(--cedar-day-surface);
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide #results.cedar-review-results--mounted .cedar-pr-header-eyebrow,
+html[data-theme="day"] #main-stage.cedar-review-wide #results.cedar-review-results--mounted > .cedar-pr-header--pending .cedar-pr-header-eyebrow {
+  border: 0;
   background: transparent;
-  gap: 0.75rem;
+  padding: 0;
+  color: rgb(113 113 122);
 }
 
-html[data-theme="day"] #main-stage.cedar-review-wide .cedar-pr-header.cedar-glass {
+html[data-theme="day"] #main-stage.cedar-review-wide #results.cedar-review-results--mounted > .cedar-pr-header--product .cedar-pr-stats--approval {
   border-color: var(--cedar-day-border);
   background: var(--cedar-day-surface);
-  box-shadow: var(--cedar-day-shadow-sm);
 }
 
-html[data-theme="day"] #main-stage.cedar-review-wide .cedar-glass,
-html[data-theme="day"] #main-stage.cedar-review-wide .cedar-glass-subtle {
+html[data-theme="day"] #main-stage.cedar-review-wide #results.cedar-review-results--mounted .cedar-pr-header-title {
+  @apply text-zinc-900;
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide #results.cedar-review-results--mounted .cedar-pr-stats--approval {
+  background: var(--cedar-day-surface-muted);
   border-color: var(--cedar-day-border);
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-review-main-tabs,
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-review-pr-subnav,
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-review-view-band {
+  background: transparent;
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide #results.cedar-review-results--mounted > .cedar-review-view-band {
   background: var(--cedar-day-surface);
-  box-shadow: var(--cedar-day-shadow-sm);
+  border-top-color: var(--cedar-day-border);
+  border-bottom-color: var(--cedar-day-border);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide #results.cedar-review-results--mounted > .cedar-review-view-band .cedar-main-tablist--view-band .cedar-main-tab {
+  color: rgb(113 113 122);
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide #results.cedar-review-results--mounted > .cedar-review-view-band .cedar-main-tablist--view-band .cedar-main-tab:hover:not(.is-active) {
+  color: rgb(24 24 27);
+  border-bottom-color: var(--cedar-day-border);
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide #results.cedar-review-results--mounted > .cedar-review-view-band .cedar-main-tablist--view-band .cedar-main-tab.is-active {
+  color: rgb(24 24 27);
+  border-bottom-color: var(--cedar-accent);
+  background: transparent;
+  box-shadow: none;
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide #results.cedar-review-results--mounted > .cedar-review-view-band .cedar-review-tabs-head--placeholder .cedar-main-tab.is-active .cedar-main-tab-icon {
+  color: var(--cedar-accent);
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide #results.cedar-review-results--mounted > .cedar-pr-header--flat:not(.cedar-pr-header--pending):not(.cedar-pr-header--product) {
+  border-bottom: 0;
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide #results.cedar-review-results--mounted > .cedar-pr-header--pending.cedar-review-stage-band {
+  border-bottom-color: var(--cedar-day-border);
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide #results.cedar-review-results--mounted > #cedar-review-workspace,
+html[data-theme="day"] #main-stage.cedar-review-wide #results.cedar-review-results--mounted > #cedar-review-workspace.cedar-review-product,
+html[data-theme="day"] #main-stage.cedar-review-wide #results.cedar-review-results--mounted > #cedar-review-workspace.cedar-review-layout--icon-nav,
+html[data-theme="day"] #main-stage.cedar-review-wide #results.cedar-review-results--mounted #cedar-review-workspace.cedar-review-layout--three-col {
+  background: var(--cedar-day-surface);
+  border: 0;
+  box-shadow: none;
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide #results.cedar-review-results--mounted #cedar-review-workspace .cedar-review-center {
+  background: var(--cedar-day-surface);
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-main-tablist--segmented {
+  background: transparent;
+  border-color: var(--cedar-day-border);
+  box-shadow: none;
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-main-tab--saas:not(.is-active),
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-main-tab--github:not(.is-active) {
+  opacity: 0.9;
+  color: rgb(113 113 122);
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-main-tab--saas:hover:not(.is-active),
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-main-tab--github:hover:not(.is-active) {
+  background: rgb(0 0 0 / 0.04);
+  border-color: var(--cedar-day-border);
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-main-tab--saas.is-active,
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-main-tab--github.is-active {
+  background: var(--cedar-accent-muted);
+  border-color: var(--cedar-day-border);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.65);
+  color: rgb(24 24 27);
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-main-tab--saas.is-active .cedar-main-tab-icon,
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-main-tab--github.is-active .cedar-main-tab-icon {
+  color: var(--cedar-accent);
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-review-icon-rail {
+  border-right-color: var(--cedar-day-border);
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-review-icon-rail-btn {
+  color: rgb(113 113 122);
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-review-icon-rail-btn:hover {
+  color: rgb(24 24 27);
+  background: rgb(0 0 0 / 0.04);
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-review-icon-rail-btn.is-active {
+  color: rgb(24 24 27);
+  background: var(--cedar-accent-muted);
+  box-shadow: inset 0 0 0 1px rgb(79 70 229 / 0.12);
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-pipeline-slice-findings:not(.is-pending):not(.is-failed) {
+  color: var(--cedar-accent);
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-cursor-rollup--compact .cedar-cursor-rollup-num {
+  @apply text-zinc-900;
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-cursor-rollup--compact .cedar-cursor-rollup-total {
+  @apply text-zinc-800;
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-review-icon-rail-count {
+  color: rgb(255 255 255);
+  background: linear-gradient(180deg, rgb(99 102 241), rgb(79 70 229));
+  border-color: rgb(255 255 255 / 0.45);
+  box-shadow:
+    0 0 0 2px var(--cedar-day-surface),
+    0 1px 4px rgb(79 70 229 / 0.45);
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-review-layout--slice-queue,
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-review-layout--icon-nav,
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-review-product {
+  background: var(--cedar-day-surface-muted);
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-review-icon-rail,
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-review-left-drawer {
+  background: var(--cedar-day-surface);
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-slice-queue-head {
+  background: var(--cedar-day-surface);
+}
+
+html[data-theme="day"] .cedar-review-progress-fill {
+  background: linear-gradient(90deg, var(--cedar-accent), var(--cedar-accent-strong));
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-gh-files-sidebar {
+  border-right-color: #d0d7de;
+  background: #f6f8fa;
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-gh-files-filter {
+  border-color: #d0d7de;
+  color: #1f2328;
+  background: #ffffff;
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-gh-files-tree-item {
+  color: #1f2328;
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-gh-files-tree-item:hover {
+  background: #eaeef2;
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-gh-files-tree-item.is-active {
+  background: #ffffff;
+  box-shadow: inset 2px 0 0 var(--cedar-accent);
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-gh-diff-main {
+  background: #ffffff;
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-gh-diff-main .cedar-gh-files-toolbar {
+  background: #ffffff;
+  border-bottom-color: #d0d7de;
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-gh-slice-toolbar,
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-slice-queue-head {
+  background: #f6f8fa;
+  border-bottom-color: #d0d7de;
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-gh-slice-toolbar-title,
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-slice-queue-title {
+  color: #1f2328;
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-slice-queue-scroll {
+  background: #ffffff;
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-queue-pill--blocker {
+  background: rgb(254 226 226);
+  color: rgb(159 18 57);
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-queue-pill--warn {
+  background: rgb(254 243 199);
+  color: rgb(146 64 14);
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-pr-header.cedar-glass,
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-pr-header--flat {
+  border: 0;
+  border-bottom: 1px solid var(--cedar-day-border);
+  background: transparent;
+  box-shadow: none;
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-pr-stats {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
 }
 
 html[data-theme="day"] .cedar-review-layout.cedar-review-layout--three-col {
@@ -870,8 +1177,8 @@ html[data-theme="day"] .cedar-slice-panel {
 
 html[data-theme="day"] #cedar-review-panel-architecture > .cedar-glass,
 html[data-theme="day"] #cedar-review-panel-architecture > .cedar-glass-subtle {
-  border-color: var(--cedar-day-border);
-  background: var(--cedar-day-surface-muted);
+  border: 0;
+  background: transparent;
   box-shadow: none;
 }
 
@@ -927,8 +1234,13 @@ html[data-theme="day"] .cedar-arch-findings-card {
   @apply border-blue-200/80 bg-blue-50/60;
 }
 
-html[data-theme="day"] .cedar-slice-rationale-summary {
-  @apply text-zinc-600 hover:text-zinc-900;
+html[data-theme="day"] .cedar-slice-rationale-summary,
+html[data-theme="day"] .cedar-slice-rationale-label {
+  @apply text-zinc-600;
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-slice-rationale--in-head .cedar-slice-rationale-body {
+  @apply text-zinc-600;
 }
 
 html[data-theme="day"] .cedar-arch-findings-hint {
@@ -1069,6 +1381,20 @@ html[data-theme="day"] #architecture-read-overview.cedar-layout-view {
   @apply border-zinc-200 bg-white;
 }
 
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-complete-layout-views .cedar-layout-view,
+html[data-theme="day"] #main-stage.cedar-review-wide #architecture-read-overview.cedar-layout-view {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-complete-layout-views .cedar-layout-view > .architecture-read-mermaid-head,
+html[data-theme="day"] #main-stage.cedar-review-wide #architecture-read-overview > .architecture-read-mermaid-head {
+  @apply border-0 bg-transparent;
+  padding-left: 0;
+  padding-right: 0;
+}
+
 html[data-theme="day"] .cedar-layer-chip-label {
   @apply text-zinc-900;
 }
@@ -1086,26 +1412,61 @@ html[data-theme="day"] .cedar-architecture-summary {
   background: linear-gradient(90deg, rgb(59 130 246 / 0.08) 0%, transparent 45%);
 }
 
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-architecture-summary,
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-architecture-block {
+  border: 0;
+  background: transparent;
+}
+
 html[data-theme="day"] .review-progress-log .review-progress-line {
   @apply border-zinc-300;
 }
 
 html[data-theme="day"] .cedar-review-progress-dock {
-  border-color: rgb(16 185 129 / 0.35);
-  background: linear-gradient(180deg, rgb(209 250 229 / 0.65), rgb(255 255 255 / 0.95));
+  border-color: var(--cedar-day-border);
+  background: rgb(255 255 255 / 0.65);
 }
 
-html[data-theme="day"] .cedar-review-progress-track {
-  background: rgb(0 0 0 / 0.08);
+html[data-theme="day"] #main-stage.cedar-review-wide #results.cedar-review-results--mounted > .cedar-review-progress-dock {
+  background: var(--cedar-day-surface);
+  border-bottom-color: var(--cedar-day-border);
 }
 
-html[data-theme="day"] .cedar-review-progress-dock #cedar-review-progress-label {
-  @apply text-zinc-900;
+html[data-theme="day"] .cedar-review-progress-track,
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-pr-stat-progress,
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-pr-approval-progress {
+  background: rgb(228 228 231);
 }
 
-html[data-theme="day"] .cedar-review-progress-dock #cedar-review-progress-detail,
-html[data-theme="day"] .cedar-review-progress-dock #cedar-review-progress-pct {
-  @apply text-zinc-600;
+html[data-theme="day"] .cedar-review-progress-fill {
+  background: linear-gradient(90deg, rgb(37 99 235), rgb(96 165 250));
+}
+
+html[data-theme="day"] .cedar-review-progress-dock[data-state="done"] .cedar-review-progress-fill {
+  background: linear-gradient(90deg, rgb(5 150 105), rgb(16 185 129));
+}
+
+html[data-theme="day"] .cedar-review-progress-label,
+html[data-theme="day"] #cedar-review-progress-label {
+  color: rgb(24 24 27);
+}
+
+html[data-theme="day"] .cedar-review-progress-detail,
+html[data-theme="day"] #cedar-review-progress-detail,
+html[data-theme="day"] .cedar-review-progress-pct,
+html[data-theme="day"] #cedar-review-progress-pct {
+  color: rgb(82 82 91);
+}
+
+html[data-theme="day"] .cedar-review-progress-log-line.is-done {
+  border-left-color: rgb(16 185 129 / 0.5);
+  color: rgb(4 120 87);
+}
+
+html[data-theme="day"] .cedar-review-progress-log-line.is-running,
+html[data-theme="day"] .cedar-review-progress-log-line.is-activity {
+  border-left-color: rgb(59 130 246 / 0.4);
+  color: rgb(63 63 70);
 }
 
 html[data-theme="day"] .cedar-diff-focus-btn {
@@ -1124,10 +1485,33 @@ html[data-theme="day"] #cedar-review-panel-architecture h2.text-white {
   color: rgb(24 24 27);
 }
 
-html[data-theme="day"] #architecture-read.cedar-glass {
+html[data-theme="day"] #architecture-read.cedar-glass,
+html[data-theme="day"] #main-stage.cedar-review-wide #architecture-read {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-architecture-section,
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-architecture-diagram-card,
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-complete-layout-views .cedar-layout-view {
   border-color: var(--cedar-day-border);
   background: var(--cedar-day-surface);
-  box-shadow: var(--cedar-day-shadow-sm);
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-layer-chip--pr {
+  background: color-mix(in srgb, var(--cedar-layer-fill, var(--cedar-accent)) 8%, var(--cedar-day-surface));
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide .diagram-toolbar .diagram-tool-btn {
+  border-color: var(--cedar-day-border);
+  background: var(--cedar-day-surface);
+  color: rgb(82 82 91);
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide .diagram-toolbar .diagram-tool-btn:hover {
+  color: rgb(24 24 27);
+  background: var(--cedar-day-surface-muted);
 }
 
 html[data-theme="day"] #architecture-read :where(.text-zinc-200, .text-zinc-400) {
@@ -1220,6 +1604,21 @@ html[data-theme="day"] .cedar-shell > header nav [class*="text-zinc-3"] {
 }
 
 /* GitHub-style diff chrome (light) */
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-gh-file {
+  border-color: #d0d7de;
+  background-color: transparent;
+  border-top-color: #d0d7de;
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-gh-file-actions {
+  border-bottom-color: #d0d7de;
+  background-color: transparent;
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-gh-file-body {
+  background-color: #ffffff;
+}
+
 html[data-theme="day"] .cedar-gh-file {
   border-color: #d0d7de;
   background-color: #ffffff;
@@ -1268,10 +1667,10 @@ html[data-theme="day"] .cedar-gh-file-toggle {
 /* Inline diff review comments */
 html[data-theme="day"] .cedar-review-layout,
 html[data-theme="day"] .cedar-review-stage {
-  --cedar-comment-cursor-accent: 113 113 122;
-  --cedar-comment-cursor-accent-muted: 63 63 70;
-  --cedar-comment-github-accent: 113 113 122;
-  --cedar-comment-arch-accent: 113 113 122;
+  --cedar-comment-cursor-accent: 9 105 218;
+  --cedar-comment-cursor-accent-muted: 37 99 235;
+  --cedar-comment-github-accent: 37 99 235;
+  --cedar-comment-arch-accent: 124 58 237;
   --cedar-comment-surface: 250 250 250;
   --cedar-comment-surface-elevated: 255 255 255;
 }
@@ -1430,9 +1829,12 @@ html[data-theme="day"] .cedar-comment-html pre {
   @apply border-zinc-200 bg-zinc-100 text-zinc-900;
 }
 
-html[data-theme="day"] .cedar-comment-marker-chip,
+html[data-theme="day"] .cedar-comment-marker-chip {
+  border-left-color: rgb(var(--cedar-comment-cursor-accent));
+}
+
 html[data-theme="day"] .cedar-comment-marker-chip--arch {
-  border-left-color: rgb(24 24 27);
+  border-left-color: rgb(var(--cedar-comment-arch-accent));
 }
 
 html[data-theme="day"] .cedar-review-comment-summary-label {

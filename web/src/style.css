@@ -9,10 +9,20 @@
   html {
     @apply scroll-smooth;
     /* Review workspace (night default; day overrides in theme-day.css) */
-    --cedar-review-canvas: #060606;
-    --cedar-review-shell: #0c0c0e;
-    --cedar-review-surface: #111113;
-    --cedar-review-rail: #09090b;
+    --cedar-review-canvas: #08080a;
+    --cedar-review-shell: #0e0e11;
+    --cedar-review-surface: #121216;
+    --cedar-review-rail: #0c0c0f;
+    --cedar-accent: rgb(99 102 241);
+    --cedar-accent-strong: rgb(129 140 248);
+    --cedar-accent-muted: rgb(99 102 241 / 0.16);
+    --cedar-accent-subtle: rgb(99 102 241 / 0.08);
+    --cedar-success: rgb(16 185 129);
+    --cedar-success-muted: rgb(16 185 129 / 0.14);
+    --cedar-warning: rgb(245 158 11);
+    --cedar-danger: rgb(244 63 94);
+    --cedar-focus-ring: rgb(99 102 241 / 0.42);
+    --cedar-app-radius: 0.75rem;
     --cedar-review-card: rgb(255 255 255 / 0.035);
     --cedar-review-inset: rgb(0 0 0 / 0.4);
     --cedar-review-border: rgb(255 255 255 / 0.08);
@@ -21,6 +31,16 @@
     --cedar-review-foreground: rgb(244 244 245);
     --cedar-review-muted: rgb(161 161 170);
     --cedar-review-stage-grid: rgb(255 255 255 / 0.04);
+    --cedar-gh-diff-bg: #0d1117;
+    --cedar-gh-diff-panel: #161b22;
+    --cedar-gh-diff-inset: #010409;
+    --cedar-gh-diff-border: #30363d;
+    --cedar-gh-diff-fg: #e6edf3;
+    --cedar-gh-diff-muted: #8b949e;
+    --cedar-gh-diff-hover: #161b22;
+    --cedar-gh-diff-active: #21262d;
+    --cedar-gh-diff-fallback: #c9d1d9;
+    --cedar-gh-link: #58a6ff;
   }
 
   body {
@@ -256,11 +276,11 @@
   }
 
   .cedar-pr-stat-progress {
-    @apply m-0 h-2 w-full overflow-hidden rounded-full bg-white/10;
+    @apply m-0 h-1 w-full overflow-hidden rounded-sm bg-white/10;
   }
 
   .cedar-pr-approval-progress {
-    @apply h-2.5;
+    @apply h-1;
   }
 
   .cedar-pr-stat-progress-fill {
@@ -726,8 +746,24 @@
     @apply flex w-full min-w-0 max-w-none flex-col overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.02];
   }
 
+  #main-stage.cedar-review-wide:not(:has(#cedar-review-panel-architecture)) .cedar-complete-layout-views .cedar-layout-view,
+  #main-stage.cedar-review-wide:not(:has(#cedar-review-panel-architecture)) #architecture-read-overview.cedar-layout-view,
+  #main-stage.cedar-review-wide:not(:has(#cedar-review-panel-architecture)) #architecture-read-overview {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
   .cedar-complete-layout-views .cedar-layout-view > .architecture-read-mermaid-head {
     @apply mb-0 border-b border-white/[0.08] bg-white/[0.02] px-3 py-2.5;
+  }
+
+  #main-stage.cedar-review-wide:not(:has(#cedar-review-panel-architecture)) .cedar-complete-layout-views .cedar-layout-view > .architecture-read-mermaid-head,
+  #main-stage.cedar-review-wide:not(:has(#cedar-review-panel-architecture)) #architecture-read-overview > .architecture-read-mermaid-head {
+    border: 0;
+    background: transparent;
+    padding: 0.35rem 0 0.5rem;
   }
 
   .cedar-complete-layout-views .cedar-layout-view > .diagram-overview-read,
@@ -737,6 +773,261 @@
 
   #architecture-read-overview.cedar-layout-view {
     @apply overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.02];
+  }
+
+  #main-stage.cedar-review-wide .cedar-architecture-summary.cedar-architecture-block:not(.cedar-architecture-section) {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    padding: 0;
+    margin-bottom: 0.35rem;
+  }
+
+  #main-stage.cedar-review-wide .cedar-architecture-read:not(.cedar-architecture-section) {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  #main-stage.cedar-review-wide .cedar-architecture-summary.cedar-architecture-section {
+    border-left: 3px solid color-mix(in srgb, var(--cedar-accent) 55%, transparent);
+    background: var(--cedar-review-surface);
+  }
+
+  #main-stage.cedar-review-wide .cedar-complete-layout-views {
+    gap: 0.65rem;
+  }
+
+  #main-stage.cedar-review-wide #cedar-review-panel-architecture.cedar-architecture-page {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    padding: 0.65rem 0.85rem 1rem;
+    overflow: visible;
+    min-height: min-content;
+  }
+
+  #main-stage.cedar-review-wide .cedar-architecture-section {
+    border: 1px solid var(--cedar-review-border);
+    border-radius: 0.5rem;
+    background: var(--cedar-review-surface);
+    padding: 0.65rem 0.75rem;
+  }
+
+  #main-stage.cedar-review-wide .cedar-architecture-section-head {
+    margin-bottom: 0.55rem;
+  }
+
+  #main-stage.cedar-review-wide .cedar-architecture-section-label {
+    letter-spacing: 0.12em;
+    color: var(--cedar-review-muted);
+  }
+
+  #main-stage.cedar-review-wide .cedar-architecture-prose {
+    margin: 0.45rem 0 0;
+    max-width: 52rem;
+    font-size: 0.6875rem;
+    line-height: 1.55;
+    color: var(--cedar-review-foreground);
+  }
+
+  #main-stage.cedar-review-wide .cedar-architecture-prose--lead {
+    margin-top: 0.55rem;
+  }
+
+  #main-stage.cedar-review-wide .cedar-architecture-prose--muted {
+    color: var(--cedar-review-muted);
+  }
+
+  #main-stage.cedar-review-wide .cedar-architecture-notes {
+    margin: 0.55rem 0 0;
+    padding: 0.55rem 0 0 0.85rem;
+    border-top: 1px solid var(--cedar-review-border);
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  #main-stage.cedar-review-wide .cedar-architecture-notes li {
+    position: relative;
+    padding-left: 0.65rem;
+    font-size: 0.6875rem;
+    line-height: 1.5;
+    color: var(--cedar-review-muted);
+  }
+
+  #main-stage.cedar-review-wide .cedar-architecture-notes li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.45rem;
+    width: 0.25rem;
+    height: 0.25rem;
+    border-radius: 50%;
+    background: var(--cedar-accent);
+  }
+
+  #main-stage.cedar-review-wide .cedar-architecture-layer-stack {
+    margin: 0.55rem 0 0;
+    padding-top: 0.55rem;
+    border-top: 1px solid var(--cedar-review-border);
+  }
+
+  #main-stage.cedar-review-wide .cedar-layer-stack-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(10.25rem, 1fr));
+    gap: 0.45rem;
+    margin: 0.45rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  #main-stage.cedar-review-wide .cedar-layer-chip--pr {
+    display: flex;
+    flex-direction: column;
+    gap: 0.12rem;
+    min-height: 3.1rem;
+    padding: 0.45rem 0.55rem;
+    border: 1px solid color-mix(in srgb, var(--cedar-layer-accent, var(--cedar-accent)) 28%, var(--cedar-review-border));
+    border-radius: 0.45rem;
+    background: color-mix(in srgb, var(--cedar-layer-fill, var(--cedar-accent)) 10%, var(--cedar-review-surface));
+    box-shadow: none;
+  }
+
+  #main-stage.cedar-review-wide .cedar-layer-chip--pr .cedar-layer-chip-label {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--cedar-layer-text, var(--cedar-review-foreground));
+  }
+
+  #main-stage.cedar-review-wide .cedar-layer-chip--pr .cedar-layer-chip-hint {
+    font-size: 0.5625rem;
+    line-height: 1.35;
+    color: var(--cedar-review-muted);
+  }
+
+  #main-stage.cedar-review-wide .cedar-architecture-diagram-card {
+    margin-top: 0.55rem;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-width: 0;
+    overflow: visible;
+    border: 1px solid var(--cedar-review-border);
+    border-radius: 0.5rem;
+    background: var(--cedar-review-surface);
+  }
+
+  #main-stage.cedar-review-wide .cedar-architecture-diagram-card .architecture-read-mermaid-head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+    margin: 0;
+    padding: 0.5rem 0.65rem;
+    border: 0;
+    border-bottom: 1px solid var(--cedar-review-border);
+    background: var(--cedar-review-surface);
+    flex-wrap: nowrap;
+  }
+
+  #main-stage.cedar-review-wide .architecture-read-mermaid-head-tools,
+  #main-stage.cedar-review-wide .architecture-read-mermaid-head .diagram-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.35rem;
+    margin: 0;
+    min-width: 0;
+  }
+
+  #main-stage.cedar-review-wide .cedar-architecture-diagram-card .diagram-toolbar .cedar-label {
+    display: none;
+  }
+
+  #main-stage.cedar-review-wide .diagram-toolbar .diagram-tool-btn {
+    height: 1.65rem;
+    min-width: 1.65rem;
+    padding: 0 0.4rem;
+    border-radius: 0.375rem;
+    font-size: 0.625rem;
+  }
+
+  #main-stage.cedar-review-wide .diagram-toolbar .diagram-tool-btn + .diagram-tool-btn {
+    margin-left: 0;
+  }
+
+  #main-stage.cedar-review-wide .cedar-diagram-slice-badges {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.3rem;
+    max-width: none;
+    margin: 0;
+  }
+
+  #main-stage.cedar-review-wide #cedar-review-panel-architecture .cedar-complete-layout-views {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    width: 100%;
+  }
+
+  #main-stage.cedar-review-wide #cedar-review-panel-architecture .cedar-complete-layout-views .cedar-layout-view,
+  #main-stage.cedar-review-wide #cedar-review-panel-architecture #architecture-read-overview.cedar-layout-view,
+  #main-stage.cedar-review-wide #cedar-review-panel-architecture #architecture-read-overview {
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: column;
+    width: 100%;
+    min-width: 0;
+    overflow: visible;
+    border: 1px solid var(--cedar-review-border);
+    border-radius: 0.5rem;
+    background: var(--cedar-review-surface);
+    box-shadow: none;
+  }
+
+  #main-stage.cedar-review-wide #cedar-review-panel-architecture .cedar-complete-layout-views .cedar-layout-view > .architecture-read-mermaid-head,
+  #main-stage.cedar-review-wide #cedar-review-panel-architecture #architecture-read-overview > .architecture-read-mermaid-head {
+    padding: 0.5rem 0.65rem;
+    margin: 0;
+    border: 0;
+    border-bottom: 1px solid var(--cedar-review-border);
+    background: var(--cedar-review-surface);
+  }
+
+  #main-stage.cedar-review-wide #cedar-review-panel-architecture .diagram-overview-read,
+  #main-stage.cedar-review-wide #cedar-review-panel-architecture .cedar-complete-layout-views .diagram-overview-read.diagram-stage-canvas,
+  #main-stage.cedar-review-wide #cedar-review-panel-architecture .cedar-complete-layout-views .diagram-complete-layout.diagram-stage-canvas {
+    display: block;
+    flex: 0 0 auto;
+    width: 100%;
+    min-height: min(40rem, 72vh);
+    height: min(56rem, 80vh);
+    max-height: min(94vh, 1400px);
+    overflow: hidden;
+    border-radius: 0 0 0.5rem 0.5rem;
+  }
+
+  #main-stage.cedar-review-wide #cedar-review-panel-architecture #architecture-read-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    overflow: visible;
+  }
+
+  #main-stage.cedar-review-wide #cedar-review-panel-architecture #architecture-read-layout .cedar-architecture-section-head {
+    margin: 0.55rem 0 0.45rem;
   }
 
   #architecture-read-overview > .architecture-read-mermaid-head {
@@ -988,10 +1279,12 @@
     margin-inline: 0;
     padding-left: 0.5rem;
     padding-right: 0.5rem;
-    padding-top: 1rem;
-    padding-bottom: 1.25rem;
+    padding-top: 0.35rem;
+    padding-bottom: 0.5rem;
     box-sizing: border-box;
     background: var(--cedar-review-canvas);
+    background-image: radial-gradient(rgb(255 255 255 / 0.035) 1px, transparent 1px);
+    background-size: 20px 20px;
   }
 
   #main-stage.cedar-review-wide #results {
@@ -1003,14 +1296,65 @@
 
   body.cedar-review-stage-active {
     overflow: hidden;
+    height: 100vh;
+    height: 100dvh;
+  }
+
+  body.cedar-review-stage-active .cedar-shell {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    min-height: 100dvh;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  body.cedar-review-stage-active .cedar-shell > header {
+    flex: 0 0 auto;
   }
 
   #main-stage.cedar-review-wide {
     display: flex;
+    flex: 1 1 auto;
     flex-direction: column;
-    min-height: calc(100vh - 3.75rem);
-    max-height: calc(100vh - 3.75rem);
+    min-height: 0;
+    height: auto;
+    max-height: none;
     overflow: hidden;
+  }
+
+  body.cedar-review-stage-active #main-stage.cedar-review-wide #results {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  body.cedar-review-stage-active #main-stage.cedar-review-wide #results.cedar-review-results--mounted {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 100%;
+    max-height: none;
+  }
+
+  body.cedar-review-stage-active #main-stage.cedar-review-wide #cedar-review-workspace {
+    flex: 1 1 auto;
+    align-self: stretch;
+    min-height: 0;
+    height: auto;
+    max-height: none;
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted > .cedar-review-view-band,
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted > .cedar-review-pr-subnav {
+    flex: 0 0 auto;
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted > .cedar-pr-header,
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted > .cedar-review-progress-dock {
+    flex: 0 0 auto;
   }
 
   #main-stage.cedar-review-wide #results.cedar-review-results--mounted {
@@ -1019,17 +1363,168 @@
     flex: 1 1 auto;
     min-height: 0;
     overflow: hidden;
-    gap: 0.75rem;
-    background: transparent;
-  }
-
-  #main-stage.cedar-review-wide #results.cedar-review-results--mounted .cedar-pr-header.cedar-glass {
-    border-color: var(--cedar-review-border);
+    gap: 0;
+    margin-top: 0.15rem;
+    border: 1px solid var(--cedar-review-border-strong);
+    border-radius: var(--cedar-app-radius);
     background: var(--cedar-review-shell);
     box-shadow: var(--cedar-review-shadow-sm);
   }
 
-  #main-stage.cedar-review-wide .cedar-pr-header--pending {
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted > .cedar-review-progress-dock {
+    flex: 0 0 auto;
+    margin: 0;
+    padding: 0.5rem 0.85rem 0.55rem;
+    border: 0;
+    border-bottom: 1px solid var(--cedar-review-border);
+    border-radius: 0;
+    background: var(--cedar-review-surface);
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted > .cedar-pr-header--pending.cedar-review-stage-band {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    gap: 0;
+    margin: 0;
+    padding: 0.5rem 0.85rem 0.55rem;
+    border: 0;
+    border-bottom: 1px solid var(--cedar-review-border);
+    border-radius: 0;
+    background: var(--cedar-review-surface);
+    box-shadow: none;
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted > .cedar-pr-header--pending .cedar-pr-header-eyebrow {
+    margin: 0 0 0.45rem;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--cedar-review-muted);
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted > .cedar-pr-header--pending .cedar-review-progress-head {
+    margin-bottom: 0.15rem;
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted:has(.cedar-review-progress-dock:not([hidden]))
+    > .cedar-pr-header--pending.cedar-review-stage-band {
+    padding: 0.35rem 0.85rem 0.45rem;
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted:has(.cedar-review-progress-dock:not([hidden]))
+    > .cedar-pr-header--pending.cedar-review-stage-band .cedar-review-progress-head,
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted:has(.cedar-review-progress-dock:not([hidden]))
+    > .cedar-pr-header--pending.cedar-review-stage-band .cedar-review-progress-detail {
+    display: none;
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted .cedar-pr-header.cedar-glass,
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted .cedar-pr-header--flat {
+    border: 0;
+    border-radius: 0;
+    background: var(--cedar-review-surface);
+    box-shadow: none;
+    backdrop-filter: none;
+    padding: 0.55rem 0.85rem 0.65rem;
+    border-bottom: 1px solid var(--cedar-review-border);
+    margin-bottom: 0;
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted > .cedar-pr-header--product {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.65rem 1.25rem;
+    padding: 0.7rem 0.85rem 0.75rem;
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted > .cedar-pr-header--product .cedar-pr-header-id {
+    min-width: 0;
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted .cedar-pr-header-eyebrow {
+    margin: 0 0 0.28rem;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted > .cedar-pr-header--product .cedar-pr-header-title {
+    margin-top: 0;
+    font-size: 0.9375rem;
+    line-height: 1.35;
+    letter-spacing: -0.015em;
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted > .cedar-pr-header--product .cedar-pr-header-meta {
+    margin-top: 0.35rem;
+    font-size: 0.5625rem;
+    letter-spacing: 0.01em;
+    color: var(--cedar-review-muted);
+    opacity: 0.95;
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted > .cedar-pr-header--product .cedar-pr-header-metrics {
+    align-items: flex-end;
+    justify-self: end;
+    gap: 0.5rem;
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted > .cedar-pr-header--product .cedar-pr-stats--approval {
+    min-width: 11.25rem;
+    max-width: 13.75rem;
+    padding: 0.5rem 0.6rem;
+    border: 1px solid var(--cedar-review-border);
+    border-radius: 0.45rem;
+    background: transparent;
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted > .cedar-pr-header--product .cedar-pr-approval-progress {
+    height: 3px;
+    background: color-mix(in srgb, var(--cedar-review-border) 65%, transparent);
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted > .cedar-pr-header--product .cedar-pr-approval-progress-fill {
+    background: linear-gradient(90deg, var(--cedar-accent), var(--cedar-accent-strong));
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted:has(.cedar-review-progress-dock:not([hidden])) .cedar-pr-header {
+    border-top: 0;
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted .cedar-pr-header-eyebrow {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--cedar-review-muted);
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted .cedar-pr-header-title {
+    @apply font-semibold tracking-tight text-zinc-50;
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted .cedar-pr-stats--approval {
+    padding: 0.45rem 0.6rem;
+    border: 1px solid var(--cedar-review-border);
+    border-radius: 0.5rem;
+    background: var(--cedar-review-inset);
+  }
+
+  #main-stage.cedar-review-wide #results .cedar-pr-stats {
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    border-radius: 0;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  #main-stage.cedar-review-wide .cedar-pr-header--pending:not(.cedar-review-stage-band) {
     @apply mb-3 py-4;
   }
 
@@ -1046,6 +1541,8 @@
     min-height: 0;
     max-height: 100%;
     overflow: hidden;
+    align-self: stretch;
+    height: 100%;
   }
 
   #main-stage.cedar-review-wide #results.cedar-review-results--mounted .cedar-review-center {
@@ -1101,6 +1598,12 @@
   }
 
   #main-stage.cedar-review-wide #results.cedar-review-results--mounted .cedar-slices-stage,
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted #cedar-review-panel-slices.cedar-slice-queue-stage {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+
   #main-stage.cedar-review-wide #results.cedar-review-results--mounted .cedar-main-tabpanel--architecture {
     flex: 1 1 auto;
     min-height: 0;
@@ -1108,10 +1611,19 @@
     overscroll-behavior: contain;
   }
 
-  #main-stage.cedar-review-wide #results.cedar-review-results--mounted .cedar-slice-review-pane {
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted .cedar-slice-review-pane:not(.cedar-slice-review-pane--diffs) {
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted .cedar-slice-review-pane.cedar-slice-review-pane--diffs,
+  #main-stage.cedar-review-wide .cedar-slice-queue-scroll.cedar-slice-review-pane {
+    width: 100%;
+    max-width: 100%;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
   }
 
   .cedar-review-tabs-head--placeholder .cedar-main-tab {
@@ -1131,17 +1643,25 @@
     @apply text-zinc-300;
   }
 
+  .cedar-review-view-band[data-review-pr-subnav-placeholder] .cedar-main-tablist--view-band {
+    opacity: 1;
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted > .cedar-review-view-band .cedar-review-tabs-head--placeholder .cedar-main-tab:not(.is-active) {
+    opacity: 1;
+  }
+
   @media (min-width: 640px) {
     #main-stage.cedar-review-wide {
-      padding-left: 1rem;
-      padding-right: 1rem;
+      padding-left: 0.65rem;
+      padding-right: 0.65rem;
     }
   }
 
   @media (min-width: 1280px) {
     #main-stage.cedar-review-wide {
-      padding-left: 1.25rem;
-      padding-right: 1.25rem;
+      padding-left: 0.85rem;
+      padding-right: 0.85rem;
     }
 
     #main-stage.cedar-review-wide.cedar-review-slices-focus {
@@ -1153,6 +1673,1561 @@
     padding-right: 0.5rem;
   }
 
+  #main-stage.cedar-review-wide .cedar-review-layout.cedar-review-layout--three-col {
+    --cedar-review-rail-pad-x: 0.55rem;
+    --cedar-review-rail-pad-y: 0.45rem;
+    --cedar-review-rail-gap: 0.45rem;
+    --cedar-review-rail-card-pad: 0.55rem;
+    --cedar-review-center-pad-x: 0.45rem;
+    --cedar-review-center-pad-y: 0.25rem;
+    border-radius: 0.65rem;
+  }
+
+  #main-stage.cedar-review-wide .cedar-review-layout,
+  #main-stage.cedar-review-wide .cedar-review-stage {
+    --cedar-review-prose: 0.6875rem;
+    --cedar-review-prose-leading: 1.5;
+    --cedar-review-section: 0.6875rem;
+  }
+
+  #main-stage.cedar-review-wide .cedar-pr-header {
+    padding: 0.3rem 0 0.45rem;
+    gap: 0.45rem 0.85rem;
+    align-items: start;
+  }
+
+  #main-stage.cedar-review-wide .cedar-pr-header-title {
+    @apply mt-0.5 text-sm leading-snug sm:text-[0.9375rem];
+    -webkit-line-clamp: 3;
+  }
+
+  #main-stage.cedar-review-wide .cedar-pr-header-meta {
+    @apply mt-0.5 text-[9px];
+  }
+
+  #main-stage.cedar-review-wide .cedar-pr-header-metrics {
+    @apply gap-1.5;
+  }
+
+  #main-stage.cedar-review-wide .cedar-pr-stats--approval {
+    gap: 0.3rem;
+    min-width: min(100%, 11rem);
+    max-width: 13.5rem;
+    padding: 0;
+  }
+
+  #main-stage.cedar-review-wide .cedar-pr-header--pending:not(.cedar-review-stage-band) {
+    @apply mb-2 py-2;
+  }
+
+  #main-stage.cedar-review-wide .cedar-review-layout--three-col .cedar-review-rail-head {
+    @apply mb-2 min-h-[2.25rem] gap-2 pb-2;
+  }
+
+  #main-stage.cedar-review-wide .cedar-review-tabs-head {
+    @apply min-h-[2.25rem] gap-2;
+  }
+
+  #main-stage.cedar-review-wide .cedar-main-tablist {
+    @apply gap-4;
+  }
+
+  #main-stage.cedar-review-wide .cedar-main-tab {
+    @apply gap-1.5 py-2 text-xs;
+  }
+
+  #main-stage.cedar-review-wide .cedar-main-tab-icon {
+    @apply h-4 w-4;
+  }
+
+  #main-stage.cedar-review-wide .cedar-main-tabpanel--architecture {
+    @apply py-1;
+  }
+
+  #main-stage.cedar-review-wide .cedar-main-tabpanel--architecture.cedar-review-stage {
+    gap: 0.5rem;
+  }
+
+  #main-stage.cedar-review-wide #cedar-review-panel-architecture.cedar-review-stage > * + * {
+    margin-top: 0.5rem;
+  }
+
+  #main-stage.cedar-review-wide #architecture-read h2 {
+    @apply text-xs;
+  }
+
+  #main-stage.cedar-review-wide #architecture-read :is(p, ul) {
+    @apply text-xs leading-snug;
+  }
+
+  #main-stage.cedar-review-wide .cedar-complete-layout-views {
+    gap: 0.65rem;
+  }
+
+  #main-stage.cedar-review-wide .cedar-slices-stage {
+    @apply pt-0;
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-panel {
+    padding: 0.4rem 0 0.55rem;
+    scroll-margin-top: 0.35rem;
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-panel:last-child {
+    padding-bottom: 0.15rem;
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-panel-title {
+    @apply mt-1;
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-findings-panel,
+  #main-stage.cedar-review-wide .cedar-slice-panel > .border-t {
+    margin-top: 0.35rem !important;
+    padding-top: 0.35rem !important;
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-findings-panel .cedar-findings-panel-body {
+    margin-top: 0.35rem !important;
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-review-pane .cedar-gh-file {
+    margin-bottom: 0.2rem;
+  }
+
+  #main-stage.cedar-review-wide .cedar-review-layout--three-col .cedar-pipeline-slice-list button {
+    @apply py-2;
+  }
+
+  .cedar-review-main-tabs,
+  .cedar-review-pr-subnav,
+  .cedar-review-view-band {
+    flex: 0 0 auto;
+    margin: 0;
+    padding: 0.3rem 0.85rem 0.25rem;
+    border: 0;
+    border-bottom: 0;
+    background: transparent;
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted > .cedar-review-view-band {
+    position: static;
+    z-index: 2;
+    flex: 0 0 auto;
+    width: 100%;
+    min-height: 2.65rem;
+    margin: 0;
+    padding: 0.4rem 0.85rem 0;
+    background: var(--cedar-review-surface);
+    border: 0;
+    border-top: 1px solid var(--cedar-review-border);
+    border-bottom: 1px solid var(--cedar-review-border);
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted > .cedar-pr-header--flat:not(.cedar-pr-header--pending):not(.cedar-pr-header--product) {
+    margin-bottom: 0;
+    border-bottom: 0;
+    padding-bottom: 0.4rem;
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted > .cedar-pr-header--product.cedar-pr-header--flat {
+    border-bottom: 1px solid var(--cedar-review-border);
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted > .cedar-pr-header--pending.cedar-review-stage-band {
+    border-bottom: 1px solid var(--cedar-review-border);
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted > #cedar-review-workspace,
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted > #cedar-review-workspace.cedar-review-product,
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted > #cedar-review-workspace.cedar-review-layout--icon-nav {
+    background: var(--cedar-review-shell);
+    border-top: 0;
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted #cedar-review-workspace.cedar-review-layout--three-col {
+    border: 0;
+    border-radius: 0 0 var(--cedar-app-radius) var(--cedar-app-radius);
+    box-shadow: none;
+    background: var(--cedar-review-shell);
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted #cedar-review-workspace .cedar-review-center,
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted #cedar-review-workspace.cedar-review-layout--icon-nav .cedar-review-center {
+    background: var(--cedar-review-surface);
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted > .cedar-review-view-band[data-review-pr-subnav-placeholder] {
+    background: var(--cedar-review-surface);
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted > .cedar-review-view-band .cedar-review-tabs-head {
+    background: transparent;
+  }
+
+  .cedar-review-tabs-head--saas,
+  .cedar-review-tabs-head--github,
+  .cedar-review-view-band-head {
+    @apply min-h-0 w-full border-0 p-0;
+    border-bottom: 0;
+  }
+
+  #main-stage.cedar-review-wide .cedar-review-view-band .cedar-review-tabs-head.cedar-review-view-band-head--centered {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    width: 100%;
+    min-height: 0;
+    border-bottom: 0;
+    background: transparent;
+    padding: 0;
+    gap: 0 0.75rem;
+  }
+
+  #main-stage.cedar-review-wide .cedar-review-view-band-head--centered > .cedar-main-tablist--view-band,
+  #main-stage.cedar-review-wide .cedar-review-view-band-head--centered > .cedar-main-tablist--segmented {
+    grid-column: 2;
+    grid-row: 1;
+    margin: 0;
+    justify-self: center;
+  }
+
+  #main-stage.cedar-review-wide .cedar-review-view-band-head--centered > .cedar-review-rail-edge--in-tabs:not([hidden]) {
+    grid-column: 3;
+    grid-row: 1;
+    justify-self: end;
+    align-self: center;
+    position: static;
+    inset: auto;
+    transform: none;
+  }
+
+  #main-stage.cedar-review-wide .cedar-review-view-band-head--centered > .cedar-review-rail-edge--in-tabs[hidden] {
+    display: none !important;
+  }
+
+  #main-stage.cedar-review-wide #results:not(.cedar-review-results--mounted) .cedar-review-main-tabs,
+  #main-stage.cedar-review-wide #results:not(.cedar-review-results--mounted) .cedar-review-view-band {
+    background: transparent;
+    border: 0;
+  }
+
+  #main-stage.cedar-review-wide .cedar-main-tablist--segmented {
+    display: inline-flex;
+    align-items: stretch;
+    gap: 0.15rem;
+    width: fit-content;
+    max-width: 100%;
+    padding: 0.2rem;
+    border: 1px solid var(--cedar-review-border);
+    border-radius: 0.5rem;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted > .cedar-review-view-band .cedar-main-tablist--view-band {
+    display: inline-flex;
+    align-items: stretch;
+    gap: 0.25rem;
+    width: fit-content;
+    max-width: 100%;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted > .cedar-review-view-band .cedar-main-tablist--view-band .cedar-main-tab {
+    @apply gap-1.5 px-3 py-2.5 text-xs font-semibold;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    margin-bottom: -1px;
+    color: var(--cedar-review-muted);
+    background: transparent;
+    box-shadow: none;
+    opacity: 1;
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted > .cedar-review-view-band .cedar-main-tablist--view-band .cedar-main-tab:hover:not(.is-active) {
+    color: var(--cedar-review-foreground);
+    background: transparent;
+    border-bottom-color: var(--cedar-review-border);
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted > .cedar-review-view-band .cedar-main-tablist--view-band .cedar-main-tab.is-active {
+    color: var(--cedar-review-foreground);
+    background: transparent;
+    border-bottom-color: var(--cedar-accent);
+    box-shadow: none;
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted > .cedar-review-view-band .cedar-main-tablist--view-band .cedar-main-tab.is-active .cedar-main-tab-icon {
+    color: var(--cedar-accent-strong);
+  }
+
+  #main-stage.cedar-review-wide #results.cedar-review-results--mounted > .cedar-review-view-band .cedar-main-tablist--view-band .cedar-main-tab:focus-visible {
+    outline: none;
+    box-shadow: inset 0 -2px 0 var(--cedar-focus-ring);
+  }
+
+  .cedar-main-tab--saas,
+  .cedar-main-tab--github {
+    position: relative;
+    @apply inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold;
+    border: 1px solid transparent;
+    border-radius: 0.4rem;
+    color: var(--cedar-review-muted);
+    transition:
+      color 0.16s ease,
+      background-color 0.16s ease,
+      border-color 0.16s ease,
+      box-shadow 0.16s ease;
+  }
+
+  #main-stage.cedar-review-wide .cedar-main-tab--saas:not(.is-active),
+  #main-stage.cedar-review-wide .cedar-main-tab--github:not(.is-active) {
+    opacity: 0.78;
+  }
+
+  #main-stage.cedar-review-wide .cedar-main-tab--saas:hover:not(.is-active),
+  #main-stage.cedar-review-wide .cedar-main-tab--github:hover:not(.is-active) {
+    opacity: 1;
+    color: var(--cedar-review-foreground);
+    background: rgb(255 255 255 / 0.05);
+    border-color: rgb(255 255 255 / 0.06);
+  }
+
+  #main-stage.cedar-review-wide .cedar-main-tab--saas.is-active,
+  #main-stage.cedar-review-wide .cedar-main-tab--github.is-active {
+    color: var(--cedar-review-foreground);
+    background: var(--cedar-accent-muted);
+    border-color: rgb(255 255 255 / 0.06);
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.06);
+  }
+
+  #main-stage.cedar-review-wide .cedar-main-tab--saas.is-active .cedar-main-tab-icon,
+  #main-stage.cedar-review-wide .cedar-main-tab--github.is-active .cedar-main-tab-icon {
+    color: var(--cedar-accent-strong);
+  }
+
+  #main-stage.cedar-review-wide .cedar-main-tab--saas:focus-visible,
+  #main-stage.cedar-review-wide .cedar-main-tab--github:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--cedar-focus-ring);
+  }
+
+  #main-stage.cedar-review-wide .cedar-main-tab--saas.is-active:focus-visible,
+  #main-stage.cedar-review-wide .cedar-main-tab--github.is-active:focus-visible {
+    box-shadow:
+      inset 0 0 0 1px rgb(255 255 255 / 0.06),
+      0 0 0 2px var(--cedar-focus-ring);
+  }
+
+  .cedar-main-tab-count--saas,
+  .cedar-main-tab-count--github {
+    @apply rounded-md px-1.5 py-0.5 text-[10px] font-bold tabular-nums;
+    border: 1px solid transparent;
+    background: rgb(255 255 255 / 0.06);
+    color: var(--cedar-review-muted);
+  }
+
+  #main-stage.cedar-review-wide .cedar-main-tab--saas:not(.is-active) .cedar-main-tab-count,
+  #main-stage.cedar-review-wide .cedar-main-tab--github:not(.is-active) .cedar-main-tab-count {
+    background: transparent;
+    color: var(--cedar-review-muted);
+  }
+
+  #main-stage.cedar-review-wide .cedar-main-tab--saas.is-active .cedar-main-tab-count,
+  #main-stage.cedar-review-wide .cedar-main-tab--github.is-active .cedar-main-tab-count {
+    background: var(--cedar-accent-muted);
+    border-color: color-mix(in srgb, var(--cedar-accent) 35%, transparent);
+    color: var(--cedar-review-foreground);
+  }
+
+  #main-stage.cedar-review-wide .cedar-review-rail-edge--in-tabs {
+    border-radius: 0.45rem;
+    border-color: var(--cedar-review-border);
+    background: var(--cedar-review-inset);
+  }
+
+  #main-stage.cedar-review-wide .cedar-review-rail-edge--in-tabs:hover {
+    border-color: var(--cedar-review-border-strong);
+    background: rgb(255 255 255 / 0.05);
+    color: var(--cedar-review-foreground);
+  }
+
+  #main-stage.cedar-review-wide .cedar-review-layout--slice-queue,
+  #main-stage.cedar-review-wide .cedar-review-layout--icon-nav,
+  #main-stage.cedar-review-wide .cedar-review-layout--gh-pr,
+  #main-stage.cedar-review-wide .cedar-review-product {
+    flex: 1 1 auto;
+    min-height: 0;
+    border: 0;
+    border-radius: 0 0 var(--cedar-app-radius) var(--cedar-app-radius);
+    background: var(--cedar-review-canvas);
+    box-shadow: none;
+    overflow: hidden;
+  }
+
+  #main-stage.cedar-review-wide .cedar-review-layout--slice-queue .cedar-review-center,
+  #main-stage.cedar-review-wide .cedar-review-layout--gh-pr .cedar-review-center,
+  #main-stage.cedar-review-wide .cedar-review-layout--icon-nav .cedar-review-center {
+    display: flex;
+    flex: 1 1 0%;
+    flex-direction: column;
+    align-self: stretch;
+    width: auto;
+    min-width: 0;
+    min-height: 0;
+    height: 100%;
+    max-height: none;
+    padding: 0;
+    overflow: hidden;
+    background: var(--cedar-review-canvas);
+  }
+
+  #main-stage.cedar-review-wide .cedar-review-layout--icon-nav .cedar-review-center.cedar-review-main-body {
+    min-height: 0;
+    max-height: none;
+  }
+
+  #main-stage.cedar-review-wide .cedar-review-layout--slice-queue .cedar-review-main-body,
+  #main-stage.cedar-review-wide .cedar-review-layout--gh-pr .cedar-review-main-body {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  #main-stage.cedar-review-wide .cedar-review-layout--slice-queue .cedar-review-main-body > .cedar-main-tabpanel,
+  #main-stage.cedar-review-wide .cedar-review-layout--gh-pr .cedar-review-main-body > .cedar-main-tabpanel {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  #main-stage.cedar-review-wide .cedar-review-layout--slice-queue .cedar-review-main-body > #cedar-review-panel-architecture,
+  #main-stage.cedar-review-wide .cedar-review-layout--gh-pr .cedar-review-main-body > #cedar-review-panel-architecture {
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  #main-stage.cedar-review-wide .cedar-review-layout--slice-queue .cedar-review-left-nav,
+  #main-stage.cedar-review-wide .cedar-review-layout--gh-pr .cedar-review-left-nav {
+    max-width: min(48vw, 28rem);
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-queue-stage,
+  #main-stage.cedar-review-wide .cedar-gh-files-stage {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+    padding: 0;
+  }
+
+  #main-stage.cedar-review-wide .cedar-review-main-body > .cedar-slice-queue-stage,
+  #main-stage.cedar-review-wide .cedar-review-main-body > .cedar-gh-files-stage {
+    overflow: hidden;
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-queue-shell,
+  #main-stage.cedar-review-wide .cedar-gh-files-shell {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-queue-panels,
+  #main-stage.cedar-review-wide .cedar-gh-file-panels {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-panel--queue,
+  #main-stage.cedar-review-wide .cedar-slice-panel--gh {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+    padding: 0;
+    border-bottom: 0;
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-panel--queue[hidden],
+  #main-stage.cedar-review-wide .cedar-slice-panel--gh[hidden] {
+    display: none !important;
+  }
+
+  #main-stage.cedar-review-wide .cedar-review-layout--slice-queue,
+  #main-stage.cedar-review-wide .cedar-review-layout--icon-nav {
+    --cedar-slices-nav-rail-width: 21rem;
+  }
+
+  #main-stage.cedar-review-wide .cedar-review-layout--slice-queue .cedar-review-left-drawer,
+  #main-stage.cedar-review-wide .cedar-review-layout--icon-nav .cedar-review-left-drawer {
+    min-width: 12.5rem;
+    max-width: none;
+  }
+
+  #main-stage.cedar-review-wide .cedar-queue-pill {
+    display: inline-flex;
+    min-width: 1.1rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    padding: 0 0.3rem;
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 1.35;
+    font-variant-numeric: tabular-nums;
+  }
+
+  #main-stage.cedar-review-wide .cedar-queue-pill--blocker {
+    background: rgb(244 63 94 / 0.2);
+    color: rgb(254 205 211);
+  }
+
+  #main-stage.cedar-review-wide .cedar-queue-pill--warn {
+    background: rgb(245 158 11 / 0.18);
+    color: rgb(254 243 199);
+  }
+
+  #main-stage.cedar-review-wide .cedar-queue-nav-item.is-queue-approved .cedar-nav-item-label {
+    color: rgb(167 243 208);
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-queue-head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 0.65rem 1rem;
+    flex: 0 0 auto;
+    padding: 0.65rem 0.85rem;
+    border-bottom: 1px solid var(--cedar-review-border);
+    background: var(--cedar-review-surface);
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-queue-head-aside {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: flex-end;
+    flex-shrink: 0;
+    max-width: min(100%, 36rem);
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-queue-head-badges {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.35rem;
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-queue-head .cedar-slice-queue-approve {
+    align-self: center;
+    flex-shrink: 0;
+    min-width: 5.5rem;
+    height: 1.625rem;
+    padding-inline: 0.55rem;
+    margin-left: 0.1rem;
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-rationale--in-head {
+    margin: 0.4rem 0 0;
+    max-width: 42rem;
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-rationale--in-head .cedar-slice-rationale-label {
+    margin: 0;
+    font-size: 0.5625rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--cedar-review-muted);
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-rationale--in-head .cedar-slice-rationale-body {
+    margin: 0.3rem 0 0;
+    font-size: 0.6875rem;
+    line-height: 1.5;
+    color: var(--cedar-review-muted);
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-queue-title {
+    @apply m-0 text-[13px] font-semibold leading-snug tracking-tight text-zinc-100;
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-queue-meta {
+    @apply m-0 mt-0.5 text-[10px] leading-snug text-zinc-500;
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-queue-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: clip;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 0.5rem 0.85rem 1rem;
+    background: var(--cedar-review-canvas);
+  }
+
+  #main-stage.cedar-review-wide #cedar-review-panel-slices.cedar-slice-queue-stage {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-panel--queue.is-active-slice {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 100%;
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-queue-scroll.cedar-slice-review-pane--diffs {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 100%;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+    padding: 0;
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-review-pane--diffs .cedar-slice-queue-scroll-above {
+    flex: 0 1 auto;
+    max-height: min(28vh, 12rem);
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 0.45rem 0.85rem 0.35rem;
+    border-bottom: 1px solid var(--cedar-review-border);
+    background: var(--cedar-review-canvas);
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-review-pane--split {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+    padding: 0;
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-review-pane--split .cedar-slice-queue-scroll-above {
+    flex: 0 1 auto;
+    max-height: min(34vh, 15rem);
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 0.45rem 0.85rem 0.35rem;
+    border-bottom: 1px solid var(--cedar-review-border);
+    background: var(--cedar-review-canvas);
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-review-pane--split .cedar-slice-queue-section--inline {
+    margin-bottom: 0.35rem;
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-diff-body {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    overflow: hidden;
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-diff-body > .cedar-gh-files-changed,
+  #main-stage.cedar-review-wide .cedar-slice-review-pane--diffs > .cedar-gh-files-changed {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+    padding: 0 0 1rem;
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-diff-body .cedar-gh-files-toolbar {
+    flex: 0 0 auto;
+    padding: 0.45rem 0.85rem 0.4rem;
+    background: var(--cedar-review-surface);
+    border-bottom: 1px solid var(--cedar-review-border);
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-diff-body .cedar-gh-file {
+    flex: 0 0 auto;
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-diff-split {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 10rem;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    overflow: hidden;
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-diff-split > .cedar-gh-diff-layout {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 100%;
+    width: 100%;
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-diff-split .cedar-gh-diff-main {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    padding: 0;
+    background: var(--cedar-review-canvas);
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-diff-split .cedar-gh-diff-main .cedar-gh-files-toolbar {
+    flex: 0 0 auto;
+    position: static;
+    margin: 0;
+    padding: 0.45rem 0.65rem 0.4rem;
+    background: var(--cedar-review-surface);
+    border-bottom: 1px solid var(--cedar-review-border);
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-diff-split .cedar-gh-files-changed {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    margin: 0;
+    padding: 0 0.55rem 0.75rem;
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-diff-split .cedar-gh-files-sidebar:not(.cedar-gh-files-sidebar--drawer) {
+    flex: 0 0 var(--cedar-gh-files-sidebar-width, 15.5rem);
+    width: var(--cedar-gh-files-sidebar-width, 15.5rem);
+    min-width: 11rem;
+    max-width: min(40vw, 22rem);
+    min-height: 0;
+    height: auto;
+    align-self: stretch;
+    padding: 0.5rem 0.4rem;
+    border-right: 1px solid var(--cedar-review-border);
+    background: var(--cedar-review-shell);
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-queue-section--diffs {
+    min-width: 0;
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-review-pane .cedar-gh-files-changed {
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-queue-section {
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.45rem;
+    border-bottom: 1px solid var(--cedar-review-border);
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-queue-section--diffs {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-queue-section .cedar-slice-findings-panel {
+    margin-top: 0 !important;
+    padding-top: 0.25rem !important;
+    border-top: 0 !important;
+  }
+
+  #main-stage.cedar-review-wide .cedar-review-left-cluster {
+    --cedar-icon-rail-width: 3.35rem;
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    flex: 0 0 calc(var(--cedar-icon-rail-width) + var(--cedar-slices-nav-rail-width, 21rem));
+    width: calc(var(--cedar-icon-rail-width) + var(--cedar-slices-nav-rail-width, 21rem));
+    min-width: calc(var(--cedar-icon-rail-width) + 12.5rem);
+    max-width: min(62vw, 46rem);
+    min-height: 0;
+    height: 100%;
+    align-self: stretch;
+    order: 1;
+    overflow: hidden;
+  }
+
+  #main-stage.cedar-review-wide .cedar-review-layout.is-left-drawer-closed .cedar-review-left-cluster {
+    flex: 0 0 var(--cedar-icon-rail-width);
+    width: var(--cedar-icon-rail-width);
+    min-width: var(--cedar-icon-rail-width);
+    max-width: var(--cedar-icon-rail-width);
+    height: 100%;
+    align-self: stretch;
+  }
+
+  #main-stage.cedar-review-wide .cedar-review-layout.is-left-drawer-closed .cedar-review-icon-rail {
+    flex: 1 1 auto;
+    height: 100%;
+    min-height: 100%;
+    align-self: stretch;
+  }
+
+  #main-stage.cedar-review-wide .cedar-review-layout.cedar-review-layout--icon-nav {
+    align-items: stretch;
+    align-self: stretch;
+    min-height: 0;
+    height: 100%;
+  }
+
+  #main-stage.cedar-review-wide .cedar-review-layout.cedar-review-layout--icon-nav .cedar-review-left-cluster > .cedar-review-icon-rail {
+    align-self: stretch;
+    min-height: 100%;
+    height: 100%;
+    flex: 0 0 var(--cedar-icon-rail-width, 3.35rem);
+    padding-top: 0.5rem;
+    padding-bottom: 0.65rem;
+    border-radius: 0 0 0 var(--cedar-app-radius);
+  }
+
+  #main-stage.cedar-review-wide .cedar-review-layout.is-left-drawer-closed .cedar-review-icon-rail {
+    border-right: 1px solid var(--cedar-review-border);
+  }
+
+  #main-stage.cedar-review-wide .cedar-review-layout.is-left-drawer-closed .cedar-review-left-drawer {
+    display: none;
+    width: 0;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  #main-stage.cedar-review-wide .cedar-review-layout.is-left-drawer-closed .cedar-review-left-splitter {
+    display: none;
+  }
+
+  .cedar-review-icon-rail {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    align-self: stretch;
+    gap: 0.2rem;
+    width: var(--cedar-icon-rail-width, 3.35rem);
+    min-height: 100%;
+    flex: 0 0 var(--cedar-icon-rail-width, 3.35rem);
+    padding: 0.45rem 0.3rem;
+    border-right: 1px solid var(--cedar-review-border);
+    background: var(--cedar-review-shell);
+    box-sizing: border-box;
+  }
+
+  #main-stage.cedar-review-wide .cedar-review-icon-rail [data-review-tab="architecture"] {
+    margin-top: auto;
+  }
+
+  .cedar-review-icon-rail-btn {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.2rem;
+    width: 100%;
+    min-height: 2.65rem;
+    padding: 0.35rem 0.15rem;
+    border: 0;
+    border-radius: 0.45rem;
+    background: transparent;
+    color: var(--cedar-review-muted);
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .cedar-review-icon-rail-btn:hover {
+    background: rgb(255 255 255 / 0.05);
+    color: var(--cedar-review-foreground);
+  }
+
+  .cedar-review-icon-rail-btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--cedar-focus-ring);
+  }
+
+  .cedar-review-icon-rail-btn.is-active {
+    background: var(--cedar-accent-muted);
+    color: var(--cedar-review-foreground);
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.06);
+  }
+
+  .cedar-review-icon-rail-svg {
+    @apply h-[18px] w-[18px] shrink-0;
+  }
+
+  .cedar-review-icon-rail-label {
+    font-size: 7px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    line-height: 1.1;
+    text-transform: uppercase;
+    text-align: center;
+  }
+
+  .cedar-review-icon-rail-count {
+    position: absolute;
+    top: 0.1rem;
+    right: 0.05rem;
+    z-index: 1;
+    display: inline-flex;
+    min-width: 1.05rem;
+    height: 1.05rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    padding: 0 0.28rem;
+    font-size: 9px;
+    font-weight: 800;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: rgb(255 255 255);
+    background: linear-gradient(180deg, var(--cedar-accent-strong), var(--cedar-accent));
+    border: 1px solid rgb(255 255 255 / 0.28);
+    box-shadow:
+      0 0 0 2px var(--cedar-review-shell),
+      0 1px 3px rgb(0 0 0 / 0.35);
+    pointer-events: none;
+  }
+
+  .cedar-review-icon-rail-btn.has-findings-count .cedar-review-icon-rail-count {
+    color: rgb(255 255 255);
+  }
+
+  .cedar-review-icon-rail-btn.is-active.has-findings-count .cedar-review-icon-rail-count {
+    box-shadow:
+      0 0 0 2px var(--cedar-accent-muted),
+      0 1px 3px rgb(0 0 0 / 0.28);
+  }
+
+  .cedar-review-icon-rail-btn.is-findings-available {
+    color: var(--cedar-accent-strong);
+    animation: cedar-findings-rail-pulse 2.1s ease-in-out infinite;
+  }
+
+  .cedar-review-icon-rail-btn.is-findings-available:not(.is-active) {
+    background: rgb(255 255 255 / 0.04);
+    box-shadow: inset 0 0 0 1px var(--cedar-accent-muted);
+  }
+
+  @keyframes cedar-findings-rail-pulse {
+    0%,
+    100% {
+      box-shadow: inset 0 0 0 1px var(--cedar-accent-muted);
+    }
+    50% {
+      box-shadow:
+        inset 0 0 0 1px rgb(255 255 255 / 0.12),
+        0 0 0 3px var(--cedar-accent-muted);
+    }
+  }
+
+  #main-stage.cedar-review-wide .cedar-left-drawer-panel--findings {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+    gap: 0.35rem;
+    padding: var(--cedar-review-rail-pad-y) var(--cedar-review-rail-pad-x);
+  }
+
+  #main-stage.cedar-review-wide .cedar-left-drawer-panel--findings .cedar-left-drawer-heading,
+  #main-stage.cedar-review-wide .cedar-left-drawer-panel--findings .cedar-left-drawer-hint {
+    flex: 0 0 auto;
+  }
+
+  #main-stage.cedar-review-wide .cedar-findings-drawer-host {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  #main-stage.cedar-review-wide .cedar-findings-drawer-host .cedar-findings-drawer-body {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  #main-stage.cedar-review-wide .cedar-findings-drawer-host .cedar-findings-panel-body {
+    padding-top: 0.15rem;
+  }
+
+  #main-stage.cedar-review-wide .cedar-review-left-drawer {
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 var(--cedar-slices-nav-rail-width, 21rem);
+    min-width: 0;
+    min-height: 0;
+    height: 100%;
+    width: var(--cedar-slices-nav-rail-width, 21rem);
+    overflow: hidden;
+    padding: var(--cedar-review-rail-pad-y) var(--cedar-review-rail-pad-x);
+    border-right: 1px solid var(--cedar-review-border);
+    background: var(--cedar-review-shell);
+  }
+
+  #main-stage.cedar-review-wide .cedar-left-drawer-panel {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    min-width: 0;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  #main-stage.cedar-review-wide .cedar-left-drawer-panel--files {
+    gap: 0.35rem;
+  }
+
+  #main-stage.cedar-review-wide .cedar-left-drawer-panel--files .cedar-left-drawer-heading,
+  #main-stage.cedar-review-wide .cedar-left-drawer-panel--files .cedar-left-drawer-hint {
+    flex: 0 0 auto;
+  }
+
+  #main-stage.cedar-review-wide .cedar-left-drawer-panel[hidden] {
+    display: none !important;
+  }
+
+  .cedar-left-drawer-heading {
+    @apply m-0 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em];
+    color: var(--cedar-review-muted);
+  }
+
+  #main-stage.cedar-review-wide .cedar-left-drawer-heading .cedar-rail-icon {
+    color: var(--cedar-accent-strong);
+  }
+
+  .cedar-left-drawer-hint {
+    @apply m-0 text-[9px] leading-snug text-zinc-600;
+  }
+
+  .cedar-files-drawer-host {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+    min-width: 0;
+    width: 100%;
+    overflow: hidden;
+  }
+
+  #main-stage.cedar-review-wide .cedar-files-drawer-host > .cedar-gh-files-sidebar,
+  #main-stage.cedar-review-wide .cedar-gh-files-sidebar--drawer {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    align-self: stretch;
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    min-height: 0;
+    height: 100%;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  #main-stage.cedar-review-wide .cedar-gh-files-sidebar--drawer .cedar-gh-files-filter {
+    flex: 0 0 auto;
+    width: 100%;
+    min-width: 0;
+  }
+
+  #main-stage.cedar-review-wide .cedar-gh-files-sidebar--drawer .cedar-gh-files-tree {
+    flex: 1 1 auto;
+    min-height: 6rem;
+    width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  #main-stage.cedar-review-wide .cedar-gh-files-sidebar--drawer .cedar-gh-files-tree {
+    gap: 0.2rem;
+    padding: 0.1rem 0 0.35rem;
+  }
+
+  #main-stage.cedar-review-wide .cedar-gh-files-sidebar--drawer .cedar-gh-files-tree-item {
+    width: 100%;
+    min-width: 0;
+    align-items: center;
+    padding: 0.4rem 0.45rem;
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  #main-stage.cedar-review-wide .cedar-gh-files-sidebar--drawer .cedar-gh-files-tree-name {
+    font-size: 11px;
+    line-height: 1.4;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+    word-break: break-word;
+  }
+
+  #main-stage.cedar-review-wide .cedar-gh-files-sidebar--drawer .cedar-gh-files-tree-stats {
+    font-size: 10px;
+  }
+
+  #main-stage.cedar-review-wide .cedar-gh-files-sidebar--drawer .cedar-gh-files-filter {
+    padding: 0.4rem 0.5rem;
+    font-size: 12px;
+  }
+
+  #main-stage.cedar-review-wide .cedar-review-layout--icon-nav .cedar-cursor-rollup-card,
+  #main-stage.cedar-review-wide .cedar-review-layout--icon-nav .cedar-pr-chat-panel,
+  #main-stage.cedar-review-wide .cedar-review-layout--icon-nav .cedar-review-rail-section--rollup,
+  #main-stage.cedar-review-wide .cedar-review-layout--icon-nav .cedar-review-rail-section--slices,
+  #main-stage.cedar-review-wide .cedar-review-layout--icon-nav .cedar-pr-chat-card {
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  #main-stage.cedar-review-wide .cedar-review-layout--icon-nav .cedar-review-left-nav-gate {
+    border: 0;
+    background: transparent;
+    border-radius: 0;
+    padding: 0.35rem 0;
+    font-size: 10px;
+  }
+
+  #main-stage.cedar-review-wide .cedar-review-layout--icon-nav #cedar-review-left-nav.cedar-review-left-nav {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 100%;
+    border: 0;
+    border-right: 0;
+    padding: 0;
+    background: transparent;
+    min-width: 0;
+    max-width: none;
+    max-height: none;
+  }
+
+  #main-stage.cedar-review-wide #cedar-review-left-nav .cedar-review-rail-body {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  #main-stage.cedar-review-wide .cedar-review-layout--icon-nav .cedar-review-rail-section--slices {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  #main-stage.cedar-review-wide #cedar-review-left-nav .cedar-review-left-rail-footer,
+  #main-stage.cedar-review-wide #cedar-review-left-nav > .cedar-left-drawer-heading {
+    flex: 0 0 auto;
+  }
+
+  #main-stage.cedar-review-wide .cedar-left-drawer-panel--chat {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+    padding: 0;
+  }
+
+  #main-stage.cedar-review-wide .cedar-left-drawer-panel--chat .cedar-pr-chat-panel,
+  #main-stage.cedar-review-wide .cedar-left-drawer-panel--chat .cedar-pr-chat-card {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+    height: 100%;
+    max-height: none;
+    margin: 0;
+    padding: var(--cedar-review-rail-pad-y) var(--cedar-review-rail-pad-x);
+    gap: 0.5rem;
+    overflow: hidden;
+  }
+
+  #main-stage.cedar-review-wide .cedar-left-drawer-panel--chat .cedar-left-drawer-heading,
+  #main-stage.cedar-review-wide .cedar-left-drawer-panel--chat .cedar-left-drawer-hint {
+    flex: 0 0 auto;
+  }
+
+  #main-stage.cedar-review-wide .cedar-left-drawer-panel--chat .cedar-pr-chat-log {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  #main-stage.cedar-review-wide .cedar-left-drawer-panel--chat .cedar-pr-chat-form,
+  #main-stage.cedar-review-wide .cedar-left-drawer-panel--chat .cedar-pr-chat-status {
+    flex: 0 0 auto;
+  }
+
+  #main-stage.cedar-review-wide .cedar-left-drawer-panel--chat .cedar-pr-chat-input {
+    min-height: 5.5rem;
+    resize: vertical;
+  }
+
+  #main-stage.cedar-review-wide .cedar-left-drawer-panel--chat .cedar-pr-chat-card--compact {
+    flex: 1 1 auto;
+    max-height: none;
+  }
+
+  #main-stage.cedar-review-wide .cedar-left-drawer-panel--chat .cedar-pr-chat-card--compact .cedar-pr-chat-log {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+  }
+
+  #main-stage.cedar-review-wide #review-progress-panel.cedar-review-loading-panel {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+    padding: 0.75rem 0.85rem 1rem;
+  }
+
+  #main-stage.cedar-review-wide #review-progress-panel .cedar-review-progress-status {
+    flex: 0 0 auto;
+  }
+
+  #main-stage.cedar-review-wide #review-progress-panel .cedar-review-progress-log {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+    overflow-y: auto;
+  }
+
+  #main-stage.cedar-review-wide .cedar-review-left-splitter,
+  #main-stage.cedar-review-wide .cedar-slices-nav-splitter {
+    display: block;
+    flex: 0 0 7px;
+    align-self: stretch;
+    min-height: 100%;
+    height: auto;
+    cursor: col-resize;
+    z-index: 5;
+  }
+
+  #main-stage.cedar-review-wide .cedar-review-center {
+    background: var(--cedar-review-canvas);
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-queue-scroll {
+    background: var(--cedar-review-canvas);
+  }
+
+  #main-stage.cedar-review-wide .cedar-gh-file {
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    border-top: 1px solid var(--cedar-review-border);
+    background: transparent;
+    box-shadow: none;
+  }
+
+  #main-stage.cedar-review-wide .cedar-gh-files-changed > .cedar-gh-file:first-of-type,
+  #main-stage.cedar-review-wide .cedar-gh-files-changed .cedar-gh-file:first-child {
+    border-top: 0;
+  }
+
+  #main-stage.cedar-review-wide .cedar-gh-file-actions {
+    background: transparent;
+    border-bottom: 1px solid var(--cedar-review-border);
+    padding: 0.45rem 0.85rem 0.4rem;
+    gap: 0.5rem 0.65rem;
+  }
+
+  #main-stage.cedar-review-wide .cedar-gh-file-actions-end {
+    gap: 0.55rem 0.85rem;
+    margin-right: 0;
+    padding-right: 0.1rem;
+  }
+
+  #main-stage.cedar-review-wide .cedar-gh-file-actions-end .cedar-file-change-badge,
+  #main-stage.cedar-review-wide .cedar-gh-file-actions-end .cedar-gh-open-github {
+    flex-shrink: 0;
+  }
+
+  #main-stage.cedar-review-wide .cedar-gh-open-github {
+    padding-right: 0.15rem;
+  }
+
+  #main-stage.cedar-review-wide .cedar-gh-file {
+    min-width: 0;
+    overflow: visible;
+  }
+
+  #main-stage.cedar-review-wide .cedar-gh-file-body {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow: visible;
+    background-color: var(--cedar-gh-diff-bg);
+  }
+
+  #main-stage.cedar-review-wide .cedar-gh-file-body .cedar-diff2html,
+  #main-stage.cedar-review-wide .cedar-gh-file-body .d2h-wrapper,
+  #main-stage.cedar-review-wide .cedar-gh-file-body .d2h-diff-table {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  #main-stage.cedar-review-wide .cedar-diff2html .d2h-code-line-ctn,
+  #main-stage.cedar-review-wide .cedar-diff2html td.d2h-code {
+    width: auto;
+    max-width: none;
+  }
+
+  #main-stage.cedar-review-wide .cedar-gh-files-toolbar {
+    border-bottom: 1px solid var(--cedar-review-border);
+    padding-bottom: 0.35rem;
+  }
+
+  #main-stage.cedar-review-wide .cedar-gh-slice-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.5rem 0.75rem;
+    padding: 0.45rem 0.65rem;
+    border-bottom: 1px solid var(--cedar-review-border);
+    background: var(--cedar-review-canvas);
+  }
+
+  #main-stage.cedar-review-wide .cedar-gh-slice-toolbar-title {
+    @apply m-0 text-sm font-semibold leading-snug text-zinc-100;
+  }
+
+  #main-stage.cedar-review-wide .cedar-gh-slice-toolbar-meta {
+    @apply m-0 mt-0.5 text-[10px] leading-snug text-zinc-500;
+  }
+
+  #main-stage.cedar-review-wide .cedar-gh-slice-extras {
+    flex: 0 0 auto;
+    padding: 0 0.65rem;
+    border-bottom: 1px solid var(--cedar-review-border);
+  }
+
+  #main-stage.cedar-review-wide .cedar-gh-slice-extras .cedar-slice-findings-panel {
+    margin-top: 0 !important;
+    padding-top: 0.35rem !important;
+    border-top: 0 !important;
+  }
+
+  #main-stage.cedar-review-wide .cedar-gh-files-splitter {
+    flex: 0 0 7px;
+    align-self: stretch;
+    min-height: 0;
+    cursor: col-resize;
+  }
+
+  #main-stage.cedar-review-wide .cedar-gh-diff-layout > .cedar-gh-files-sidebar:not(.cedar-gh-files-sidebar--drawer) {
+    display: flex;
+    flex: 0 0 var(--cedar-gh-files-sidebar-width, 17.5rem);
+    width: var(--cedar-gh-files-sidebar-width, 17.5rem);
+    min-width: 12.5rem;
+    max-width: min(52vw, 32.5rem);
+    flex-direction: column;
+    gap: 0.45rem;
+    align-self: stretch;
+    min-height: 0;
+    overflow: hidden;
+    padding: 0.5rem 0.45rem;
+    border-right: 0;
+    background: var(--cedar-gh-diff-bg);
+  }
+
+  #main-stage.cedar-review-wide .cedar-gh-diff-layout {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: row;
+    align-items: stretch;
+    min-width: 0;
+    min-height: 0;
+    width: 100%;
+    overflow: hidden;
+  }
+
+  #main-stage.cedar-review-wide .cedar-gh-diff-layout .cedar-gh-diff-main {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    width: auto;
+    max-width: none;
+  }
+
+  #main-stage.cedar-review-wide .cedar-gh-diff-layout > .cedar-gh-files-splitter {
+    align-self: stretch;
+    flex: 0 0 7px;
+    min-height: 0;
+  }
+
+  #main-stage.cedar-review-wide .cedar-gh-files-filter {
+    width: 100%;
+    padding: 0.35rem 0.5rem;
+    border: 1px solid var(--cedar-gh-diff-border);
+    border-radius: 6px;
+    font-size: 11px;
+    line-height: 1.35;
+    color: var(--cedar-gh-diff-fg);
+    background: var(--cedar-gh-diff-inset);
+    outline: none;
+  }
+
+  #main-stage.cedar-review-wide .cedar-gh-files-filter:focus {
+    border-color: var(--cedar-gh-link);
+    box-shadow: 0 0 0 1px var(--cedar-gh-link);
+  }
+
+  #main-stage.cedar-review-wide .cedar-gh-files-tree {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 0.1rem;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  #main-stage.cedar-review-wide .cedar-gh-files-tree-item {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.35rem;
+    padding: 0.2rem 0.35rem;
+    border-radius: 4px;
+    font-size: 11px;
+    line-height: 1.35;
+    color: var(--cedar-gh-diff-fg);
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  #main-stage.cedar-review-wide .cedar-gh-files-tree-item:hover {
+    background: var(--cedar-gh-diff-hover);
+  }
+
+  #main-stage.cedar-review-wide .cedar-gh-files-tree-item.is-active {
+    background: var(--cedar-gh-diff-active);
+    box-shadow: inset 2px 0 0 var(--cedar-accent);
+  }
+
+  #main-stage.cedar-review-wide .cedar-gh-files-tree-item[hidden] {
+    display: none;
+  }
+
+  #main-stage.cedar-review-wide .cedar-gh-files-tree-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 10px;
+  }
+
+  #main-stage.cedar-review-wide .cedar-gh-files-tree-stats {
+    display: inline-flex;
+    flex-shrink: 0;
+    gap: 0.25rem;
+    font-size: 9px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  #main-stage.cedar-review-wide .cedar-gh-files-tree-add {
+    color: #3fb950;
+  }
+
+  #main-stage.cedar-review-wide .cedar-gh-files-tree-del {
+    color: #f85149;
+  }
+
+  #main-stage.cedar-review-wide .cedar-gh-diff-main {
+    min-width: 0;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: clip;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 0.5rem 0.55rem 0.85rem;
+    background: var(--cedar-gh-diff-bg);
+  }
+
+  #main-stage.cedar-review-wide .cedar-gh-diff-main .cedar-gh-files-toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.35rem;
+    background: var(--cedar-gh-diff-bg);
+    border-bottom: 1px solid var(--cedar-gh-diff-border);
+  }
+
+  #main-stage.cedar-review-wide .cedar-gh-files-toolbar-count {
+    @apply text-[11px] text-zinc-300;
+  }
+
+  #main-stage.cedar-review-wide .cedar-gh-files-toolbar-count strong {
+    @apply font-semibold text-zinc-100;
+  }
+
   .cedar-review-layout,
   .cedar-review-stage {
     --cedar-review-prose: 0.75rem;
@@ -1160,10 +3235,10 @@
     --cedar-review-meta: 0.625rem;
     --cedar-review-caption: 0.625rem;
     --cedar-review-section: 0.75rem;
-    --cedar-comment-cursor-accent: 161 161 170;
-    --cedar-comment-cursor-accent-muted: 212 212 216;
-    --cedar-comment-github-accent: 113 113 122;
-    --cedar-comment-arch-accent: 113 113 122;
+    --cedar-comment-cursor-accent: 129 140 248;
+    --cedar-comment-cursor-accent-muted: 165 180 252;
+    --cedar-comment-github-accent: 56 189 248;
+    --cedar-comment-arch-accent: 167 139 250;
     --cedar-comment-surface: 24 24 27;
     --cedar-comment-surface-elevated: 39 39 42;
   }
@@ -1730,14 +3805,21 @@
     color: var(--cedar-review-muted);
   }
 
-  .cedar-review-left-nav {
-    @apply flex min-h-0 shrink-0 flex-col;
+  .cedar-review-left-cluster {
     order: 1;
-    width: var(--cedar-slices-nav-rail-width);
-    flex: 0 0 var(--cedar-slices-nav-rail-width);
+  }
+
+  .cedar-review-left-nav,
+  .cedar-review-left-drawer {
+    @apply flex min-h-0 shrink-0 flex-col;
+  }
+
+  .cedar-review-left-nav {
+    width: 100%;
+    flex: 1 1 auto;
     align-self: stretch;
     min-width: 15rem;
-    max-width: 22.5rem;
+    max-width: min(48vw, 28rem);
     max-height: calc(100vh - 5.5rem);
     overflow-x: hidden;
     overflow-y: hidden;
@@ -2569,9 +4651,13 @@
   }
 
   .cedar-review-rail-edge--affordance {
-    @apply hidden shrink-0;
+    @apply shrink-0;
     width: var(--cedar-review-rail-edge-size, 2.25rem);
     height: var(--cedar-review-rail-edge-size, 2.25rem);
+  }
+
+  .cedar-review-rail-edge--affordance[hidden] {
+    display: none !important;
   }
 
   .cedar-review-rail-edge--in-tabs {
@@ -2579,6 +4665,10 @@
   }
 
   .cedar-review-rail-edge--in-tabs:not([hidden]) {
+    @apply inline-flex;
+  }
+
+  .cedar-review-pr-subnav .cedar-review-rail-edge--in-tabs:not([hidden]) {
     @apply inline-flex;
   }
 
@@ -2823,7 +4913,8 @@
   }
 
   body.cedar-is-resizing-review,
-  body.cedar-is-resizing-slices {
+  body.cedar-is-resizing-slices,
+  body.cedar-is-resizing-gh-files {
     cursor: col-resize;
     user-select: none;
   }
@@ -2863,7 +4954,7 @@
   .cedar-review-main-body > .cedar-main-tabpanel {
     flex: 1 1 auto;
     min-height: 0;
-    overflow-x: hidden;
+    overflow-x: clip;
     overflow-y: auto;
     overscroll-behavior: contain;
   }
@@ -2874,10 +4965,11 @@
 
   .cedar-review-stage,
   .cedar-main-tabpanel--architecture.cedar-review-stage {
-    @apply overflow-visible rounded-2xl border;
-    border-color: var(--cedar-review-border);
-    background: var(--cedar-review-surface);
-    box-shadow: var(--cedar-review-shadow-sm);
+    @apply overflow-visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
   }
 
   #main-stage.cedar-review-wide .cedar-slices-stage {
@@ -2885,10 +4977,10 @@
   }
 
   .cedar-main-tabpanel--architecture {
-    @apply px-4 py-5 sm:px-6 sm:py-6;
+    @apply px-0 py-2 sm:py-3;
   }
 
-  .cedar-review-tabs-head {
+  .cedar-review-tabs-head:not(.cedar-review-view-band-head) {
     @apply flex min-h-[2.75rem] shrink-0 items-center justify-between gap-3 border-b px-0 sm:px-0.5;
     border-color: var(--cedar-review-border);
   }
@@ -2925,9 +5017,8 @@
     }
 
     .cedar-review-layout.cedar-review-slices-focus .cedar-slice-panel {
-      max-height: calc(100vh - 8rem);
-      overflow-y: auto;
-      overscroll-behavior: contain;
+      max-height: none;
+      overflow: visible;
     }
   }
 
@@ -3271,9 +5362,28 @@
   }
 
   :root:not([data-theme="day"]) .cedar-review-layout--three-col .cedar-pipeline-slice-item.cedar-nav-item.is-active {
-    border-color: var(--cedar-review-border-strong);
-    background: rgb(255 255 255 / 0.07);
+    border-color: rgb(255 255 255 / 0.1);
+    background: var(--cedar-accent-muted);
+    box-shadow: inset 2px 0 0 var(--cedar-accent);
     @apply text-zinc-100;
+  }
+
+  #main-stage.cedar-review-wide .cedar-review-product .cedar-pipeline-slice-item.cedar-nav-item {
+    border: 1px solid transparent;
+    border-radius: 0.45rem;
+    background: transparent;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+  }
+
+  #main-stage.cedar-review-wide .cedar-review-product .cedar-pipeline-slice-item.cedar-nav-item:hover {
+    background: rgb(255 255 255 / 0.04);
+    border-color: var(--cedar-review-border);
+  }
+
+  html[data-theme="day"] .cedar-review-layout--three-col .cedar-pipeline-slice-item.cedar-nav-item.is-active {
+    border-color: var(--cedar-day-border-strong);
+    background: var(--cedar-accent-muted);
+    box-shadow: inset 2px 0 0 var(--cedar-accent);
   }
 
   html[data-theme="day"] .cedar-review-layout--three-col .cedar-pipeline-slice-item.cedar-nav-item {
@@ -3292,12 +5402,72 @@
     @apply text-zinc-500;
   }
 
+  .cedar-nav-item-row-aside {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+
+  .cedar-pipeline-slice-findings {
+    min-width: 1.1rem;
+    text-align: right;
+    font-size: 10px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--cedar-accent-strong);
+  }
+
+  .cedar-pipeline-slice-findings.is-pending {
+    font-weight: 500;
+    color: var(--cedar-review-muted);
+    opacity: 0.85;
+  }
+
+  .cedar-pipeline-slice-findings.is-failed {
+    color: rgb(251 113 133);
+  }
+
+  .cedar-pipeline-slice-item.is-active .cedar-pipeline-slice-findings:not(.is-pending):not(.is-failed) {
+    color: var(--cedar-accent-strong);
+  }
+
   .cedar-pipeline-slice-files {
-    @apply ml-auto shrink-0 font-mono text-[9px] tabular-nums text-zinc-600;
+    @apply shrink-0 font-mono text-[9px] tabular-nums text-zinc-600;
   }
 
   .cedar-pipeline-slice-item.is-active .cedar-pipeline-slice-files {
     @apply text-zinc-400;
+  }
+
+  .cedar-cursor-rollup--compact {
+    @apply space-y-0.5 p-0;
+  }
+
+  .cedar-cursor-rollup--compact .cedar-cursor-rollup-total {
+    @apply m-0 flex flex-wrap items-baseline gap-x-1 gap-y-0 text-[10px] font-medium leading-snug text-zinc-300;
+  }
+
+  .cedar-cursor-rollup--compact .cedar-cursor-rollup-label {
+    @apply text-[9px] font-semibold uppercase tracking-wide text-zinc-500;
+  }
+
+  .cedar-cursor-rollup--compact .cedar-cursor-rollup-num {
+    @apply text-[11px] font-bold text-zinc-100;
+  }
+
+  .cedar-cursor-rollup--compact .cedar-cursor-rollup-on {
+    @apply text-zinc-500;
+  }
+
+  .cedar-cursor-rollup--compact .cedar-cursor-rollup-meta {
+    @apply m-0 text-[9px] tabular-nums text-zinc-600;
+  }
+
+  #main-stage.cedar-review-wide .cedar-review-rail-section--rollup.cedar-cursor-rollup-card {
+    padding: 0.5rem 0.65rem;
+    margin-bottom: 0.35rem;
   }
 
   .cedar-main-tabpanel:not([hidden]) {
@@ -3606,7 +5776,7 @@
   }
 
   @media (min-width: 1024px) {
-    .cedar-slice-review-pane {
+    .cedar-slices-shell:not(.cedar-slice-queue-shell) .cedar-slice-review-pane {
       flex: 1 1 0%;
       width: 0;
       min-width: 0;
@@ -3632,8 +5802,32 @@
     }
   }
 
+  .cedar-slice-panels {
+    @apply flex w-full min-w-0 flex-col gap-0;
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-panel {
+    margin: 0;
+    padding: 0.65rem 0 1rem;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    border-bottom: 1px solid var(--cedar-review-border);
+    scroll-margin-top: 0.5rem;
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-panel:last-child {
+    border-bottom: 0;
+    padding-bottom: 0.25rem;
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-panel.is-active-slice .cedar-slice-panel-title {
+    color: var(--cedar-review-foreground);
+  }
+
   .cedar-slice-panel {
-    @apply rounded-lg border border-white/[0.05] bg-black/20 p-1.5 sm:p-2;
+    @apply p-0;
   }
 
   .cedar-slice-prose,
@@ -3688,7 +5882,29 @@
 
   #cedar-review-panel-architecture > .cedar-glass,
   #cedar-review-panel-architecture > .cedar-glass-subtle {
-    @apply border-white/[0.06] bg-black/20 shadow-none;
+    margin-bottom: 0.75rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    border-radius: 0;
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-findings-panel .cedar-findings-list .cedar-review-comment-card,
+  #main-stage.cedar-review-wide #cedar-review-panel-architecture .cedar-arch-findings-card,
+  #main-stage.cedar-review-wide #cedar-review-panel-architecture .cedar-findings-list .cedar-review-comment-card {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    border-top: 1px solid var(--cedar-review-border);
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  #main-stage.cedar-review-wide .cedar-slice-findings-panel .cedar-findings-list .cedar-review-comment-card:first-child,
+  #main-stage.cedar-review-wide #cedar-review-panel-architecture .cedar-findings-list .cedar-review-comment-card:first-child {
+    border-top: 0;
   }
 
 
@@ -3701,9 +5917,9 @@
   .cedar-gh-diff-font-toggle {
     display: inline-flex;
     padding: 2px;
-    border: 1px solid #30363d;
+    border: 1px solid var(--cedar-gh-diff-border);
     border-radius: 6px;
-    background-color: #010409;
+    background-color: var(--cedar-gh-diff-inset);
   }
 
   .cedar-gh-diff-font {
@@ -3713,19 +5929,19 @@
     padding: 0.15rem 0.35rem;
     font-size: 10px;
     font-weight: 600;
-    color: #8b949e;
+    color: var(--cedar-gh-diff-muted);
     background: transparent;
     cursor: pointer;
     transition: background-color 0.15s, color 0.15s;
   }
 
   .cedar-gh-diff-font:hover {
-    color: #e6edf3;
+    color: var(--cedar-gh-diff-fg);
   }
 
   .cedar-gh-diff-font.is-active {
-    color: #e6edf3;
-    background-color: #21262d;
+    color: var(--cedar-gh-diff-fg);
+    background-color: var(--cedar-gh-diff-active);
     box-shadow: 0 1px 0 rgb(0 0 0 / 0.2);
   }
 
@@ -3733,9 +5949,9 @@
     margin-bottom: 0.5rem;
     width: 100%;
     min-width: 0;
-    border: 1px solid #30363d;
+    border: 1px solid var(--cedar-gh-diff-border);
     border-radius: 6px;
-    background-color: #0d1117;
+    background-color: var(--cedar-gh-diff-bg);
   }
 
   .cedar-gh-file-actions {
@@ -3744,16 +5960,16 @@
     align-items: center;
     gap: 0.35rem 0.5rem;
     padding: 0.3rem 0.45rem;
-    border-bottom: 1px solid #30363d;
-    background-color: #161b22;
+    border-bottom: 1px solid var(--cedar-gh-diff-border);
+    background-color: var(--cedar-gh-diff-panel);
   }
 
   .cedar-gh-diff-view-toggle {
     display: inline-flex;
     padding: 2px;
-    border: 1px solid #30363d;
+    border: 1px solid var(--cedar-gh-diff-border);
     border-radius: 6px;
-    background-color: #010409;
+    background-color: var(--cedar-gh-diff-inset);
   }
 
   .cedar-gh-diff-mode {
@@ -3762,19 +5978,19 @@
     padding: 0.15rem 0.45rem;
     font-size: 10px;
     font-weight: 500;
-    color: #8b949e;
+    color: var(--cedar-gh-diff-muted);
     background: transparent;
     cursor: pointer;
     transition: background-color 0.15s, color 0.15s;
   }
 
   .cedar-gh-diff-mode:hover {
-    color: #e6edf3;
+    color: var(--cedar-gh-diff-fg);
   }
 
   .cedar-gh-diff-mode.is-active {
-    color: #e6edf3;
-    background-color: #21262d;
+    color: var(--cedar-gh-diff-fg);
+    background-color: var(--cedar-gh-diff-active);
     box-shadow: 0 1px 0 rgb(0 0 0 / 0.2);
   }
 
@@ -3786,10 +6002,54 @@
     margin-left: auto;
   }
 
+  .cedar-file-code-map-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.65rem;
+    height: 1.65rem;
+    padding: 0;
+    flex-shrink: 0;
+  }
+
+  .cedar-file-code-map-icon {
+    width: 0.95rem;
+    height: 0.95rem;
+    opacity: 0.92;
+  }
+
+  .cedar-file-code-map-btn:hover .cedar-file-code-map-icon,
+  .cedar-file-code-map-btn:focus-visible .cedar-file-code-map-icon {
+    opacity: 1;
+  }
+
+  .cedar-diff2html .d2h-file-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem 0.5rem;
+  }
+
+  .cedar-diff2html .d2h-file-header .d2h-file-name {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .cedar-diff2html .cedar-d2h-file-code-map {
+    display: inline-flex;
+    align-items: center;
+    margin-left: auto;
+    order: 5;
+  }
+
+  .cedar-diff2html .d2h-file-stats {
+    order: 6;
+  }
+
   .cedar-gh-open-github {
     font-size: 11px;
     font-weight: 500;
-    color: #58a6ff;
+    color: var(--cedar-gh-link);
     text-decoration: none;
   }
 
@@ -3800,15 +6060,14 @@
   .cedar-gh-file-body {
     width: 100%;
     min-width: 0;
-    overflow-x: auto;
-    overflow-y: visible;
-    background-color: #0d1117;
+    overflow: visible;
+    background-color: var(--cedar-gh-diff-bg);
   }
 
   .cedar-gh-diff-empty {
     padding: 2rem 1rem;
     text-align: center;
-    color: #8b949e;
+    color: var(--cedar-gh-diff-muted);
   }
 
   .cedar-gh-diff-fallback {
@@ -3817,13 +6076,13 @@
     font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, Liberation Mono, monospace;
     font-size: inherit;
     line-height: inherit;
-    color: #c9d1d9;
+    color: var(--cedar-gh-diff-fallback);
     white-space: pre-wrap;
     word-break: break-word;
   }
 
   :root:not([data-theme="day"]) .cedar-diff2html {
-    color: #e6edf3;
+    color: var(--cedar-gh-diff-fg);
     font-size: inherit;
     line-height: inherit;
   }
@@ -3857,17 +6116,19 @@
     border-radius: 0;
   }
 
-  :root:not([data-theme="day"]) .cedar-diff2html .d2h-file-header {
+  :root:not([data-theme="day"]) .cedar-diff2html .d2h-file-header,
+  :root:not([data-theme="day"]) .cedar-diff2html .d2h-sticky-header {
     position: sticky;
     top: 0;
     z-index: 2;
     min-height: 32px;
     padding: 6px 12px;
-    background-color: #161b22;
-    border-bottom: 1px solid #30363d;
+    background-color: var(--cedar-gh-diff-panel);
+    border-bottom: 1px solid var(--cedar-gh-diff-border);
   }
 
-  html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme .d2h-file-header {
+  html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme .d2h-file-header,
+  html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme .d2h-sticky-header {
     position: sticky;
     top: 0;
     z-index: 2;
@@ -3901,15 +6162,147 @@
     max-height: none !important;
   }
 
+  .cedar-diff2html .d2h-file-side-diff {
+    flex: 1 1 50%;
+    min-width: 0;
+    vertical-align: top;
+  }
+
+  .cedar-diff2html .d2h-files-diff {
+    display: flex;
+    width: 100%;
+    align-items: stretch;
+  }
+
   .cedar-diff2html .d2h-wrapper,
   .cedar-diff2html .d2h-diff-table {
     width: 100%;
+    min-width: 100%;
     max-width: none;
   }
 
   .cedar-diff2html[data-diff-format="line-by-line"] .d2h-file-side-diff {
     width: 100%;
-    max-width: 100%;
+    min-width: 100%;
+    max-width: none;
+  }
+
+  /* diff2html.min.css uses position:absolute on gutter <td>s — breaks vertical scroll sync. */
+  .cedar-diff2html td.d2h-code-linenumber,
+  .cedar-diff2html td.d2h-code-side-linenumber {
+    position: static !important;
+    display: table-cell !important;
+    float: none !important;
+    box-sizing: border-box;
+    vertical-align: top;
+    direction: rtl;
+    text-align: right;
+    user-select: none;
+    white-space: nowrap;
+  }
+
+  .cedar-diff2html td.d2h-code-linenumber {
+    width: 7.5em;
+    min-width: 7.5em;
+    max-width: 7.5em;
+    padding: 0 0.5em;
+  }
+
+  .cedar-diff2html td.d2h-code-linenumber.cedar-diff-gutter,
+  .cedar-diff2html td.d2h-code-side-linenumber.cedar-diff-gutter {
+    direction: ltr;
+    text-align: center;
+    vertical-align: middle;
+  }
+
+  .cedar-diff2html[data-diff-format="side-by-side"] td.d2h-code-side-linenumber {
+    width: 4.25em;
+    min-width: 4.25em;
+    max-width: 4.25em;
+    padding: 0 0.45em;
+  }
+
+  .cedar-diff2html td.d2h-code-linenumber .line-num1,
+  .cedar-diff2html td.d2h-code-linenumber .line-num2 {
+    display: block;
+    float: none;
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    padding: 0;
+    overflow: visible;
+    text-overflow: clip;
+    text-align: right;
+    direction: ltr;
+  }
+
+  .cedar-diff2html .d2h-diff-table {
+    table-layout: auto;
+    border-collapse: collapse;
+  }
+
+  .cedar-diff2html .d2h-diff-tbody tr {
+    display: table-row;
+  }
+
+  .cedar-diff2html .d2h-code-line,
+  .cedar-diff2html .d2h-code-side-line {
+    display: block;
+    width: auto;
+    max-width: none;
+    padding: 0;
+    white-space: pre;
+  }
+
+  .cedar-diff2html .d2h-code-line-prefix {
+    display: inline-block;
+    width: 1.1em;
+    flex-shrink: 0;
+    text-align: center;
+  }
+
+  :root:not([data-theme="day"]) .cedar-diff2html.d2h-dark-color-scheme td.d2h-ins,
+  :root:not([data-theme="day"]) .cedar-diff2html.d2h-dark-color-scheme td.d2h-ins .d2h-code-line-ctn {
+    background-color: var(--d2h-ins-bg-color);
+  }
+
+  :root:not([data-theme="day"]) .cedar-diff2html.d2h-dark-color-scheme td.d2h-del,
+  :root:not([data-theme="day"]) .cedar-diff2html.d2h-dark-color-scheme td.d2h-del .d2h-code-line-ctn {
+    background-color: var(--d2h-del-bg-color);
+  }
+
+  :root:not([data-theme="day"]) .cedar-diff2html.d2h-dark-color-scheme td.d2h-change .d2h-code-line del {
+    background-color: var(--d2h-del-highlight-bg-color);
+  }
+
+  :root:not([data-theme="day"]) .cedar-diff2html.d2h-dark-color-scheme td.d2h-change .d2h-code-line ins,
+  :root:not([data-theme="day"]) .cedar-diff2html.d2h-dark-color-scheme td.d2h-ins ins {
+    background-color: var(--d2h-ins-highlight-bg-color);
+  }
+
+  html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme td.d2h-ins,
+  html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme td.d2h-ins .d2h-code-line-ctn {
+    background-color: var(--d2h-ins-bg-color);
+  }
+
+  html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme td.d2h-del,
+  html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme td.d2h-del .d2h-code-line-ctn {
+    background-color: var(--d2h-del-bg-color);
+  }
+
+  html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme td.d2h-change .d2h-code-line del {
+    background-color: var(--d2h-del-highlight-bg-color);
+  }
+
+  html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme td.d2h-change .d2h-code-line ins,
+  html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme td.d2h-ins ins {
+    background-color: var(--d2h-ins-highlight-bg-color);
+  }
+
+  #main-stage.cedar-review-wide .cedar-gh-files-changed.cedar-diff-comments-off
+    .cedar-diff-line-commented:not(.cedar-diff-gutter-count-visible)
+    .cedar-diff-gutter.d2h-cntx {
+    background-color: var(--d2h-bg-color, var(--cedar-gh-diff-bg)) !important;
   }
 
   .cedar-gh-file,
@@ -3927,6 +6320,22 @@
     transition: background-color 0.12s, color 0.12s;
   }
 
+  .cedar-diff-line-commented.cedar-diff-gutter-count-visible .cedar-diff-gutter {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.2rem;
+    min-height: 1.35rem;
+    padding-inline: 0.2rem;
+  }
+
+  .cedar-diff-line-commented.cedar-diff-gutter-count-visible .cedar-diff-gutter .line-num1,
+  .cedar-diff-line-commented.cedar-diff-gutter-count-visible .cedar-diff-gutter .line-num2 {
+    width: 100%;
+    text-align: center;
+  }
+
   .cedar-diff-gutter:hover,
   .cedar-diff-gutter:focus-within {
     background-color: rgb(56 139 253 / 0.18) !important;
@@ -3936,10 +6345,11 @@
   .cedar-diff-add-comment {
     display: none;
     position: absolute;
-    right: 2px;
+    left: 2px;
+    right: auto;
     top: 50%;
     transform: translateY(-50%);
-    z-index: 1;
+    z-index: 3;
     border: 0;
     border-radius: 4px;
     width: 1.1rem;
@@ -3948,9 +6358,19 @@
     font-size: 11px;
     font-weight: 700;
     line-height: 1;
-    color: #e6edf3;
-    background: rgb(56 139 253 / 0.85);
+    color: #f0f6ff;
+    background: rgb(56 139 253 / 0.92);
+    box-shadow: 0 0 0 1px rgb(56 139 253 / 0.35);
     cursor: pointer;
+    transition: background-color 0.12s, box-shadow 0.12s, transform 0.12s;
+  }
+
+  .cedar-diff-add-comment:hover,
+  .cedar-diff-add-comment:focus-visible {
+    background: rgb(47 129 247);
+    box-shadow: 0 0 0 2px rgb(56 139 253 / 0.45);
+    outline: none;
+    transform: translateY(-50%) scale(1.05);
   }
 
   .cedar-diff-comment-row:hover .cedar-diff-add-comment,
@@ -3958,6 +6378,11 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
+  }
+
+  .cedar-diff-comment-row:hover .cedar-diff-gutter:has(.cedar-diff-add-comment),
+  .cedar-diff-gutter:focus-within:has(.cedar-diff-add-comment) {
+    padding-left: 1.15rem;
   }
 
   .cedar-diff-line-commented .cedar-diff-gutter {
@@ -3982,23 +6407,35 @@
 
   .cedar-diff-comment-gutter-count {
     display: none;
-    position: absolute;
-    left: 1px;
-    top: 50%;
+    position: relative;
     z-index: 2;
-    min-width: 0.95rem;
-    transform: translateY(-50%);
+    order: 2;
+    flex: 0 0 auto;
+    min-width: 1.1rem;
+    min-height: 1.1rem;
     align-items: center;
     justify-content: center;
+    border: 0;
     border-radius: 9999px;
-    padding: 0 0.2rem;
+    padding: 0 0.25rem;
     font-family: var(--font-sans);
     font-size: var(--cedar-review-caption, 0.625rem);
     font-weight: 700;
     line-height: 1.2;
     color: rgb(250 250 250);
     background: rgb(var(--cedar-comment-cursor-accent) / 0.92);
-    pointer-events: none;
+    pointer-events: auto;
+    cursor: pointer;
+    box-shadow: 0 0 0 1px rgb(var(--cedar-comment-cursor-accent) / 0.35);
+    transition: background-color 0.12s, transform 0.12s, box-shadow 0.12s;
+  }
+
+  .cedar-diff-comment-gutter-count:hover,
+  .cedar-diff-comment-gutter-count:focus-visible {
+    background: rgb(var(--cedar-comment-cursor-accent));
+    box-shadow: 0 0 0 2px rgb(var(--cedar-comment-cursor-accent) / 0.4);
+    outline: none;
+    transform: scale(1.06);
   }
 
   .cedar-diff-line-commented.cedar-diff-gutter-count-visible .cedar-diff-comment-gutter-count {
@@ -4101,23 +6538,213 @@
   }
 
   .cedar-review-progress-dock {
-    border: 1px solid rgba(52, 211, 153, 0.15);
-    background: linear-gradient(180deg, rgba(16, 185, 129, 0.08), rgba(0, 0, 0, 0.12));
+    padding: 0.55rem 0.65rem 0.6rem;
+    border-bottom: 1px solid var(--cedar-review-border);
+    background: rgb(255 255 255 / 0.02);
+  }
+
+  .cedar-review-progress-head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+
+  .cedar-review-progress-status-dot {
+    flex-shrink: 0;
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 50%;
+    background: var(--cedar-accent);
+    box-shadow: 0 0 0 3px var(--cedar-accent-muted);
+    animation: cedar-progress-pulse 1.75s ease-in-out infinite;
+  }
+
+  .cedar-review-progress-dock[data-state="done"] .cedar-review-progress-status-dot {
+    background: var(--cedar-success);
+    box-shadow: 0 0 0 3px var(--cedar-success-muted);
+    animation: none;
+  }
+
+  .cedar-review-loading-panel .cedar-review-progress-status-dot {
+    background: var(--cedar-accent);
+    box-shadow: 0 0 0 3px var(--cedar-accent-muted);
+    animation: cedar-progress-pulse 1.75s ease-in-out infinite;
+  }
+
+  .cedar-review-progress-dock[data-state="idle"] .cedar-review-progress-status-dot {
+    background: rgb(113 113 122);
+    box-shadow: none;
+    animation: none;
+  }
+
+  @keyframes cedar-progress-pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.55;
+    }
+  }
+
+  .cedar-review-progress-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.35;
+    letter-spacing: -0.01em;
+    color: var(--cedar-review-foreground);
+  }
+
+  .cedar-review-progress-pct {
+    flex-shrink: 0;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--cedar-review-muted);
+  }
+
+  .cedar-review-progress-detail {
+    margin: 0.35rem 0 0;
+    padding-left: calc(0.45rem + 0.5rem);
+    font-size: 10px;
+    line-height: 1.45;
+    color: var(--cedar-review-muted);
+  }
+
+  .cedar-review-progress-detail:empty {
+    display: none;
   }
 
   .cedar-review-progress-track {
-    height: 6px;
+    height: 4px;
+    margin-top: 0.45rem;
     overflow: hidden;
-    border-radius: 9999px;
-    background: rgba(255, 255, 255, 0.08);
+    border-radius: 2px;
+    background: rgb(255 255 255 / 0.08);
   }
 
   .cedar-review-progress-fill {
     height: 100%;
     width: 0%;
-    border-radius: 9999px;
-    background: linear-gradient(90deg, #059669, #34d399, #6ee7b7);
-    transition: width 0.35s ease;
+    border-radius: 2px;
+    background: linear-gradient(90deg, var(--cedar-accent), var(--cedar-accent-strong));
+    transition: width 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .cedar-review-progress-dock[data-state="done"] .cedar-review-progress-fill {
+    background: linear-gradient(90deg, rgb(5 150 105), var(--cedar-success));
+  }
+
+  #main-stage.cedar-review-wide .cedar-review-progress-detail {
+    padding-left: calc(0.45rem + 0.5rem);
+  }
+
+  #main-stage.cedar-review-wide .cedar-pr-stat-progress,
+  #main-stage.cedar-review-wide .cedar-pr-approval-progress {
+    height: 4px;
+    border-radius: 2px;
+    background: rgb(255 255 255 / 0.1);
+  }
+
+  #main-stage.cedar-review-wide .cedar-pr-approval-progress-fill {
+    border-radius: 2px;
+    background: linear-gradient(90deg, rgb(13 148 136), rgb(45 212 191));
+  }
+
+  #main-stage.cedar-review-wide .cedar-pr-stats--approval:has(.cedar-pr-stat-value--approval.text-amber-200) .cedar-pr-approval-progress-fill {
+    background: linear-gradient(90deg, rgb(217 119 6), rgb(251 191 36));
+  }
+
+  #main-stage.cedar-review-wide .cedar-pr-stats--approval:has(.cedar-pr-stat-value--approval.text-emerald-200) .cedar-pr-approval-progress-fill,
+  #main-stage.cedar-review-wide .cedar-pr-stats--approval:has(.cedar-pr-stat-value--approval.text-emerald-300) .cedar-pr-approval-progress-fill {
+    background: linear-gradient(90deg, rgb(5 150 105), rgb(52 211 153));
+  }
+
+  #main-stage.cedar-review-wide .cedar-pr-approval-caption {
+    color: var(--cedar-review-muted);
+    font-size: 9px;
+  }
+
+  .cedar-review-loading-panel {
+    padding: 0.75rem 0.65rem 1rem;
+    min-height: 12rem;
+  }
+
+  .cedar-review-loading-head {
+    margin-bottom: 0.65rem;
+  }
+
+  .cedar-review-progress-status {
+    margin: 0 0 0.75rem;
+    padding-left: calc(0.45rem + 0.5rem);
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.45;
+    color: var(--cedar-review-foreground);
+  }
+
+  .cedar-review-progress-log {
+    margin: 0;
+    padding: 0 0 0 calc(0.45rem + 0.5rem);
+    max-height: min(40vh, 16rem);
+    overflow-y: auto;
+    list-style: none;
+    overscroll-behavior: contain;
+  }
+
+  .cedar-review-progress-log-line {
+    position: relative;
+    padding: 0.2rem 0 0.2rem 0.85rem;
+    border-left: 2px solid rgb(255 255 255 / 0.08);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    line-height: 1.45;
+    color: var(--cedar-review-muted);
+  }
+
+  .cedar-review-progress-log-line.is-done {
+    border-left-color: rgb(16 185 129 / 0.55);
+    color: rgb(167 243 208 / 0.85);
+  }
+
+  .cedar-review-progress-log-line.is-skipped {
+    border-left-color: rgb(161 161 170 / 0.35);
+    color: rgb(161 161 170);
+  }
+
+  .cedar-review-progress-log-line.is-running,
+  .cedar-review-progress-log-line.is-activity {
+    border-left-color: color-mix(in srgb, var(--cedar-accent) 55%, transparent);
+  }
+
+  #main-stage.cedar-review-wide .cedar-review-product .cedar-pr-chat-input {
+    border-radius: 0.45rem;
+    border-color: var(--cedar-review-border);
+    background: var(--cedar-review-inset);
+  }
+
+  #main-stage.cedar-review-wide .cedar-review-product .cedar-pr-chat-input:focus {
+    outline: none;
+    border-color: color-mix(in srgb, var(--cedar-accent) 45%, var(--cedar-review-border));
+    box-shadow: 0 0 0 3px var(--cedar-accent-muted);
+  }
+
+  #main-stage.cedar-review-wide .cedar-review-left-nav-action.cedar-btn-secondary {
+    border-radius: 0.45rem;
+    font-weight: 600;
+  }
+
+  #main-stage.cedar-review-wide .cedar-review-left-nav-gate--ready {
+    color: rgb(167 243 208);
+  }
+
+  #main-stage.cedar-review-wide .cedar-review-left-nav-gate--pending {
+    color: rgb(253 230 138);
   }
 
   .cedar-diff-comment-card {
@@ -4371,7 +6998,7 @@
     margin-right: 0.05rem;
     border-style: solid;
     border-width: 3.5px 0 3.5px 5.5px;
-    border-color: transparent transparent transparent rgb(0 0 0);
+    border-color: transparent transparent transparent rgb(var(--cedar-comment-cursor-accent, 129 140 248));
     background: none;
     box-shadow: none;
     border-radius: 0;
@@ -4380,7 +7007,7 @@
   }
 
   .cedar-comment-marker-chip--arch {
-    border-left-color: rgb(0 0 0);
+    border-left-color: rgb(var(--cedar-comment-arch-accent, 167 139 250));
   }
 
   .cedar-comment-marker-chip--legend {

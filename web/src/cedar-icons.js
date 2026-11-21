@@ -62,6 +62,31 @@ export function refreshReviewIconSvg(className = "h-3.5 w-3.5 shrink-0") {
   </svg>`;
 }
 
+/** Code findings / review comments for the active slice. */
+export function findingsIconSvg(className = "h-4 w-4") {
+  return `<svg class="${className}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <circle cx="6.25" cy="6" r="2" fill="currentColor" opacity=".9"/>
+    <path stroke="currentColor" stroke-width="1.5" stroke-linecap="round" d="M10.5 6h8M10.5 10h8M10.5 14h8M10.5 18h5"/>
+  </svg>`;
+}
+
+/** Changed files / diff list. */
+export function filesIconSvg(className = "h-4 w-4") {
+  return `<svg class="${className}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" d="M7 4.5h7.2L18 8.3V19a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 6 19V6a1.5 1.5 0 0 1 1-1.5Z"/>
+    <path stroke="currentColor" stroke-width="1.5" stroke-linecap="round" d="M14 4.5V8.5h4"/>
+    <path stroke="currentColor" stroke-width="1.5" stroke-linecap="round" d="M9 12.5h6M9 15.5h4"/>
+  </svg>`;
+}
+
+/** PR chat / ask composer. */
+export function chatIconSvg(className = "h-4 w-4") {
+  return `<svg class="${className}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" d="M6 7.5h12v7.5a3 3 0 0 1-3 3H9.8L5 20v-4.2A3 3 0 0 1 6 7.5Z"/>
+    <path stroke="currentColor" stroke-width="1.5" stroke-linecap="round" d="M8.5 11.5h7"/>
+  </svg>`;
+}
+
 /** Compact graph / blueprint for the Architecture tab. */
 export function architectureIconSvg(className = "h-4 w-4") {
   return `<svg class="${className}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" aria-hidden="true">

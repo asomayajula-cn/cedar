@@ -214,6 +214,14 @@ function wireCodeMapExpand(_root) {
   document.addEventListener("click", (ev) => {
     const t = ev.target;
     if (!(t instanceof Element)) return;
+    const mapBtn = t.closest("[data-file-code-map]");
+    if (mapBtn instanceof HTMLButtonElement) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const path = mapBtn.getAttribute("data-file-code-map");
+      if (path) openFileCodeMapForPath(path);
+      return;
+    }
     const zoomBtn = t.closest("[data-code-map-zoom]");
     if (zoomBtn instanceof HTMLButtonElement) {
       ev.preventDefault();
@@ -304,6 +312,27 @@ function wireCodeMapExpand(_root) {
  */
 export function setFileFlowCatalog(map) {
   window.__cedarFileFlows = map ?? {};
+}
+
+/**
+ * Select a file and open its architecture / code map (flyout expanded by default).
+ * @param {string} path
+ * @param {{ expand?: boolean }} [opts]
+ */
+export function openFileCodeMapForPath(path, opts = {}) {
+  const expand = opts.expand !== false;
+  if (!path?.trim()) return;
+  document.querySelectorAll(".cedar-gh-file.is-file-flow-active").forEach((el) => {
+    el.classList.remove("is-file-flow-active");
+  });
+  const article = document.querySelector(
+    `.cedar-gh-file[data-file-path="${CSS.escape(path)}"]`
+  );
+  if (article instanceof HTMLElement) {
+    article.classList.add("is-file-flow-active");
+  }
+  setActiveFileFlow(path);
+  if (expand) setCodeMapExpanded(true);
 }
 
 /**
@@ -553,7 +582,9 @@ export function wireFileFlowRail(root) {
         }
       },
       {
-        root: root.querySelector(".cedar-slice-review-pane"),
+        root:
+          root.querySelector(".cedar-slice-panel.is-active-slice .cedar-slice-queue-scroll") ??
+          root.querySelector(".cedar-slice-review-pane"),
         rootMargin: "-8% 0px -35% 0px",
         threshold: [0.2, 0.45, 0.65],
       }

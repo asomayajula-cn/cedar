@@ -20,13 +20,17 @@ function isAiAuthError(err) {
 export function hydrateMicroPrsFromReport(microPrs) {
   return microPrs.map((m) => ({
     ...m,
-    files: (m.files ?? []).map((f) => ({
-      filename: f.filename ?? f.path ?? "",
-      status: f.status,
-      patch: f.patch ?? "",
-      additions: f.additions ?? 0,
-      deletions: f.deletions ?? 0,
-    })),
+    files: (m.files ?? []).map((f) => {
+      const path = f.path ?? f.filename ?? "";
+      return {
+        path,
+        filename: path,
+        status: f.status,
+        patch: f.patch ?? "",
+        additions: f.additions ?? 0,
+        deletions: f.deletions ?? 0,
+      };
+    }),
   }));
 }
 
