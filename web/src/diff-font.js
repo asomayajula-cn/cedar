@@ -55,6 +55,21 @@ export function applyDiffFontTo(host) {
   host.style.setProperty("--cedar-diff-line-height", `${line}px`);
 }
 
+/** Keep left-rail slice labels readable and aligned with the active diff size preset. */
+export function applySliceNavTypography() {
+  const { size } = getDiffFontSettings();
+  const labelPx = Math.min(13, Math.max(10, size + 2));
+  const metaPx = Math.max(9, labelPx - 2);
+  const indent = Math.round(8 + 6 + Math.max(0, labelPx - 11));
+  const nav = document.getElementById("cedar-review-left-nav");
+  if (!(nav instanceof HTMLElement)) return;
+  nav.style.setProperty("--cedar-slice-nav-label-size", `${labelPx}px`);
+  nav.style.setProperty("--cedar-slice-nav-meta-size", `${metaPx}px`);
+  nav.style.setProperty("--cedar-slice-nav-files-size", `${metaPx}px`);
+  nav.style.setProperty("--cedar-slice-nav-line-height", `${Math.round(metaPx * 1.45)}px`);
+  nav.style.setProperty("--cedar-slice-nav-indent", `${indent}px`);
+}
+
 /**
  * @param {string} [activePreset]
  */
@@ -91,9 +106,12 @@ export function wireDiffFontControls(root) {
             });
           }
         });
+        applySliceNavTypography();
+        window.dispatchEvent(new CustomEvent("cedar-diff-font-change", { detail: { preset: id } }));
       });
     });
   });
+  applySliceNavTypography();
 }
 
 /**

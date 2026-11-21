@@ -3,6 +3,7 @@ import { loadComponentsConfig } from "./load-config.js";
 import { partitionPrByComponents, partitionPrByAssignments } from "./partition.js";
 import { discoverArchitecturalBreakouts } from "./ai-breakouts.js";
 import { aiReviewMicroSlice } from "./ai-micro-review.js";
+import { aiMacroPrReview } from "./ai-macro-review.js";
 import {
   createClient,
   fetchPullRequest,
@@ -17,17 +18,25 @@ import {
   buildPendingCompositeNotice,
 } from "./review-engine.js";
 import { formatComponentBoard, formatJsonReport } from "./format.js";
+import { buildArchitectureDiagramMermaid } from "./architecture-diagram.js";
 import {
-  buildArchitectureDiagramMarkdown,
-  buildCompleteLayoutDiagrams,
-} from "./architecture-diagram.js";
+  buildCompleteLayoutViews,
+  buildCompleteLayoutMarkdown,
+} from "./architecture-layout-views.js";
+import { normalizeSliceId } from "./architecture-model.js";
+import { sliceReviewAiAvailable, resolveAiProviderName } from "./ai-credentials.js";
+import { sliceReviewRequested } from "./slice-review-toggle.js";
 import { renderReviewDiagrams } from "./diagram-graphviz.js";
 import { orderMicroPrsForLayout } from "./diagram-layout.js";
 import { buildDiagramGraph } from "./diagram-graph.js";
+import { buildFileFlowArtifacts } from "./file-flow-diagram.js";
 import { resolveArchitectureVisual } from "./ai-architecture-visual.js";
 import { breakoutCacheKey, readBreakoutCache, writeBreakoutCache } from "./breakout-cache.js";
 import { resolveAiModel } from "./default-model.js";
-import { emitPhase } from "./review-progress.js";
+import { emitPhase, emitReviewProgress } from "./review-progress.js";
+import { buildCursorReviewSummary, summarizeCursorSliceReview } from "./cursor-review-summary.js";
+import { backgroundCursorReviewEnabled } from "./cursor-review-background.js";
+import { isCodeReviewFinding } from "./finding-meta.js";
 import {
   alignMicroPrsToPrArchitecture,
   componentsForPrPartition,
@@ -69,8 +78,11 @@ export async function runPrReviewPipeline(opts) {
   phase("fetch", "Fetch PR from GitHub", "done", `${files.length} files`);
 
   const useAiBreakouts = resolvePartitionMode(opts.partitionMode) === "ai";
-  const useAiReview =
-    opts.useAiReview ?? (process.env.CEDAR_AI_SLICE_REVIEW === "true");
+  const useAiReview = sliceReviewRequested(opts.useAiReview);
+  const deferCursorAi =
+    opts.deferCursorAi ??
+    (useAiReview && sliceReviewAiAvailable() && backgroundCursorReviewEnabled());
+  const cursorReviewPending = Boolean(deferCursorAi && useAiReview && sliceReviewAiAvailable());
 
   /** @type {import('./ai-breakouts.js').AiBreakoutPlan | null} */
   let breakoutPlan = null;
@@ -177,20 +189,33 @@ export async function runPrReviewPipeline(opts) {
     target
   );
 
-  const completeLayout = buildCompleteLayoutDiagrams(
+  const sliceNumberById = Object.fromEntries(
+    ordered
+      .filter((m) => (m.files?.length ?? 0) > 0)
+      .map((m, i) => [normalizeSliceId(m.componentId), i + 1])
+  );
+
+  const diagramLayoutViews = buildCompleteLayoutViews(
+    ordered,
+    breakoutPlan ?? undefined,
+    pullMeta,
+    target,
+    sliceNumberById
+  );
+  const diagramMermaid = buildArchitectureDiagramMermaid(
     ordered,
     breakoutPlan ?? undefined,
     pullMeta,
     target
   );
-  const diagramMermaid = completeLayout.diagrams.map((d) => d.source).join("\n\n");
-  const diagramMarkdown = buildArchitectureDiagramMarkdown(completeLayout);
+  const diagramMarkdown = buildCompleteLayoutMarkdown(diagramLayoutViews);
 
   phase("review", "Micro reviews & diagrams", "running");
   const [microResults, pipelineRendered, visualResolved] = await Promise.all([
     runMicroReviewPass(ordered, {
       multiBoundaryFiles,
       useAiReview,
+      deferCursorAi,
       breakoutPlan,
       postMicro: Boolean(opts.postMicro),
       octokit,
@@ -212,6 +237,52 @@ export async function runPrReviewPipeline(opts) {
     visualResolved;
   const { pipelineDot, pipelineSvg } = pipelineRendered;
   phase("review", "Micro reviews & diagrams", "done", diagramVisualSource ?? "heuristic");
+
+  /** @type {import('./ai-macro-review.js').ReturnType<typeof aiMacroPrReview> extends Promise<infer T> ? T : never} */
+  let macroReview = null;
+  if (cursorReviewPending) {
+    phase("macro", "Cursor · macro review (entire PR)", "skipped", "Queued — runs first in background");
+    phase("cursor-slices", "Cursor · slice review", "skipped", "Queued — after macro review");
+  }
+  if (useAiReview && sliceReviewAiAvailable() && !deferCursorAi) {
+    phase("macro", "Cursor · macro review (entire PR)", "running");
+    try {
+      macroReview = await aiMacroPrReview({
+        pull: {
+          title: pull.title,
+          number: pull.number,
+          headSha: pull.head.sha,
+        },
+        breakouts: breakoutPlan ?? undefined,
+        microPrs: ordered,
+        microResults,
+      });
+      const macroThemes = macroReview?.findings?.length ?? 0;
+      const macroDetail = macroReview
+        ? `${macroThemes} PR theme(s) · ${macroReview.event ?? "COMMENT"}`
+        : "empty";
+      phase("macro", "Cursor · macro review (entire PR)", "done", macroDetail);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      phase("macro", "Cursor · macro review (entire PR)", "blocked", message.slice(0, 80));
+      console.warn("[cedar] Macro PR review failed:", err);
+    }
+
+    await runCursorSliceAiPass(ordered, microResults, {
+      useAiReview,
+      deferCursorAi: false,
+      breakoutPlan,
+    });
+
+    const cursorReviewSummary = buildCursorReviewSummary(microResults, macroReview, useAiReview);
+    const slicePart = `${cursorReviewSummary.slice.total} slice comment(s) · ${cursorReviewSummary.slice.slicesWithFindings}/${cursorReviewSummary.slice.slicesAttempted} slices`;
+    const macroPart = cursorReviewSummary.macro
+      ? `${cursorReviewSummary.macro.findingCount} PR theme(s)`
+      : "no macro themes";
+    phase("cursor-report", "Cursor · PR findings", "done", `${slicePart} · ${macroPart}`);
+  }
+
+  const cursorReviewSummary = buildCursorReviewSummary(microResults, macroReview, useAiReview);
 
   const touched = microResults.filter((r) => r.status !== "skipped");
   const allSlicesReviewed = touched.every((r) => r.status === "passed" || r.status === "failed");
@@ -288,6 +359,9 @@ export async function runPrReviewPipeline(opts) {
     sliceCount: microPrs.filter((m) => m.files.length > 0).length,
     microResults,
     compositeReady,
+    useAiReview,
+    macroReview,
+    cursorReviewSummary,
   });
 
   return {
@@ -307,6 +381,7 @@ export async function runPrReviewPipeline(opts) {
     partition: {
       mode: useAiBreakouts ? "ai" : "yaml",
       model: breakoutPlan?.model,
+      fileCount: files.length,
     },
     breakouts: {
       architectureSummary:
@@ -322,7 +397,7 @@ export async function runPrReviewPipeline(opts) {
         depends_on: c.depends_on,
       })),
       diagramMermaid,
-      completeLayout,
+      diagramLayoutViews,
       diagramMarkdown,
       diagramPipelineDot: pipelineDot,
       diagramPipelineSvg: pipelineSvg,
@@ -330,25 +405,49 @@ export async function runPrReviewPipeline(opts) {
       architectureVisual,
       diagramVisualSource,
     },
-    microPrs: ordered.map((m) => ({
-      componentId: m.componentId,
-      componentName: m.componentName,
-      virtualPrId: `vpr-${pull.number}-${m.componentId}`,
-      fileCount: m.files.length,
-      additions: m.additions,
-      deletions: m.deletions,
-      description: m.description,
-      rationale: m.rationale,
-      dependsOn: m.dependsOn,
-      files: m.files.map((f) => ({
-        path: f.filename,
-        status: f.status,
-        additions: f.additions,
-        deletions: f.deletions,
-        patch: f.patch ?? null,
-      })),
-    })),
+    microPrs: await Promise.all(
+      ordered.map(async (m) => ({
+        componentId: m.componentId,
+        componentName: m.componentName,
+        virtualPrId: `vpr-${pull.number}-${m.componentId}`,
+        fileCount: m.files.length,
+        additions: m.additions,
+        deletions: m.deletions,
+        description: m.description,
+        rationale: m.rationale,
+        dependsOn: m.dependsOn,
+        files: await Promise.all(
+          m.files.map(async (f) => {
+            const flow = await buildFileFlowArtifacts(f.filename, f.patch ?? "", { status: f.status });
+            return {
+              path: f.filename,
+              status: f.status,
+              additions: f.additions,
+              deletions: f.deletions,
+              patch: f.patch ?? null,
+              flowMermaid: flow.mermaid ?? null,
+              codeMapSvg: flow.svg ?? null,
+              codeMapWhat: flow.whatItDoes ?? null,
+              codeMapElements: flow.elements ?? null,
+              codeMapBehaviorElements: flow.behaviorElements ?? null,
+              codeMapFunctionalityElements: flow.functionalityElements ?? null,
+              codeMapDetail: flow.codeMapDetail ?? null,
+              codeMapProfile: flow.codeMapProfile ?? null,
+              codeMapProfileLabel: flow.codeMapProfileLabel ?? null,
+              codeMapProfileHint: flow.codeMapProfileHint ?? null,
+              codeMapSummary: flow.codeMapSummary ?? null,
+              codeMapLayout: flow.codeMapLayout ?? null,
+              codeMapStructure: flow.codeMapStructure ?? null,
+              codeMapModuleDeps: flow.codeMapModuleDeps ?? null,
+            };
+          })
+        ),
+      }))
+    ),
     microResults,
+    macroReview,
+    cursorReviewSummary,
+    cursorReviewPending,
     gate,
     composite,
     outputMarkdown,
@@ -381,33 +480,134 @@ export async function runPrReviewPipeline(opts) {
  *   pr: number,
  * }} ctx
  */
+/**
+ * @param {unknown} err
+ */
+function isAiAuthError(err) {
+  const msg = err instanceof Error ? err.message : String(err);
+  return /401|403|User not found|invalid.*api.*key|unauthorized|authentication/i.test(msg);
+}
+
+/**
+ * Composer per-slice pass — runs after macro review in sync mode.
+ *
+ * @param {import('./partition.js').MicroPr[]} ordered
+ * @param {import('./review-engine.js').MicroReviewResult[]} microResults
+ * @param {{ useAiReview: boolean, deferCursorAi?: boolean, breakoutPlan?: import('./ai-breakouts.js').AiBreakoutPlan | null }} ctx
+ */
+async function runCursorSliceAiPass(ordered, microResults, ctx) {
+  const cursorEnabled = ctx.useAiReview && sliceReviewAiAvailable();
+  if (!cursorEnabled || ctx.deferCursorAi) return microResults;
+
+  const byId = new Map(microResults.map((r) => [r.componentId, r]));
+  const reviewable = ordered.filter((m) => (m.files?.length ?? 0) > 0);
+  const reviewableTotal = reviewable.length;
+  let aiSliceReviewStopped = false;
+  let slicePassIndex = 0;
+
+  if (reviewableTotal > 0) {
+    emitPhase("cursor-slices", "Cursor · slice review", "running", `${reviewableTotal} slice(s)`);
+  }
+
+  for (const micro of ordered) {
+    const result = byId.get(micro.componentId);
+    if (!result || result.status === "skipped" || !micro.files.length) continue;
+
+    if (aiSliceReviewStopped) {
+      result.cursorReview = {
+        source: "cursor",
+        count: 0,
+        status: "stopped",
+        error: "Composer slice review stopped after an earlier auth/API error",
+      };
+      continue;
+    }
+
+    slicePassIndex += 1;
+    const sliceLabel = `${micro.componentName} (${slicePassIndex}/${reviewableTotal})`;
+    emitReviewProgress({
+      type: "activity",
+      text: `Cursor · ${sliceLabel}`,
+      phase: "cursor-slices",
+    });
+    emitPhase("cursor-slices", "Cursor · slice review", "running", sliceLabel);
+
+    try {
+      const aiFindings = await aiReviewMicroSlice(micro, {
+        architectureSummary: ctx.breakoutPlan?.architectureSummary,
+      });
+      const valid = aiFindings.filter(isCodeReviewFinding);
+      result.reviewComments = aiFindings;
+      result.cursorReview = {
+        source: "cursor",
+        count: valid.length,
+        status: valid.length ? "ok" : "empty",
+      };
+      emitPhase("cursor-slices", "Cursor · slice review", "running", `${sliceLabel} · ${valid.length} finding(s)`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (isAiAuthError(err)) {
+        aiSliceReviewStopped = true;
+        console.warn("[cedar] AI slice review disabled after auth error:", err);
+      } else {
+        console.warn("[cedar] AI slice review skipped for slice", micro.componentId, err);
+      }
+      result.cursorReview = {
+        source: "cursor",
+        count: 0,
+        status: aiSliceReviewStopped ? "stopped" : "error",
+        error: message.slice(0, 240),
+      };
+      emitReviewProgress({
+        type: "activity",
+        text: `Cursor slice failed · ${micro.componentName}`,
+        phase: "error",
+      });
+    }
+  }
+
+  if (reviewableTotal > 0) {
+    const stats = summarizeCursorSliceReview(microResults);
+    const detail = `${stats.total} finding(s) · ${stats.slicesWithFindings}/${reviewableTotal} slices`;
+    emitPhase(
+      "cursor-slices",
+      "Cursor · slice review",
+      aiSliceReviewStopped ? "blocked" : "done",
+      aiSliceReviewStopped ? `stopped · ${detail}` : detail
+    );
+  }
+
+  return microResults;
+}
+
 async function runMicroReviewPass(ordered, ctx) {
   /** @type {import('./review-engine.js').MicroReviewResult[]} */
   const microResults = [];
 
+  const cursorEnabled = ctx.useAiReview && sliceReviewAiAvailable();
+
   for (const micro of ordered) {
     let result = reviewMicroPr(micro, { multiBoundaryFiles: ctx.multiBoundaryFiles });
 
-    if (
-      ctx.useAiReview &&
-      (process.env.CURSOR_API_KEY || process.env.OPENROUTER_API_KEY) &&
-      micro.files.length
-    ) {
-      try {
-        const aiFindings = await aiReviewMicroSlice(micro, {
-          architectureSummary: ctx.breakoutPlan?.architectureSummary,
-        });
-        result = mergeMicroReviewFindings(result, micro, aiFindings);
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        result = mergeMicroReviewFindings(result, micro, [
-          {
-            ruleId: "ai/unavailable",
-            severity: "warning",
-            message: `AI slice review failed: ${message}`,
-          },
-        ]);
-      }
+    if (cursorEnabled && ctx.deferCursorAi && micro.files.length && result.status !== "skipped") {
+      result = {
+        ...result,
+        cursorReview: {
+          source: "cursor",
+          count: 0,
+          status: "pending",
+        },
+      };
+    } else if (sliceReviewAiAvailable() && !ctx.useAiReview && micro.files.length) {
+      result = {
+        ...result,
+        cursorReview: {
+          source: "cursor",
+          count: 0,
+          status: "skipped",
+          error: "CEDAR_AI_SLICE_REVIEW=false (breakouts still use Cursor)",
+        },
+      };
     }
 
     microResults.push(result);
@@ -438,7 +638,7 @@ function resolvePartitionMode(explicit) {
   const mode = explicit ?? process.env.CEDAR_PARTITION_MODE ?? "auto";
   if (mode === "yaml") return "yaml";
   if (mode === "ai") return "ai";
-  return process.env.CURSOR_API_KEY || process.env.OPENROUTER_API_KEY ? "ai" : "yaml";
+  return resolveAiProviderName() ? "ai" : "yaml";
 }
 
 /**
@@ -465,11 +665,17 @@ function stripFindingsForJson(r) {
  *   sliceCount: number,
  *   microResults: import('./review-engine.js').MicroReviewResult[],
  *   compositeReady: boolean,
+ *   useAiReview: boolean,
+ *   macroReview: { findings?: unknown[] } | null,
+ *   cursorReviewSummary: ReturnType<typeof buildCursorReviewSummary>,
  * }} ctx
  */
 function buildProcessSteps(ctx) {
   const microDone = ctx.microResults.filter((r) => r.status !== "skipped");
   const microPass = microDone.every((r) => r.status === "passed");
+  const cursor = ctx.cursorReviewSummary;
+  const cursorOn = cursor.enabled;
+  const sliceStopped = cursor.slice.bySlice.some((s) => s.status === "stopped" || s.status === "error");
 
   return [
     {
@@ -489,9 +695,39 @@ function buildProcessSteps(ctx) {
     },
     {
       id: "micro",
-      label: "Micro-PR reviews",
+      label: "Heuristic review (per slice)",
       status: microPass ? "done" : microDone.some((r) => r.status === "failed") ? "blocked" : "done",
-      detail: `${microDone.length} reviewed`,
+      detail: `${microDone.length} slice(s) · rules & diff scan`,
+    },
+    {
+      id: "cursor-slices",
+      label: "Cursor · slice review",
+      status: !cursorOn
+        ? "skipped"
+        : sliceStopped && cursor.slice.total === 0
+          ? "blocked"
+          : "done",
+      detail: !cursorOn
+        ? "CURSOR_API_KEY or CEDAR_AI_SLICE_REVIEW=off"
+        : `${cursor.slice.total} finding(s) · ${cursor.slice.slicesWithFindings}/${cursor.slice.slicesAttempted} slices`,
+    },
+    {
+      id: "macro",
+      label: "Cursor · macro review (entire PR)",
+      status: !cursorOn ? "skipped" : ctx.macroReview ? "done" : "blocked",
+      detail: !cursorOn
+        ? "off"
+        : ctx.macroReview
+          ? `${(ctx.macroReview.findings ?? []).length} PR theme(s) · merge recommendation`
+          : "Composer did not return macro review",
+    },
+    {
+      id: "cursor-report",
+      label: "Cursor · PR findings (overall)",
+      status: cursorOn ? "done" : "skipped",
+      detail: cursorOn
+        ? `${cursor.totalFindings} total · ${cursor.slice.total} slice comment(s) + ${cursor.macro?.findingCount ?? 0} macro theme(s)`
+        : "off",
     },
     {
       id: "approve-slices",

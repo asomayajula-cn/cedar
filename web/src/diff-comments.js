@@ -1,4 +1,34 @@
-/** @typedef {{ prUrl: string, token?: string, data: { target?: { owner?: string, repo?: string, pr?: number }, pull?: { headSha?: string } } }} CedarSession */
+import { collectCursorDraftCommentsForDiff } from "./cursor-diff-comments.js";
+
+export { collectCursorDraftCommentsForDiff };
+
+import { renderReviewCommentHtml } from "./comment-html.js";
+
+/** @typedef {{ id: number, path: string, line: number, side: string, body: string, html_url?: string, user?: string | null, created_at?: string, source?: "github" | "cursor" | "cursor-macro", findingKey?: string }} ReviewComment */
+
+/** @typedef {{ prUrl: string, token?: string, reviewComments?: ReviewComment[], data: { target?: { owner?: string, repo?: string, pr?: number }, pull?: { headSha?: string } } }} CedarSession */
+
+const INLINE_COMMENTS_VISIBLE_KEY = "cedar-inline-comments-visible";
+
+/** @returns {boolean} */
+export function defaultInlineCommentsVisible() {
+  try {
+    return sessionStorage.getItem(INLINE_COMMENTS_VISIBLE_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * @param {boolean} visible
+ */
+function persistInlineCommentsVisible(visible) {
+  try {
+    sessionStorage.setItem(INLINE_COMMENTS_VISIBLE_KEY, visible ? "true" : "false");
+  } catch {
+    /* ignore */
+  }
+}
 
 /** @type {HTMLElement | null} */
 let popover = null;
@@ -160,7 +190,16 @@ async function submitActiveComment() {
       throw new Error(msg || "Comment failed");
     }
 
-    activeTarget.row.classList.add("cedar-diff-line-commented");
+    if (json.comment) {
+      upsertSessionComment(/** @type {ReviewComment} */ (json.comment));
+    }
+    const fileBody = activeTarget.row.closest("[data-file-body]");
+    const root = fileBody?.closest("#results") ?? document;
+    if (fileBody instanceof HTMLElement) {
+      paintCommentsForBody(fileBody, getSessionComments(), activeTarget.path);
+    } else {
+      repaintAllDiffComments(root);
+    }
     closePopover();
     showCommentToast(`Posted on GitHub · ${pathBasename(activeTarget.path)}:${activeTarget.line}`);
   } catch (err) {
@@ -173,6 +212,424 @@ async function submitActiveComment() {
 function pathBasename(path) {
   const parts = path.split("/");
   return parts[parts.length - 1] || path;
+}
+
+function escapeHtml(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/**
+ * @param {string} path
+ * @param {number} line
+ * @param {string} side
+ */
+function commentAnchorKey(path, line, side) {
+  return `${path}\0${line}\0${side === "LEFT" ? "LEFT" : "RIGHT"}`;
+}
+
+/**
+ * @returns {ReviewComment[]}
+ */
+function getSessionComments() {
+  const session = /** @type {CedarSession | undefined} */ (window.__cedarSession);
+  return session?.reviewComments ?? [];
+}
+
+/**
+ * GitHub inline + Composer Cursor drafts for diff painting.
+ * @returns {ReviewComment[]}
+ */
+export function getCommentsForDiffPaint() {
+  const github = getSessionComments().map((c) => ({ ...c, source: /** @type {const} */ ("github") }));
+  const cursor = collectCursorDraftCommentsForDiff();
+  return [...github, ...cursor];
+}
+
+/**
+ * @param {ReviewComment} comment
+ */
+function upsertSessionComment(comment) {
+  const session = /** @type {CedarSession | undefined} */ (window.__cedarSession);
+  if (!session) return;
+  if (!session.reviewComments) session.reviewComments = [];
+  const idx = session.reviewComments.findIndex((c) => c.id === comment.id);
+  if (idx >= 0) session.reviewComments[idx] = comment;
+  else session.reviewComments.push(comment);
+}
+
+/**
+ * @param {ReviewComment[]} comments
+ */
+function commentsByAnchor(comments) {
+  /** @type {Map<string, ReviewComment[]>} */
+  const map = new Map();
+  for (const c of comments) {
+    if (!c.path || !Number.isFinite(c.line)) continue;
+    const key = commentAnchorKey(c.path, c.line, c.side ?? "RIGHT");
+    const list = map.get(key) ?? [];
+    list.push(c);
+    map.set(key, list);
+  }
+  return map;
+}
+
+/**
+ * @param {ReviewComment[]} items
+ */
+function isCursorInlineThread(items) {
+  return items.length > 0 && items.every((c) => c.source === "cursor" || c.source === "cursor-macro");
+}
+
+/**
+ * @param {HTMLElement} body
+ * @param {string} path
+ */
+function expandedInlineThreadKeys(body, path) {
+  /** @type {Set<string>} */
+  const keys = new Set();
+  body.querySelectorAll("tr.cedar-diff-comment-thread-row").forEach((threadRow) => {
+    if (!(threadRow instanceof HTMLElement)) return;
+    if (threadRow.classList.contains("is-collapsed") || threadRow.hidden) return;
+    const codeRow = threadRow.previousElementSibling;
+    if (!(codeRow instanceof HTMLElement) || !codeRow.classList.contains("cedar-diff-comment-row")) return;
+    const resolved = resolveLineFromRow(codeRow);
+    if (!resolved) return;
+    keys.add(commentAnchorKey(path, resolved.line, resolved.side));
+  });
+  return keys;
+}
+
+/**
+ * @param {ReviewComment[]} items
+ * @param {{ startCollapsed?: boolean }} [opts]
+ */
+function renderCommentThreadSlide(items, opts = {}) {
+  const startCollapsed = opts.startCollapsed === true;
+  const cards = items
+    .map((c) => {
+      const isMacro = c.source === "cursor-macro";
+      const isCursorDraft = c.source === "cursor" || isMacro;
+      const who = isMacro
+        ? `<span class="cedar-diff-comment-card-user"><span class="cedar-badge cedar-badge-ok cedar-badge-compact">Macro review</span></span>`
+        : isCursorDraft
+          ? `<span class="cedar-diff-comment-card-user"><span class="cedar-badge cedar-badge-ok cedar-badge-compact">Cursor</span> Draft</span>`
+          : c.user
+            ? `<span class="cedar-diff-comment-card-user">@${escapeHtml(c.user)}</span>`
+            : `<span class="cedar-diff-comment-card-user">Reviewer</span>`;
+      const when = !isCursorDraft && c.created_at ? escapeHtml(new Date(c.created_at).toLocaleString()) : "";
+      const link = c.html_url
+        ? `<a class="cedar-diff-comment-thread-link" href="${escapeHtml(c.html_url)}" target="_blank" rel="noreferrer">Open on GitHub</a>`
+        : "";
+      const cardClass = isMacro
+        ? "cedar-diff-comment-card cedar-diff-comment-card--cursor cedar-diff-comment-card--cursor-macro"
+        : isCursorDraft
+          ? "cedar-diff-comment-card cedar-diff-comment-card--cursor"
+          : "cedar-diff-comment-card";
+      return `<article class="${cardClass}">
+        <header class="cedar-diff-comment-card-head">
+          ${who}
+          ${when ? `<span class="cedar-diff-comment-card-time">${when}</span>` : ""}
+          ${link}
+        </header>
+        <div class="cedar-diff-comment-card-body cedar-comment-html">${renderReviewCommentHtml(c.body)}</div>
+      </article>`;
+    })
+    .join("");
+  const count = items.length;
+  const noun = count === 1 ? "comment" : "comments";
+  const verb = startCollapsed ? "Show" : "Hide";
+  return `<div class="cedar-diff-comment-thread-wrap">
+    <button type="button" class="cedar-diff-comment-thread-toggle" aria-expanded="${startCollapsed ? "false" : "true"}" aria-label="${verb} ${count} review ${noun} on this line">
+      <span class="cedar-comment-marker-chip" aria-hidden="true" title="Review comment"></span>
+      <span class="cedar-diff-comment-thread-toggle-count">${count}</span>
+      <span class="cedar-diff-comment-thread-toggle-label">${verb} ${noun}</span>
+    </button>
+    <div class="cedar-diff-comment-thread" role="region" aria-label="Review comments on this line">${cards}</div>
+  </div>`;
+}
+
+/**
+ * @param {HTMLElement} threadRow
+ * @param {boolean} [expand]
+ */
+/**
+ * @param {HTMLElement} host
+ */
+function commentsHostVisible(host) {
+  return host.dataset.commentsHidden !== "true";
+}
+
+/**
+ * @param {HTMLElement} host
+ * @param {boolean} visible
+ */
+function setCommentsHostVisible(host, visible) {
+  host.dataset.commentsHidden = visible ? "false" : "true";
+  persistInlineCommentsVisible(visible);
+  host.classList.toggle("cedar-diff-comments-off", !visible);
+  host.querySelectorAll(".cedar-diff-comment-thread-row").forEach((threadRow) => {
+    if (!(threadRow instanceof HTMLElement)) return;
+    threadRow.classList.toggle("cedar-diff-comments-off", !visible);
+    if (!visible) {
+      threadRow.classList.remove("cedar-diff-line-expanded");
+      setThreadRowExpanded(threadRow, false);
+    }
+  });
+  const btn = host.querySelector("[data-comments-toggle]");
+  if (btn instanceof HTMLButtonElement) {
+    btn.textContent = visible ? "Hide comments" : "Show comments";
+    btn.setAttribute("aria-pressed", visible ? "true" : "false");
+  }
+  syncAllGutterBadges(host);
+}
+
+/**
+ * @param {HTMLElement} host
+ */
+function applyCommentsHostVisibility(host) {
+  setCommentsHostVisible(host, commentsHostVisible(host));
+}
+
+/**
+ * @param {HTMLElement} row
+ */
+function primaryGutterForRow(row) {
+  const newCell = row.querySelector(".line-num2");
+  if (newCell) {
+    const g = newCell.closest(".d2h-code-linenumber");
+    if (g instanceof HTMLElement) return g;
+  }
+  const side = row.querySelector("td.d2h-code-side-linenumber");
+  if (side instanceof HTMLElement && !row.querySelector(".d2h-del")) return side;
+  const gutters = row.querySelectorAll(".cedar-diff-gutter");
+  if (gutters.length === 0) return null;
+  return gutters[gutters.length - 1] instanceof HTMLElement ? gutters[gutters.length - 1] : null;
+}
+
+/**
+ * @param {HTMLElement} codeRow
+ * @param {number} count
+ */
+function setGutterCommentCount(codeRow, count) {
+  const gutter = primaryGutterForRow(codeRow);
+  if (!(gutter instanceof HTMLElement)) return;
+  if (count <= 0) {
+    gutter.querySelector(".cedar-diff-comment-gutter-count")?.remove();
+    delete codeRow.dataset.cedarCommentCount;
+    return;
+  }
+  codeRow.dataset.cedarCommentCount = String(count);
+  let badge = gutter.querySelector(".cedar-diff-comment-gutter-count");
+  if (!(badge instanceof HTMLElement)) {
+    badge = document.createElement("span");
+    badge.className = "cedar-diff-comment-gutter-count";
+    gutter.appendChild(badge);
+  }
+  badge.textContent = String(count);
+  badge.setAttribute(
+    "aria-label",
+    `${count} review comment${count === 1 ? "" : "s"} — click line to show`
+  );
+}
+
+/**
+ * @param {HTMLElement} codeRow
+ * @param {HTMLElement | null} [threadRow]
+ * @param {HTMLElement | null} [host]
+ */
+function syncGutterBadgeForRow(codeRow, threadRow, host) {
+  const tr =
+    threadRow instanceof HTMLElement
+      ? threadRow
+      : codeRow.nextElementSibling instanceof HTMLElement &&
+          codeRow.nextElementSibling.classList.contains("cedar-diff-comment-thread-row")
+        ? codeRow.nextElementSibling
+        : null;
+  const count = Number(codeRow.dataset.cedarCommentCount) || (tr ? tr.querySelectorAll(".cedar-diff-comment-card").length : 0);
+  if (count > 0) setGutterCommentCount(codeRow, count);
+  const threadVisible =
+    tr instanceof HTMLElement &&
+    !tr.classList.contains("is-collapsed") &&
+    !tr.hidden &&
+    !tr.classList.contains("cedar-diff-comments-off");
+  codeRow.classList.toggle("cedar-diff-comments-collapsed", count > 0 && !threadVisible);
+  codeRow.classList.toggle("cedar-diff-gutter-count-visible", count > 0 && !threadVisible);
+}
+
+/**
+ * @param {HTMLElement} host
+ */
+function syncAllGutterBadges(host) {
+  host.querySelectorAll(".cedar-diff-comment-row.cedar-diff-line-commented").forEach((codeRow) => {
+    if (!(codeRow instanceof HTMLElement)) return;
+    syncGutterBadgeForRow(codeRow, null, host);
+  });
+}
+
+function setThreadRowExpanded(threadRow, expand) {
+  const host = threadRow.closest(".cedar-gh-files-changed");
+  const globalOn = !(host instanceof HTMLElement) || commentsHostVisible(host);
+
+  const isShown =
+    !threadRow.classList.contains("is-collapsed") &&
+    !threadRow.hidden &&
+    !threadRow.classList.contains("cedar-diff-comments-off");
+  const on = expand === undefined ? !isShown : expand;
+  threadRow.classList.toggle("is-collapsed", !on);
+  threadRow.hidden = false;
+  threadRow.classList.toggle("cedar-diff-line-expanded", on);
+  if (!globalOn) {
+    threadRow.classList.toggle("cedar-diff-comments-off", !on);
+  } else {
+    threadRow.classList.remove("cedar-diff-comments-off");
+  }
+  const codeRow = threadRow.previousElementSibling;
+  if (codeRow instanceof HTMLElement && codeRow.classList.contains("cedar-diff-comment-row")) {
+    syncGutterBadgeForRow(codeRow, threadRow, host instanceof HTMLElement ? host : null);
+  }
+  const btn = threadRow.querySelector(".cedar-diff-comment-thread-toggle");
+  const label = threadRow.querySelector(".cedar-diff-comment-thread-toggle-label");
+  const count = threadRow.querySelectorAll(".cedar-diff-comment-card").length;
+  const noun = count === 1 ? "comment" : "comments";
+  if (btn instanceof HTMLButtonElement) {
+    btn.setAttribute("aria-expanded", on ? "true" : "false");
+    btn.setAttribute("aria-label", `${on ? "Hide" : "Show"} ${count} review ${noun} on this line`);
+  }
+  if (label instanceof HTMLElement) {
+    label.textContent = on ? `Hide ${noun}` : `Show ${noun}`;
+  }
+}
+
+/**
+ * @param {HTMLElement} codeRow
+ */
+function toggleThreadForCodeRow(codeRow) {
+  const threadRow = codeRow.nextElementSibling;
+  if (!(threadRow instanceof HTMLElement) || !threadRow.classList.contains("cedar-diff-comment-thread-row")) return;
+  setThreadRowExpanded(threadRow);
+}
+
+/**
+ * @param {HTMLElement} body
+ */
+function wireCommentThreads(body) {
+  body.querySelectorAll(".cedar-diff-comment-thread-row").forEach((threadRow) => {
+    if (!(threadRow instanceof HTMLElement)) return;
+    if (threadRow.dataset.wiredThreadToggle) return;
+    threadRow.dataset.wiredThreadToggle = "1";
+    const btn = threadRow.querySelector(".cedar-diff-comment-thread-toggle");
+    btn?.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      setThreadRowExpanded(threadRow);
+    });
+  });
+}
+
+function wireCommentVisibilityOnce() {
+  const doc = document.documentElement;
+  if (doc.dataset.cedarCommentVisWired) return;
+  doc.dataset.cedarCommentVisWired = "1";
+  document.addEventListener("click", (ev) => {
+    const btn =
+      ev.target instanceof HTMLElement ? ev.target.closest("[data-comments-toggle]") : null;
+    if (!(btn instanceof HTMLButtonElement)) return;
+    const host = btn.closest(".cedar-gh-files-changed");
+    if (!(host instanceof HTMLElement)) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    const showAfterClick = btn.getAttribute("aria-pressed") !== "true";
+    setCommentsHostVisible(host, showAfterClick);
+  });
+}
+
+/**
+ * @param {HTMLElement} row
+ */
+function diffTableColCount(row) {
+  const table = row.closest("table");
+  if (!(table instanceof HTMLTableElement)) {
+    return Math.max(row.querySelectorAll("td").length, 4);
+  }
+  let max = 0;
+  table.querySelectorAll("tr").forEach((tr) => {
+    let span = 0;
+    tr.querySelectorAll("td, th").forEach((cell) => {
+      span += Number(cell.colSpan) || 1;
+    });
+    if (span > max) max = span;
+  });
+  return Math.max(max, row.querySelectorAll("td").length, 4);
+}
+
+/**
+ * @param {HTMLElement} body
+ * @param {ReviewComment[]} comments
+ * @param {string} path
+ */
+function paintCommentsForBody(body, comments, path) {
+  const expandedKeys = expandedInlineThreadKeys(body, path);
+  body.querySelectorAll(".cedar-diff-comment-thread-row").forEach((el) => el.remove());
+
+  const byAnchor = commentsByAnchor(comments.filter((c) => c.path === path));
+  if (!byAnchor.size) return;
+
+  body.querySelectorAll(".d2h-diff-tbody tr.cedar-diff-comment-row").forEach((row) => {
+    if (!(row instanceof HTMLElement)) return;
+    const resolved = resolveLineFromRow(row);
+    if (!resolved) return;
+    const key = commentAnchorKey(path, resolved.line, resolved.side);
+    const items = byAnchor.get(key);
+    if (!items?.length) return;
+
+    row.classList.add("cedar-diff-line-commented");
+    const colCount = diffTableColCount(row);
+    const threadRow = document.createElement("tr");
+    threadRow.className = "cedar-diff-comment-thread-row";
+    const td = document.createElement("td");
+    td.colSpan = Math.max(colCount, 4);
+    td.className = "cedar-diff-comment-thread-cell";
+    const cursorOnly = isCursorInlineThread(items);
+    const startCollapsed = !expandedKeys.has(key);
+    td.innerHTML = renderCommentThreadSlide(items, { startCollapsed });
+    if (cursorOnly) threadRow.dataset.cursorThread = "1";
+    threadRow.dataset.cedarCommentMarker = "1";
+    threadRow.appendChild(td);
+    threadRow.dataset.sourceRow = "1";
+    row.insertAdjacentElement("afterend", threadRow);
+    setGutterCommentCount(row, items.length);
+    if (startCollapsed) {
+      setThreadRowExpanded(threadRow, false);
+    } else {
+      syncGutterBadgeForRow(row, threadRow, body.closest(".cedar-gh-files-changed"));
+    }
+  });
+
+  wireCommentThreads(body);
+  const filesHost = body.closest(".cedar-gh-files-changed");
+  if (filesHost instanceof HTMLElement) {
+    applyCommentsHostVisibility(filesHost);
+  }
+}
+
+/**
+ * @param {ParentNode} root
+ */
+export function repaintAllDiffComments(root) {
+  const comments = getCommentsForDiffPaint();
+  root.querySelectorAll("[data-file-body]").forEach((body) => {
+    if (!(body instanceof HTMLElement)) return;
+    const path = body.closest("[data-file-review]")?.getAttribute("data-file-path");
+    if (!path) return;
+    paintCommentsForBody(body, comments, path);
+  });
+  root.querySelectorAll(".cedar-gh-files-changed").forEach((host) => {
+    if (host instanceof HTMLElement) applyCommentsHostVisibility(host);
+  });
 }
 
 /** Global toast hook set from app.js */
@@ -261,6 +718,27 @@ function wireDiffBodyComments(body) {
 
     const openFromRow = (ev) => {
       if (ev.target instanceof HTMLElement && ev.target.closest(".cedar-diff-add-comment")) return;
+      const filesHost = row.closest(".cedar-gh-files-changed");
+      const globalCommentsOn =
+        filesHost instanceof HTMLElement && commentsHostVisible(filesHost);
+      const gutterCountOnly =
+        row.classList.contains("cedar-diff-gutter-count-visible") && !globalCommentsOn;
+      if (
+        filesHost instanceof HTMLElement &&
+        (globalCommentsOn || gutterCountOnly) &&
+        row.classList.contains("cedar-diff-line-commented") &&
+        row.nextElementSibling?.classList.contains("cedar-diff-comment-thread-row") &&
+        !(ev.target instanceof HTMLElement && ev.target.closest(".cedar-diff-add-comment"))
+      ) {
+        const onGutter = ev.target instanceof HTMLElement && ev.target.closest(".d2h-code-linenumber, .d2h-code-side-linenumber");
+        const onCode = ev.target instanceof HTMLElement && ev.target.closest(".d2h-code-line-ctn");
+        if (onGutter || onCode) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          toggleThreadForCodeRow(row);
+          return;
+        }
+      }
       const onGutter = ev.target instanceof HTMLElement && ev.target.closest(".d2h-code-linenumber, .d2h-code-side-linenumber");
       const onCode = ev.target instanceof HTMLElement && ev.target.closest(".d2h-code-line-ctn");
       if (!onGutter && !onCode) return;
@@ -278,8 +756,45 @@ function wireDiffBodyComments(body) {
  */
 export function wireDiffComments(root) {
   wirePopoverOnce();
+  wireCommentVisibilityOnce();
   root.querySelectorAll("[data-file-body]").forEach((body) => {
     if (!(body instanceof HTMLElement)) return;
     wireDiffBodyComments(body);
+    const path = body.closest("[data-file-review]")?.getAttribute("data-file-path");
+    if (path) {
+      const merged = getCommentsForDiffPaint();
+      if (merged.length) paintCommentsForBody(body, merged, path);
+    }
   });
+}
+
+/**
+ * @param {ParentNode} root
+ */
+export async function loadDiffReviewComments(root) {
+  const session = /** @type {CedarSession | undefined} */ (window.__cedarSession);
+  if (!session) return;
+
+  try {
+    const res = await fetch("/api/comments/list", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        prUrl: session.prUrl,
+        token: session.token,
+        owner: session.data.target?.owner,
+        repo: session.data.target?.repo,
+        pr: session.data.target?.pr,
+      }),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      const msg = [json.error, json.hint, json.githubMessage].filter(Boolean).join("\n\n");
+      throw new Error(msg || "Could not load comments");
+    }
+    session.reviewComments = json.comments ?? [];
+    repaintAllDiffComments(root);
+  } catch (err) {
+    showCommentToast(err instanceof Error ? err.message : String(err), "error");
+  }
 }

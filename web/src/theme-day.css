@@ -1,0 +1,1528 @@
+@reference "tailwindcss";
+
+/* Day theme — night remains default (see style.css) */
+
+html[data-theme="day"] {
+  --cedar-day-canvas: #e4e4e7;
+  --cedar-day-surface: #ffffff;
+  --cedar-day-surface-muted: #f4f4f5;
+  --cedar-day-surface-sunken: #ececee;
+  --cedar-day-border: rgb(228 228 231);
+  --cedar-day-border-strong: rgb(212 212 216);
+  --cedar-day-shadow-sm: 0 1px 2px rgb(15 23 42 / 0.04);
+  --cedar-day-shadow-md: 0 4px 16px -6px rgb(15 23 42 / 0.1), 0 1px 0 rgb(255 255 255 / 0.85) inset;
+  --cedar-day-ring-offset: #ffffff;
+
+  --cedar-review-canvas: var(--cedar-day-canvas);
+  --cedar-review-shell: var(--cedar-day-surface);
+  --cedar-review-surface: var(--cedar-day-surface);
+  --cedar-review-rail: var(--cedar-day-surface-sunken);
+  --cedar-review-card: var(--cedar-day-surface);
+  --cedar-review-inset: var(--cedar-day-surface-muted);
+  --cedar-review-border: var(--cedar-day-border);
+  --cedar-review-border-strong: var(--cedar-day-border-strong);
+  --cedar-review-shadow-sm: var(--cedar-day-shadow-sm);
+  --cedar-review-foreground: rgb(24 24 27);
+  --cedar-review-muted: rgb(82 82 91);
+  --cedar-review-stage-grid: rgb(15 23 42 / 0.06);
+}
+
+html[data-theme="day"] body {
+  @apply bg-zinc-100 text-zinc-900 antialiased;
+  color-scheme: light;
+  background-color: var(--cedar-day-surface-sunken);
+}
+
+html[data-theme="day"] ::selection {
+  @apply bg-blue-200/70 text-zinc-900;
+}
+
+html[data-theme="day"] ::-webkit-scrollbar-thumb {
+  @apply rounded-full bg-zinc-300/90;
+}
+
+html[data-theme="day"] ::-webkit-scrollbar-thumb:hover {
+  @apply bg-zinc-400/90;
+}
+
+html[data-theme="day"] .cedar-shell {
+  background:
+    radial-gradient(ellipse 90% 55% at 50% -25%, rgb(255 255 255) 0%, transparent 58%),
+    radial-gradient(ellipse 60% 40% at 100% 0%, rgb(224 242 254 / 0.45) 0%, transparent 50%),
+    linear-gradient(180deg, #fafafa 0%, #f0f0f1 100%);
+}
+
+html[data-theme="day"] .cedar-shell::before {
+  opacity: 0.025;
+}
+
+html[data-theme="day"] .cedar-shell > header {
+  @apply border-zinc-200/90 bg-white/90 shadow-sm backdrop-blur-md;
+}
+
+html[data-theme="day"] .cedar-shell > header .text-white,
+html[data-theme="day"] #hero h1,
+html[data-theme="day"] #hero .text-white {
+  @apply text-zinc-900;
+}
+
+html[data-theme="day"] #hero .text-zinc-400,
+html[data-theme="day"] #hero .text-zinc-600 {
+  @apply text-zinc-600;
+}
+
+html[data-theme="day"] .cedar-glass {
+  border-color: var(--cedar-day-border);
+  background: var(--cedar-day-surface);
+  box-shadow: var(--cedar-day-shadow-md);
+}
+
+html[data-theme="day"] .cedar-glass-subtle {
+  border-color: var(--cedar-day-border);
+  background: var(--cedar-day-surface-muted);
+  box-shadow: var(--cedar-day-shadow-sm);
+}
+
+html[data-theme="day"] .cedar-review-stage,
+html[data-theme="day"] .cedar-main-tabpanel--architecture.cedar-review-stage {
+  border-color: var(--cedar-day-border);
+  background: var(--cedar-day-surface);
+  box-shadow: none;
+}
+
+html[data-theme="day"] .cedar-slices-stage {
+  background: transparent;
+}
+
+html[data-theme="day"] .cedar-label {
+  @apply text-zinc-500;
+}
+
+html[data-theme="day"] .cedar-input,
+html[data-theme="day"] .cedar-pr-chat-input {
+  @apply border-zinc-300 bg-white text-zinc-900 placeholder:text-zinc-500;
+}
+
+html[data-theme="day"] .cedar-pr-chat-input:focus {
+  @apply border-zinc-400 ring-zinc-300/50;
+}
+
+html[data-theme="day"] .cedar-btn-secondary {
+  @apply border-zinc-300 bg-zinc-100 text-zinc-800 hover:border-zinc-400 hover:bg-zinc-200;
+}
+
+html[data-theme="day"] .cedar-main-tab {
+  @apply text-zinc-500 hover:text-zinc-800;
+}
+
+html[data-theme="day"] .cedar-main-tab.is-active {
+  @apply border-zinc-800 text-zinc-900;
+}
+
+html[data-theme="day"] .cedar-main-tab-count {
+  @apply border border-zinc-200 bg-zinc-100 text-zinc-600;
+}
+
+html[data-theme="day"] .cedar-main-tab.is-active .cedar-main-tab-count {
+  @apply border-zinc-300 bg-white text-zinc-800 shadow-sm;
+}
+
+html[data-theme="day"] .cedar-nav-item {
+  @apply text-zinc-600 hover:bg-zinc-200/80 hover:text-zinc-900;
+}
+
+html[data-theme="day"] .cedar-nav-item.is-active {
+  @apply border-zinc-300 bg-white text-zinc-900 shadow-sm;
+}
+
+html[data-theme="day"] .cedar-review-layout--three-col .cedar-pipeline-slice-item.cedar-nav-item.is-active {
+  @apply border-zinc-400 bg-white text-zinc-900;
+}
+
+html[data-theme="day"] .cedar-slice-panel {
+  border-color: var(--cedar-day-border);
+  background: var(--cedar-day-surface);
+}
+
+html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme {
+  color: #1f2328;
+  --d2h-bg-color: #ffffff;
+  --d2h-border-color: #d0d7de;
+  --d2h-line-border-color: #d8dee4;
+  --d2h-ins-bg-color: #dafbe1;
+  --d2h-ins-border-color: #aceebb;
+  --d2h-ins-highlight-bg-color: #aceebb;
+  --d2h-del-bg-color: #ffebe9;
+  --d2h-del-border-color: #ffcecb;
+  --d2h-del-highlight-bg-color: #ffcecb;
+  --d2h-change-ins-color: #ccfccb;
+  --d2h-change-del-color: #ffd7d5;
+  --d2h-info-bg-color: #ddf4ff;
+  --d2h-info-border-color: #b6e3ff;
+  --d2h-empty-placeholder-bg-color: #f6f8fa;
+}
+
+html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme .d2h-wrapper,
+html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme .d2h-diff-table,
+html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme .d2h-file-wrapper,
+html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme .d2h-file-diff,
+html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme .d2h-code-line-ctn,
+html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme .d2h-info {
+  color: #1f2328;
+}
+
+/* Context lines only — do not override diff2html ins/del/change backgrounds (unified diff). */
+html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme td.d2h-cntx,
+html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme .d2h-emptyplaceholder {
+  background-color: #ffffff;
+}
+
+html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme .d2h-code-linenumber.d2h-cntx,
+html[data-theme="day"] .cedar-diff2html.d2h-light-color-scheme .d2h-code-side-linenumber.d2h-cntx {
+  color: #57606a;
+  background-color: #f6f8fa;
+  border-color: #d0d7de;
+}
+
+html[data-theme="day"] .cedar-gh-diff-fallback {
+  background-color: #ffffff;
+  color: #1f2328;
+}
+
+html[data-theme="day"] .cedar-gh-open-github {
+  color: #0969da;
+}
+
+html[data-theme="day"] .cedar-slices-stage .cedar-gh-files-changed,
+html[data-theme="day"] .cedar-slice-review-pane .cedar-gh-files-changed {
+  background-color: transparent;
+}
+
+html[data-theme="day"] .cedar-diff-gutter:hover,
+html[data-theme="day"] .cedar-diff-gutter:focus-within {
+  background-color: rgb(9 105 218 / 0.12) !important;
+  color: #0969da !important;
+}
+
+html[data-theme="day"] .cedar-diff-add-comment {
+  color: #ffffff;
+  background: rgb(9 105 218 / 0.9);
+}
+
+html[data-theme="day"] #cedar-theme-toggle .cedar-theme-icon-sun {
+  display: inline;
+}
+
+html[data-theme="day"] #cedar-theme-toggle .cedar-theme-icon-moon {
+  display: none;
+}
+
+html[data-theme="night"] #cedar-theme-toggle .cedar-theme-icon-sun,
+html:not([data-theme]) #cedar-theme-toggle .cedar-theme-icon-sun {
+  display: none;
+}
+
+html[data-theme="night"] #cedar-theme-toggle .cedar-theme-icon-moon,
+html:not([data-theme]) #cedar-theme-toggle .cedar-theme-icon-moon {
+  display: inline;
+}
+
+/* —— Readable body copy: remap night-oriented Tailwind text (whole page + toasts) —— */
+html[data-theme="day"],
+html[data-theme="day"] .cedar-shell {
+  color: rgb(24 24 27);
+}
+
+html[data-theme="day"] :where(.text-white) {
+  color: rgb(24 24 27);
+}
+
+html[data-theme="day"] :where(.text-zinc-100) {
+  color: rgb(24 24 27);
+}
+
+html[data-theme="day"] :where(.text-zinc-200) {
+  color: rgb(39 39 42);
+}
+
+html[data-theme="day"] :where(.text-zinc-300) {
+  color: rgb(63 63 70);
+}
+
+html[data-theme="day"] :where(.text-zinc-400) {
+  color: rgb(82 82 91);
+}
+
+html[data-theme="day"] :where(.text-zinc-500) {
+  color: rgb(82 82 91);
+}
+
+html[data-theme="day"] :where(.text-zinc-600) {
+  color: rgb(63 63 70);
+}
+
+html[data-theme="day"] :where(.text-zinc-700) {
+  color: rgb(39 39 42);
+}
+
+html[data-theme="day"] summary:hover {
+  color: rgb(39 39 42);
+}
+
+/* Pastel semantic utilities (badges, status, gate copy) → dark enough on light surfaces */
+html[data-theme="day"] :where([class*="text-emerald-1"], [class*="text-emerald-2"], [class*="text-emerald-3"]) {
+  color: rgb(6 95 70);
+}
+
+html[data-theme="day"] :where([class*="text-emerald-4"]) {
+  color: rgb(4 120 87);
+}
+
+html[data-theme="day"] :where([class*="text-amber-1"], [class*="text-amber-2"], [class*="text-amber-3"]) {
+  color: rgb(146 64 14);
+}
+
+html[data-theme="day"] :where([class*="text-rose-1"], [class*="text-rose-2"], [class*="text-rose-3"]) {
+  color: rgb(190 18 57);
+}
+
+html[data-theme="day"] :where([class*="text-rose-4"]) {
+  color: rgb(225 29 72);
+}
+
+html[data-theme="day"] :where([class*="text-sky-1"], [class*="text-sky-2"], [class*="text-sky-3"], [class*="text-sky-4"]) {
+  color: rgb(3 105 161);
+}
+
+html[data-theme="day"] :where([class*="text-violet-1"], [class*="text-violet-2"], [class*="text-violet-3"]) {
+  color: rgb(91 33 182);
+}
+
+html[data-theme="day"] :where([class*="text-indigo-1"], [class*="text-indigo-2"], [class*="text-indigo-3"]) {
+  color: rgb(67 56 202);
+}
+
+html[data-theme="day"] :where([class*="text-teal-1"], [class*="text-teal-2"], [class*="text-teal-3"]) {
+  color: rgb(15 118 110);
+}
+
+html[data-theme="day"] :where([class*="text-fuchsia-1"], [class*="text-fuchsia-2"], [class*="text-fuchsia-3"]) {
+  color: rgb(162 28 175);
+}
+
+html[data-theme="day"] :where([class*="text-slate-1"], [class*="text-slate-2"], [class*="text-slate-3"]) {
+  color: rgb(51 65 85);
+}
+
+html[data-theme="day"] .cedar-shell > header {
+  @apply border-zinc-200/90 bg-white/90;
+}
+
+html[data-theme="day"] #hero .cedar-glass,
+html[data-theme="day"] .cedar-hero-form {
+  box-shadow:
+    0 0 0 1px rgb(0 0 0 / 0.04) inset,
+    0 20px 48px -32px rgb(0 0 0 / 0.14);
+}
+
+html[data-theme="day"] .cedar-hero-mark {
+  @apply text-zinc-900;
+  background: none;
+  border: none;
+  box-shadow: none;
+}
+
+html[data-theme="day"] header.cedar-hero-intro,
+html[data-theme="day"] .cedar-hero-intro {
+  background: none;
+  border: none;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+html[data-theme="day"] .cedar-hero-eyebrow {
+  @apply text-zinc-500;
+}
+
+html[data-theme="day"] .cedar-hero-title {
+  @apply text-zinc-900;
+}
+
+html[data-theme="day"] .cedar-hero-lede {
+  @apply text-zinc-600;
+}
+
+html[data-theme="day"] .cedar-hero-form::before {
+  background: linear-gradient(90deg, transparent, rgb(0 0 0 / 0.06), transparent);
+}
+
+html[data-theme="day"] .cedar-hero-form-block--credentials {
+  @apply bg-zinc-50/80;
+}
+
+html[data-theme="day"] .cedar-hero-form-title {
+  @apply text-zinc-900;
+}
+
+html[data-theme="day"] .cedar-hero-form-hint,
+html[data-theme="day"] .cedar-hero-field-status,
+html[data-theme="day"] .cedar-hero-form-footnote {
+  @apply text-zinc-600;
+}
+
+html[data-theme="day"] .cedar-hero-field-label {
+  @apply text-zinc-600;
+}
+
+html[data-theme="day"] .cedar-hero-field-label--primary {
+  @apply text-zinc-500;
+}
+
+html[data-theme="day"] .cedar-hero-input {
+  @apply border-zinc-300 bg-white text-zinc-900 shadow-sm;
+}
+
+html[data-theme="day"] .cedar-hero-input:focus {
+  @apply border-zinc-400 bg-white ring-zinc-300/40;
+}
+
+html[data-theme="day"] .cedar-hero-form-divider,
+html[data-theme="day"] .cedar-hero-advanced,
+html[data-theme="day"] .cedar-hero-advanced-body,
+html[data-theme="day"] .cedar-hero-form-footer {
+  border-color: rgb(0 0 0 / 0.08);
+}
+
+html[data-theme="day"] .cedar-hero-advanced-summary {
+  @apply text-zinc-600 hover:bg-zinc-100/80 hover:text-zinc-900;
+}
+
+html[data-theme="day"] .cedar-hero-advanced-body {
+  @apply bg-zinc-100/60;
+}
+
+html[data-theme="day"] .cedar-hero-check {
+  @apply text-zinc-700;
+}
+
+html[data-theme="day"] .cedar-hero-check input[type="checkbox"] {
+  @apply border-zinc-400 bg-white accent-zinc-900;
+}
+
+html[data-theme="day"] .cedar-hero-form-footer {
+  @apply bg-zinc-50/90;
+}
+
+html[data-theme="day"] #hero details summary {
+  @apply text-zinc-700;
+}
+
+html[data-theme="day"] #hero label {
+  @apply text-zinc-800;
+}
+
+/* Primary controls stay dark-on-light */
+html[data-theme="day"] .cedar-btn-primary {
+  @apply border-zinc-300 bg-zinc-900 text-white hover:bg-zinc-800;
+}
+
+html[data-theme="day"] .cedar-btn-secondary,
+html[data-theme="day"] .cedar-btn-signoff,
+html[data-theme="day"] .cedar-btn-slice,
+html[data-theme="day"] .cedar-btn-approve-pr {
+  @apply border-zinc-300 bg-white text-zinc-800 hover:border-zinc-400 hover:bg-zinc-100 hover:text-zinc-900;
+}
+
+html[data-theme="day"] .cedar-btn-secondary:disabled,
+html[data-theme="day"] .cedar-btn-signoff:disabled,
+html[data-theme="day"] .cedar-btn-slice:disabled,
+html[data-theme="day"] .cedar-btn-approve-pr:disabled {
+  @apply text-zinc-500 opacity-60;
+}
+
+html[data-theme="day"] .cedar-btn-slice.is-ready {
+  @apply border-emerald-600/35 bg-emerald-50 text-emerald-900 hover:bg-emerald-100;
+}
+
+html[data-theme="day"] .cedar-btn-slice.is-done {
+  @apply border-emerald-600/25 bg-emerald-50/80 text-emerald-800;
+}
+
+html[data-theme="day"] .cedar-btn-approve-pr.is-ready {
+  @apply border-zinc-800 bg-zinc-900 text-white hover:bg-zinc-800;
+}
+
+html[data-theme="day"] .diagram-tool-btn {
+  @apply border-zinc-300 bg-white text-zinc-700 hover:border-zinc-400 hover:bg-zinc-100 hover:text-zinc-900;
+}
+
+html[data-theme="day"] .cedar-badge-muted {
+  @apply border-zinc-300 bg-zinc-100 text-zinc-700;
+}
+
+html[data-theme="day"] .cedar-badge-ok {
+  @apply border-emerald-500/35 bg-emerald-100 text-emerald-900;
+}
+
+html[data-theme="day"] .cedar-badge-warn {
+  @apply border-amber-500/35 bg-amber-100 text-amber-950;
+}
+
+html[data-theme="day"] .cedar-shell .cedar-badge[class*="border-rose"],
+html[data-theme="day"] [data-slice-blockers] {
+  @apply border-rose-400/45 bg-rose-100 text-rose-900;
+}
+
+html[data-theme="day"] .cedar-btn-link {
+  @apply text-blue-700 hover:text-blue-900;
+}
+
+html[data-theme="day"] .cedar-shell .cedar-comment-html a {
+  @apply text-blue-700 hover:text-blue-900;
+}
+
+html[data-theme="day"] .cedar-spinner {
+  @apply border-zinc-300 border-t-zinc-800;
+}
+
+/* PR header & stats */
+html[data-theme="day"] .cedar-pr-header-title {
+  @apply text-zinc-900 hover:text-zinc-700;
+}
+
+html[data-theme="day"] .cedar-pr-header-eyebrow,
+html[data-theme="day"] .cedar-pr-stale-banner {
+  border-color: rgb(245 158 11 / 0.45);
+  background: rgb(255 251 235);
+  color: rgb(120 53 15);
+}
+
+html[data-theme="day"] .cedar-pr-stale-banner-label {
+  color: rgb(146 64 14);
+}
+
+html[data-theme="day"] .cedar-pr-stale-banner-shas {
+  color: rgb(180 83 9);
+}
+
+html[data-theme="day"] .cedar-pr-header-meta,
+html[data-theme="day"] .cedar-pr-stat-label,
+html[data-theme="day"] .cedar-pr-stat-caption {
+  @apply text-zinc-600;
+}
+
+html[data-theme="day"] .cedar-pr-stat-num {
+  @apply text-zinc-900;
+}
+
+html[data-theme="day"] .cedar-pr-stat-denom {
+  @apply text-zinc-500;
+}
+
+html[data-theme="day"] .cedar-pr-stats {
+  @apply border-zinc-200 bg-white shadow-sm;
+}
+
+html[data-theme="day"] .cedar-pr-stat-progress {
+  @apply bg-zinc-200;
+}
+
+html[data-theme="day"] .cedar-review-tabs-head {
+  @apply border-zinc-200;
+}
+
+html[data-theme="day"] .cedar-main-tab:focus-visible {
+  @apply ring-zinc-400 ring-offset-white;
+}
+
+html[data-theme="day"] .cedar-review-rail-card {
+  @apply border-zinc-200 bg-white;
+}
+
+html[data-theme="day"] .cedar-pipeline-slice-item {
+  @apply border-zinc-200 bg-zinc-50;
+}
+
+html[data-theme="day"] .cedar-pipeline-slice-item:hover {
+  @apply border-zinc-300 bg-zinc-100;
+}
+
+html[data-theme="day"] .cedar-pipeline-slice-item.is-active {
+  @apply border-zinc-400 bg-white text-zinc-900;
+}
+
+html[data-theme="day"] .cedar-pipeline-slice-files {
+  @apply text-zinc-600;
+}
+
+html[data-theme="day"] .cedar-pipeline-slice-item.is-active .cedar-pipeline-slice-files {
+  @apply text-zinc-700;
+}
+
+html[data-theme="day"] .cedar-review-layout--three-col .cedar-review-rail-slices {
+  border-color: var(--cedar-day-border-strong);
+  background: var(--cedar-day-surface);
+  box-shadow: var(--cedar-day-shadow-sm);
+}
+
+html[data-theme="day"] .cedar-review-layout--three-col .cedar-review-rail-slices > .cedar-rail-label {
+  @apply text-zinc-700;
+}
+
+html[data-theme="day"] .cedar-review-layout--three-col .cedar-review-rail-slices .cedar-rail-icon {
+  @apply text-zinc-600;
+}
+
+html[data-theme="day"] .cedar-review-layout--three-col .cedar-pipeline-slice-item.cedar-nav-item:not(.is-active) {
+  @apply border-zinc-200 bg-zinc-50 text-zinc-900;
+}
+
+html[data-theme="day"] .cedar-review-layout--three-col .cedar-pipeline-slice-item.cedar-nav-item:hover {
+  @apply border-zinc-300 bg-zinc-100;
+}
+
+html[data-theme="day"] .cedar-review-layout--three-col .cedar-review-left-nav {
+  color: rgb(24 24 27);
+}
+
+html[data-theme="day"] .cedar-code-map-profile {
+  @apply border-zinc-300 bg-white text-zinc-800;
+}
+
+html[data-theme="day"] .cedar-code-map-profile--sql-migration {
+  @apply border-sky-300 bg-sky-50 text-sky-900;
+}
+
+html[data-theme="day"] .cedar-code-map-profile--new-module,
+html[data-theme="day"] .cedar-code-map-profile--new-service {
+  @apply border-emerald-300 bg-emerald-50 text-emerald-950;
+}
+
+html[data-theme="day"] .cedar-code-map-profile--local-edit {
+  @apply border-zinc-300 bg-zinc-100 text-zinc-700;
+}
+
+html[data-theme="day"] .cedar-code-map-profile-hint {
+  @apply text-zinc-600;
+}
+
+html[data-theme="day"] .cedar-code-map-backdrop {
+  background: rgb(15 23 42 / 0.4);
+}
+
+html[data-theme="day"] body.cedar-code-map-expanded .cedar-code-map-flyout-panel {
+  border-color: var(--cedar-day-border-strong);
+  box-shadow: -12px 0 40px rgb(15 23 42 / 0.18);
+  background: var(--cedar-day-surface);
+}
+
+html[data-theme="day"] .cedar-code-map-backdrop {
+  background: rgb(15 23 42 / 0.2);
+}
+
+html[data-theme="day"] .cedar-left-rail-chat-summary:hover {
+  @apply bg-zinc-100;
+}
+
+html[data-theme="day"] .cedar-review-rail-section--slices {
+  background: var(--cedar-day-surface);
+  border-color: var(--cedar-day-border-strong);
+}
+
+html[data-theme="day"] .cedar-left-rail-chat {
+  background: var(--cedar-day-surface);
+  border-color: var(--cedar-day-border);
+}
+
+html[data-theme="day"] .cedar-review-rail-toolbar {
+  border-color: var(--cedar-day-border);
+}
+
+html[data-theme="day"] .cedar-review-rail-title {
+  color: rgb(63 63 70);
+}
+
+html[data-theme="day"] .cedar-review-left-nav-gate--ready {
+  @apply border-emerald-300 bg-emerald-50 text-emerald-900;
+}
+
+html[data-theme="day"] .cedar-review-left-nav-gate--pending {
+  @apply border-amber-300 bg-amber-50 text-amber-950;
+}
+
+html[data-theme="day"] #cedar-review-panel-architecture .text-white,
+html[data-theme="day"] #cedar-review-panel-architecture h2.text-white {
+  @apply text-zinc-900;
+}
+
+html[data-theme="day"] #cedar-review-panel-architecture .text-zinc-200 {
+  @apply text-zinc-800;
+}
+
+html[data-theme="day"] #cedar-review-panel-architecture .text-zinc-400 {
+  @apply text-zinc-600;
+}
+
+html[data-theme="day"] .cedar-rail-label,
+html[data-theme="day"] .cedar-rail-hint,
+html[data-theme="day"] .cedar-review-sidebar-label {
+  @apply text-zinc-600;
+}
+
+html[data-theme="day"] .cedar-pr-chat-log {
+  @apply border-zinc-200 bg-zinc-50;
+}
+
+html[data-theme="day"] .cedar-pr-chat-bubble-user {
+  @apply border-zinc-200 bg-white text-zinc-900;
+}
+
+html[data-theme="day"] .cedar-pr-chat-bubble-assistant {
+  @apply border-zinc-200 bg-zinc-100 text-zinc-800;
+}
+
+html[data-theme="day"] .cedar-pr-chat-bubble-label {
+  @apply text-zinc-600;
+}
+
+html[data-theme="day"] .cedar-pr-chat-mermaid-stage {
+  border-color: rgb(0 0 0 / 0.08);
+  background: rgb(0 0 0 / 0.03);
+}
+
+html[data-theme="day"] .cedar-file-flow-stage {
+  border-color: var(--cedar-day-border);
+  background: var(--cedar-day-surface);
+  box-shadow: inset 0 1px 2px rgb(15 23 42 / 0.04);
+}
+
+html[data-theme="day"] .cedar-file-flow-stage.is-code-map-active {
+  border-color: var(--cedar-day-border-strong);
+  background-color: #f8fafc;
+  background-image: radial-gradient(circle at 50% 50%, rgb(15 23 42 / 0.06) 1px, transparent 1px);
+  background-size: 18px 18px;
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide {
+  background: var(--cedar-day-canvas);
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide #results.cedar-review-results--mounted {
+  background: transparent;
+  gap: 0.75rem;
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-pr-header.cedar-glass {
+  border-color: var(--cedar-day-border);
+  background: var(--cedar-day-surface);
+  box-shadow: var(--cedar-day-shadow-sm);
+}
+
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-glass,
+html[data-theme="day"] #main-stage.cedar-review-wide .cedar-glass-subtle {
+  border-color: var(--cedar-day-border);
+  background: var(--cedar-day-surface);
+  box-shadow: var(--cedar-day-shadow-sm);
+}
+
+html[data-theme="day"] .cedar-review-layout.cedar-review-layout--three-col {
+  background: var(--cedar-day-surface);
+  border: 1px solid var(--cedar-day-border-strong);
+  border-radius: 1rem;
+  overflow: hidden;
+  box-shadow: var(--cedar-day-shadow-sm);
+}
+
+html[data-theme="day"] .cedar-review-layout--three-col .cedar-review-left-nav,
+html[data-theme="day"] .cedar-review-layout--three-col .cedar-review-right-nav {
+  border-color: var(--cedar-day-border);
+  background: var(--cedar-day-surface-sunken);
+  box-shadow: none;
+}
+
+html[data-theme="day"] .cedar-review-center,
+html[data-theme="day"] .cedar-review-main,
+html[data-theme="day"] .cedar-review-main-body {
+  background: var(--cedar-day-surface);
+  color: rgb(24 24 27);
+}
+
+html[data-theme="day"] .cedar-review-layout--three-col .cedar-review-rail-card,
+html[data-theme="day"] .cedar-review-rail-card {
+  border-color: var(--cedar-day-border);
+  background: var(--cedar-day-surface);
+  box-shadow: var(--cedar-day-shadow-sm);
+}
+
+html[data-theme="day"] .cedar-review-layout--three-col .cedar-review-rail-card--map {
+  background: var(--cedar-day-surface);
+}
+
+html[data-theme="day"] .cedar-review-left-nav-gate--ready {
+  @apply border-emerald-300 bg-emerald-50 text-emerald-900;
+}
+
+html[data-theme="day"] .cedar-review-left-nav-gate--pending {
+  @apply border-amber-300 bg-amber-50 text-amber-950;
+}
+
+html[data-theme="day"] .cedar-review-layout--three-col .cedar-file-flow-stage {
+  border-color: var(--cedar-day-border);
+  background: var(--cedar-day-surface);
+  box-shadow: inset 0 1px 2px rgb(15 23 42 / 0.04);
+}
+
+html[data-theme="day"] .cedar-slices-shell--diffs {
+  background: transparent;
+}
+
+html[data-theme="day"] .cedar-review-rail-head {
+  @apply border-zinc-200;
+}
+
+html[data-theme="day"] .cedar-review-rail-edge {
+  @apply border-zinc-300 bg-white text-zinc-600 shadow-sm;
+}
+
+html[data-theme="day"] .cedar-review-rail-edge:hover {
+  @apply border-zinc-400 bg-zinc-50 text-zinc-900;
+}
+
+html[data-theme="day"] .cedar-review-rail-edge:focus-visible {
+  @apply ring-zinc-400 ring-offset-2;
+  --tw-ring-offset-color: var(--cedar-day-ring-offset);
+}
+
+html[data-theme="day"] .cedar-review-workspace-hint,
+html[data-theme="day"] .cedar-file-flow-hint {
+  @apply text-zinc-600;
+}
+
+html[data-theme="day"] .cedar-review-tabs-head--placeholder .cedar-main-tab {
+  @apply text-zinc-500;
+}
+
+html[data-theme="day"] .cedar-review-tabs-head--placeholder .cedar-main-tab.is-active {
+  @apply border-b-zinc-800 text-zinc-900;
+}
+
+html[data-theme="day"] .cedar-review-tabs-head--placeholder .cedar-main-tab.is-active .cedar-main-tab-icon {
+  @apply text-zinc-700;
+}
+
+html[data-theme="day"] #review-progress-panel.cedar-review-stage {
+  background: var(--cedar-day-surface);
+  border-color: var(--cedar-day-border);
+  box-shadow: none;
+}
+
+html[data-theme="day"] .cedar-file-flow-path {
+  @apply text-zinc-600;
+}
+
+html[data-theme="day"] .cedar-file-flow-empty {
+  @apply text-zinc-500;
+}
+
+html[data-theme="day"] .cedar-pr-chat-bubble-assistant .cedar-pr-chat-rich :is(h1, h2, h3, h4) {
+  color: rgb(39 39 42);
+}
+
+html[data-theme="day"] .cedar-pr-chat-hint {
+  @apply text-zinc-600;
+}
+
+html[data-theme="day"] .cedar-pr-chat-status {
+  @apply text-zinc-600;
+}
+
+html[data-theme="day"] .cedar-pr-chat-card .cedar-pr-chat-hint {
+  @apply border-zinc-200 text-zinc-600;
+}
+
+html[data-theme="day"] .cedar-review-sidebar .cedar-pr-chat-form {
+  border-top-color: rgb(0 0 0 / 0.08);
+}
+
+html[data-theme="day"] .cedar-pr-chat-send.cedar-btn-secondary {
+  @apply min-h-[2.875rem] border-zinc-800 bg-zinc-900 px-4 font-semibold text-white shadow-sm hover:border-zinc-700 hover:bg-zinc-800;
+  font-size: var(--cedar-review-section, 0.75rem);
+}
+
+html[data-theme="day"] .cedar-pr-chat-send.cedar-btn-secondary:disabled {
+  @apply border-zinc-200 bg-zinc-200 text-zinc-500;
+}
+
+html[data-theme="day"] .cedar-pr-chat-bubble-body {
+  @apply text-zinc-800;
+}
+
+html[data-theme="day"] .cedar-pr-chat-bubble-user .cedar-pr-chat-bubble-body {
+  @apply text-zinc-900;
+}
+
+/* Slice rail & panels */
+html[data-theme="day"] .cedar-slice-panel {
+  border-color: var(--cedar-day-border);
+  background: var(--cedar-day-surface);
+}
+
+html[data-theme="day"] #cedar-review-panel-architecture > .cedar-glass,
+html[data-theme="day"] #cedar-review-panel-architecture > .cedar-glass-subtle {
+  border-color: var(--cedar-day-border);
+  background: var(--cedar-day-surface-muted);
+  box-shadow: none;
+}
+
+html[data-theme="day"] .cedar-col-splitter::after {
+  background: rgb(0 0 0 / 0.06);
+}
+
+html[data-theme="day"] .cedar-col-splitter:hover::after,
+html[data-theme="day"] .cedar-col-splitter:focus-visible::after {
+  background: rgb(0 0 0 / 0.14);
+}
+
+html[data-theme="day"] .cedar-col-splitter:focus-visible {
+  @apply ring-zinc-400 ring-offset-zinc-100;
+}
+
+/* Findings & comment prose */
+html[data-theme="day"] .cedar-review-stage .cedar-review-comment-body,
+html[data-theme="day"] .cedar-review-stage .cedar-comment-html p,
+html[data-theme="day"] .cedar-review-stage .cedar-comment-html li {
+  @apply text-zinc-800;
+}
+
+html[data-theme="day"] .cedar-review-stage .cedar-comment-html strong {
+  @apply text-zinc-900;
+}
+
+html[data-theme="day"] .cedar-review-muted-prose {
+  @apply text-zinc-600;
+}
+
+html[data-theme="day"] .cedar-findings-panel-summary {
+  @apply text-zinc-600 hover:text-zinc-900;
+}
+
+html[data-theme="day"] .cedar-macro-review .cedar-review-comment-body {
+  @apply text-zinc-800;
+}
+
+html[data-theme="day"] .cedar-arch-findings {
+  border-color: rgb(191 219 254);
+  border-left-color: rgb(37 99 235 / 0.65);
+  background: linear-gradient(105deg, rgb(59 130 246 / 0.1) 0%, rgb(255 255 255 / 0.92) 48%, rgb(250 250 250) 100%);
+}
+
+html[data-theme="day"] .cedar-arch-findings .cedar-review-comment-body,
+html[data-theme="day"] .cedar-arch-findings .cedar-comment-html p,
+html[data-theme="day"] .cedar-arch-findings .cedar-comment-html li {
+  @apply text-zinc-800;
+}
+
+html[data-theme="day"] .cedar-arch-findings-card {
+  @apply border-blue-200/80 bg-blue-50/60;
+}
+
+html[data-theme="day"] .cedar-slice-rationale-summary {
+  @apply text-zinc-600 hover:text-zinc-900;
+}
+
+html[data-theme="day"] .cedar-arch-findings-hint {
+  @apply text-zinc-500;
+}
+
+html[data-theme="day"] .cedar-arch-findings .cedar-label {
+  @apply text-zinc-600;
+}
+
+html[data-theme="day"] .cedar-arch-findings-card .cedar-badge-ok {
+  @apply border-blue-300 bg-blue-100 text-blue-800;
+}
+
+html[data-theme="day"] .cedar-arch-findings .cedar-comment-html a {
+  @apply text-blue-700 hover:text-blue-900;
+}
+
+html[data-theme="day"] .cedar-slice-panel-title {
+  @apply text-zinc-900;
+}
+
+html[data-theme="day"] .cedar-slice-prose {
+  @apply text-zinc-800;
+}
+
+html[data-theme="day"] .cedar-file-review-group-label {
+  @apply text-zinc-600;
+}
+
+html[data-theme="day"] .cedar-file-review-group-label.font-mono {
+  @apply text-zinc-700;
+}
+
+html[data-theme="day"] .severity-blocker {
+  @apply border-rose-400/50 bg-rose-100 text-rose-900;
+}
+
+html[data-theme="day"] .severity-warning {
+  @apply border-amber-400/50 bg-amber-100 text-amber-950;
+}
+
+html[data-theme="day"] .cedar-finding-tag-architecture {
+  @apply border-violet-400/40 bg-violet-100 text-violet-950;
+}
+
+html[data-theme="day"] .cedar-finding-tag-quality {
+  @apply border-sky-400/40 bg-sky-100 text-sky-950;
+}
+
+html[data-theme="day"] .cedar-finding-tag-ai {
+  @apply border-fuchsia-400/40 bg-fuchsia-100 text-fuchsia-950;
+}
+
+html[data-theme="day"] .cedar-macro-review > .flex > div > p {
+  @apply text-zinc-600;
+}
+
+html[data-theme="day"] .cedar-finding-priority {
+  @apply border-zinc-300 bg-zinc-100 text-zinc-800;
+}
+
+html[data-theme="day"] .cedar-finding-tag-hygiene {
+  @apply border-zinc-400 bg-zinc-200 text-zinc-800;
+}
+
+html[data-theme="day"] .cedar-finding-tag-security {
+  @apply border-rose-400/40 bg-rose-100 text-rose-950;
+}
+
+html[data-theme="day"] .cedar-finding-tag-boundary {
+  @apply border-amber-400/40 bg-amber-100 text-amber-950;
+}
+
+html[data-theme="day"] .cedar-finding-tag-review {
+  @apply border-emerald-500/35 bg-emerald-100 text-emerald-900;
+}
+
+html[data-theme="day"] .cedar-finding-tag-github {
+  @apply border-slate-400/40 bg-slate-200 text-slate-900;
+}
+
+html[data-theme="day"] .severity-info {
+  @apply border-zinc-400 bg-zinc-100 text-zinc-700;
+}
+
+html[data-theme="day"] .cedar-review-comment-body:not(.cedar-comment-html),
+html[data-theme="day"] .cedar-review-comment-card.is-ignored .cedar-review-comment-body {
+  @apply text-zinc-600 decoration-zinc-400;
+}
+
+html[data-theme="day"] .cedar-comment-html code {
+  @apply bg-zinc-200 text-zinc-900;
+}
+
+/* Architecture / diagrams */
+html[data-theme="day"] .cedar-cy-host {
+  @apply border-zinc-200;
+  background-color: #f8fafc;
+  background-image:
+    radial-gradient(120% 85% at 50% -10%, rgb(59 130 246 / 0.12) 0%, transparent 55%),
+    radial-gradient(90% 70% at 100% 100%, rgb(45 212 191 / 0.1) 0%, transparent 42%),
+    radial-gradient(circle at 50% 50%, rgb(15 23 42 / 0.055) 1px, transparent 1px);
+  background-size: auto, auto, 20px 20px;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.9), 0 8px 24px -12px rgb(15 23 42 / 0.12);
+}
+
+html[data-theme="day"] .diagram-mermaid-sleek,
+html[data-theme="day"] .diagram-complete-layout.diagram-stage-canvas {
+  background-color: #f8fafc;
+  background-image:
+    radial-gradient(120% 85% at 50% -10%, rgb(59 130 246 / 0.1) 0%, transparent 55%),
+    radial-gradient(circle at 50% 50%, rgb(15 23 42 / 0.05) 1px, transparent 1px);
+  background-size: auto, 20px 20px;
+}
+
+html[data-theme="day"] .diagram-mermaid-sleek {
+  @apply border-zinc-200;
+}
+
+html[data-theme="day"] .diagram-complete-layout {
+  @apply border-zinc-200;
+}
+
+html[data-theme="day"] .diagram-complete-layout:not(.diagram-stage-canvas) {
+  @apply bg-white;
+}
+
+html[data-theme="day"] #architecture-read-overview .architecture-read-mermaid-head,
+html[data-theme="day"] #architecture-read-mermaid .architecture-read-mermaid-head,
+html[data-theme="day"] #architecture-read-layout .architecture-read-mermaid-head,
+html[data-theme="day"] .cedar-complete-layout-views .cedar-layout-view > .architecture-read-mermaid-head {
+  @apply border-zinc-200 bg-zinc-50/80;
+}
+
+html[data-theme="day"] .cedar-complete-layout-views .cedar-layout-view,
+html[data-theme="day"] #architecture-read-overview.cedar-layout-view {
+  @apply border-zinc-200 bg-white;
+}
+
+html[data-theme="day"] .cedar-layer-chip-label {
+  @apply text-zinc-900;
+}
+
+html[data-theme="day"] .cedar-layer-chip-hint {
+  @apply text-zinc-600;
+}
+
+html[data-theme="day"] .cedar-mermaid-fallback {
+  @apply text-zinc-700;
+}
+
+html[data-theme="day"] .cedar-architecture-summary {
+  border-left-color: rgb(37 99 235 / 0.55);
+  background: linear-gradient(90deg, rgb(59 130 246 / 0.08) 0%, transparent 45%);
+}
+
+html[data-theme="day"] .review-progress-log .review-progress-line {
+  @apply border-zinc-300;
+}
+
+html[data-theme="day"] .cedar-review-progress-dock {
+  border-color: rgb(16 185 129 / 0.35);
+  background: linear-gradient(180deg, rgb(209 250 229 / 0.65), rgb(255 255 255 / 0.95));
+}
+
+html[data-theme="day"] .cedar-review-progress-track {
+  background: rgb(0 0 0 / 0.08);
+}
+
+html[data-theme="day"] .cedar-review-progress-dock #cedar-review-progress-label {
+  @apply text-zinc-900;
+}
+
+html[data-theme="day"] .cedar-review-progress-dock #cedar-review-progress-detail,
+html[data-theme="day"] .cedar-review-progress-dock #cedar-review-progress-pct {
+  @apply text-zinc-600;
+}
+
+html[data-theme="day"] .cedar-diff-focus-btn {
+  @apply border-zinc-300 bg-white text-zinc-700 hover:border-zinc-400 hover:bg-zinc-100 hover:text-zinc-900;
+}
+
+html[data-theme="day"] .cedar-diff-focus-btn[aria-pressed="true"] {
+  @apply border-emerald-600/35 bg-emerald-50 text-emerald-900;
+}
+
+html[data-theme="day"] .cedar-diagram-slice-badge {
+  @apply bg-white hover:bg-zinc-50;
+}
+
+html[data-theme="day"] #cedar-review-panel-architecture h2.text-white {
+  color: rgb(24 24 27);
+}
+
+html[data-theme="day"] #architecture-read.cedar-glass {
+  border-color: var(--cedar-day-border);
+  background: var(--cedar-day-surface);
+  box-shadow: var(--cedar-day-shadow-sm);
+}
+
+html[data-theme="day"] #architecture-read :where(.text-zinc-200, .text-zinc-400) {
+  @apply text-zinc-700;
+}
+
+html[data-theme="day"] #architecture-read .text-sm.text-zinc-400 {
+  @apply text-zinc-600;
+}
+
+html[data-theme="day"] .cedar-slice-panel-title {
+  @apply text-zinc-900;
+}
+
+html[data-theme="day"] .cedar-mermaid-fallback-visible {
+  @apply border-amber-400/35 bg-amber-50 text-amber-950;
+}
+
+html[data-theme="day"] .architecture-read-mermaid-head .cedar-label,
+html[data-theme="day"] #complete-layout-heading {
+  @apply text-zinc-800;
+}
+
+html[data-theme="day"] .cedar-file-change-badge--added,
+html[data-theme="day"] .cedar-diff2html .cedar-file-change-badge--added {
+  @apply border-emerald-500/35 bg-emerald-100 text-emerald-900;
+}
+
+html[data-theme="day"] .cedar-file-change-badge--deleted,
+html[data-theme="day"] .cedar-diff2html .cedar-file-change-badge--deleted {
+  @apply border-rose-500/35 bg-rose-100 text-rose-900;
+}
+
+html[data-theme="day"] .cedar-file-change-badge--renamed,
+html[data-theme="day"] .cedar-diff2html .cedar-file-change-badge--renamed {
+  @apply border-indigo-400/35 bg-indigo-100 text-indigo-900;
+}
+
+html[data-theme="day"] .cedar-file-change-badge--copied,
+html[data-theme="day"] .cedar-diff2html .cedar-file-change-badge--copied {
+  @apply border-teal-400/35 bg-teal-100 text-teal-900;
+}
+
+html[data-theme="day"] .cedar-file-change-badge--changed,
+html[data-theme="day"] .cedar-diff2html .cedar-file-change-badge--changed {
+  @apply border-sky-400/35 bg-sky-100 text-sky-900;
+}
+
+html[data-theme="day"] .cedar-file-change-badge--modified,
+html[data-theme="day"] .cedar-diff2html .cedar-file-change-badge--modified {
+  @apply border-amber-400/35 bg-amber-100 text-amber-950;
+}
+
+html[data-theme="day"] .cedar-pr-chat-bubble-assistant .cedar-pr-chat-rich,
+html[data-theme="day"] .cedar-pr-chat-bubble-assistant .cedar-pr-chat-rich p,
+html[data-theme="day"] .cedar-pr-chat-bubble-assistant .cedar-pr-chat-rich li {
+  @apply text-zinc-800;
+}
+
+html[data-theme="day"] .cedar-pr-chat-bubble-assistant .cedar-pr-chat-rich code {
+  @apply bg-zinc-200 text-zinc-900;
+}
+
+html[data-theme="day"] .cedar-pr-chat-bubble-assistant .cedar-pr-chat-rich pre {
+  @apply border-zinc-200 bg-zinc-100 text-zinc-900;
+}
+
+html[data-theme="day"] .cedar-nav-item-check {
+  color: rgb(4 120 87);
+}
+
+html[data-theme="day"] #approve-status {
+  @apply text-emerald-800;
+}
+
+html[data-theme="day"] #form-error {
+  @apply text-rose-700;
+}
+
+html[data-theme="day"] #env-save-status {
+  @apply text-zinc-700;
+}
+
+html[data-theme="day"] .cedar-shell > header nav {
+  @apply text-zinc-600;
+}
+
+html[data-theme="day"] .cedar-shell > header nav [class*="text-zinc-3"] {
+  color: rgb(63 63 70);
+}
+
+/* GitHub-style diff chrome (light) */
+html[data-theme="day"] .cedar-gh-file {
+  border-color: #d0d7de;
+  background-color: #ffffff;
+}
+
+html[data-theme="day"] .cedar-gh-file-actions {
+  border-bottom-color: #d0d7de;
+  background-color: #f6f8fa;
+}
+
+html[data-theme="day"] .cedar-gh-file-body {
+  background-color: #ffffff;
+}
+
+html[data-theme="day"] .cedar-gh-diff-font-toggle,
+html[data-theme="day"] .cedar-gh-diff-view-toggle {
+  border-color: #d0d7de;
+  background-color: #f6f8fa;
+}
+
+html[data-theme="day"] .cedar-gh-diff-font,
+html[data-theme="day"] .cedar-gh-diff-mode {
+  color: #57606a;
+}
+
+html[data-theme="day"] .cedar-gh-diff-font:hover,
+html[data-theme="day"] .cedar-gh-diff-mode:hover {
+  color: #1f2328;
+}
+
+html[data-theme="day"] .cedar-gh-diff-font.is-active,
+html[data-theme="day"] .cedar-gh-diff-mode.is-active {
+  color: #1f2328;
+  background-color: #ffffff;
+  box-shadow: 0 1px 0 rgb(0 0 0 / 0.08);
+}
+
+html[data-theme="day"] .cedar-gh-diff-empty {
+  color: #57606a;
+}
+
+html[data-theme="day"] .cedar-gh-file-toggle {
+  @apply text-zinc-700 hover:border-zinc-300 hover:bg-zinc-100;
+}
+
+/* Inline diff review comments */
+html[data-theme="day"] .cedar-review-layout,
+html[data-theme="day"] .cedar-review-stage {
+  --cedar-comment-cursor-accent: 113 113 122;
+  --cedar-comment-cursor-accent-muted: 63 63 70;
+  --cedar-comment-github-accent: 113 113 122;
+  --cedar-comment-arch-accent: 113 113 122;
+  --cedar-comment-surface: 250 250 250;
+  --cedar-comment-surface-elevated: 255 255 255;
+}
+
+html[data-theme="day"] .cedar-diff-comment-thread {
+  border-color: rgb(228 228 231);
+  background: rgb(var(--cedar-comment-surface) / 1);
+  box-shadow:
+    inset 3px 0 0 rgb(var(--cedar-comment-cursor-accent) / 0.45),
+    0 8px 20px -16px rgb(0 0 0 / 0.12);
+}
+
+html[data-theme="day"] .cedar-diff-comment-thread-toggle {
+  color: rgb(63 63 70);
+  border-color: rgb(228 228 231);
+  background: rgb(244 244 245);
+}
+
+html[data-theme="day"] .cedar-diff-comment-thread-toggle:hover {
+  color: rgb(24 24 27);
+  background: rgb(250 250 250);
+  border-color: rgb(var(--cedar-comment-cursor-accent) / 0.28);
+}
+
+html[data-theme="day"] .cedar-diff-comment-thread-toggle-count {
+  color: #fff;
+  background: rgb(var(--cedar-comment-cursor-accent) / 0.88);
+}
+
+html[data-theme="day"] .cedar-diff-comment-card {
+  border-color: rgb(228 228 231);
+  background: rgb(var(--cedar-comment-surface-elevated) / 1);
+  box-shadow: inset 3px 0 0 rgb(var(--cedar-comment-github-accent) / 0.45);
+}
+
+html[data-theme="day"] .cedar-diff-comment-card--cursor,
+html[data-theme="day"] .cedar-diff-comment-card--cursor-macro {
+  background: rgb(244 244 245);
+  box-shadow: inset 3px 0 0 rgb(var(--cedar-comment-cursor-accent) / 0.55);
+}
+
+html[data-theme="day"] .cedar-diff-comment-card--cursor .cedar-badge-ok {
+  @apply border-zinc-300 bg-zinc-200 text-zinc-800;
+}
+
+html[data-theme="day"] .cedar-diff-comment-card-body,
+html[data-theme="day"] .cedar-diff-comment-card-body.cedar-comment-html,
+html[data-theme="day"] .cedar-diff-comment-thread .cedar-comment-html,
+html[data-theme="day"] .cedar-diff-comment-thread .cedar-comment-html p,
+html[data-theme="day"] .cedar-diff-comment-thread .cedar-comment-html li,
+html[data-theme="day"] .cedar-diff-comment-thread .cedar-review-comment-lead,
+html[data-theme="day"] .cedar-diff-comment-thread .cedar-suggested-change-body {
+  @apply text-zinc-800;
+}
+
+html[data-theme="day"] .cedar-diff-comment-thread .cedar-comment-html strong {
+  @apply text-zinc-900;
+}
+
+html[data-theme="day"] .cedar-diff-comment-thread .cedar-comment-html pre {
+  @apply border-zinc-200 bg-zinc-100 text-zinc-900;
+}
+
+html[data-theme="day"] .cedar-diff-comment-thread .cedar-comment-html a {
+  @apply text-blue-700 hover:text-blue-900;
+}
+
+html[data-theme="day"] .cedar-diff-comment-card-user {
+  color: rgb(63 63 70);
+}
+
+html[data-theme="day"] .cedar-diff-comment-card--cursor .cedar-diff-comment-card-user {
+  color: rgb(var(--cedar-comment-cursor-accent-muted));
+}
+
+html[data-theme="day"] .cedar-diff-comment-card-time {
+  color: #57606a;
+}
+
+html[data-theme="day"] .cedar-diff-comment-thread-link {
+  color: rgb(9 105 218);
+}
+
+html[data-theme="day"] .cedar-diff-comment-card + .cedar-diff-comment-card {
+  border-top-color: rgb(208 215 222);
+}
+
+html[data-theme="day"] .cedar-suggested-change {
+  border-color: rgb(228 228 231);
+  background: rgb(244 244 245);
+  box-shadow: inset 2px 0 0 rgb(var(--cedar-comment-cursor-accent) / 0.4);
+}
+
+html[data-theme="day"] .cedar-suggested-change-label {
+  color: rgb(82 82 91);
+}
+
+html[data-theme="day"] .cedar-arch-findings .cedar-suggested-change {
+  border-color: rgb(228 228 231);
+  background: rgb(244 244 245);
+  box-shadow: inset 2px 0 0 rgb(var(--cedar-comment-arch-accent) / 0.35);
+}
+
+html[data-theme="day"] .cedar-arch-findings .cedar-suggested-change-label {
+  color: rgb(82 82 91);
+}
+
+html[data-theme="day"] .cedar-findings-list .cedar-review-comment-card {
+  border-color: var(--cedar-day-border);
+  background: var(--cedar-day-surface);
+  box-shadow: var(--cedar-day-shadow-sm);
+}
+
+html[data-theme="day"] .cedar-findings-list .cedar-review-comment-card .cedar-badge-ok {
+  @apply border-zinc-300 bg-zinc-200 text-zinc-800;
+}
+
+html[data-theme="day"] .cedar-arch-findings-card .cedar-badge-ok {
+  @apply border-zinc-300 bg-zinc-200 text-zinc-800;
+}
+
+html[data-theme="day"] .cedar-review-comment-details > summary {
+  background: rgb(250 250 250);
+  border-color: transparent;
+}
+
+html[data-theme="day"] .cedar-review-comment-details[open] > summary {
+  border-color: rgb(228 228 231);
+  background: rgb(255 255 255);
+}
+
+html[data-theme="day"] .cedar-arch-findings {
+  border-color: rgb(228 228 231);
+  border-left-color: rgb(var(--cedar-comment-arch-accent) / 0.45);
+  background: rgb(248 250 252);
+}
+
+html[data-theme="day"] .cedar-arch-findings-card {
+  border-color: rgb(228 228 231);
+  background: rgb(244 244 245);
+  box-shadow: inset 3px 0 0 rgb(var(--cedar-comment-arch-accent) / 0.35);
+}
+
+html[data-theme="day"] .cedar-findings-list .cedar-review-comment-body,
+html[data-theme="day"] .cedar-findings-list .cedar-comment-html p,
+html[data-theme="day"] .cedar-findings-list .cedar-comment-html li,
+html[data-theme="day"] .cedar-findings-list .cedar-suggested-change-body {
+  @apply text-zinc-800;
+}
+
+html[data-theme="day"] .cedar-findings-list .cedar-comment-html a {
+  @apply text-blue-700 hover:text-blue-900;
+}
+
+html[data-theme="day"] .cedar-comment-html pre {
+  @apply border-zinc-200 bg-zinc-100 text-zinc-900;
+}
+
+html[data-theme="day"] .cedar-comment-marker-chip,
+html[data-theme="day"] .cedar-comment-marker-chip--arch {
+  border-left-color: rgb(24 24 27);
+}
+
+html[data-theme="day"] .cedar-review-comment-summary-label {
+  color: rgb(82 82 91);
+}
+
+html[data-theme="day"] .cedar-diff-comment-popover {
+  @apply border-zinc-200 bg-white text-zinc-900 shadow-xl;
+}
+
+html[data-theme="day"] .cedar-diff-comment-form-title {
+  @apply text-zinc-700;
+}
+
+html[data-theme="day"] .cedar-diff-comment-form-meta {
+  @apply text-zinc-600;
+}
+
+html[data-theme="day"] .cedar-diff-comment-input {
+  @apply border-zinc-300 bg-white text-zinc-900 placeholder:text-zinc-500;
+}
+
+html[data-theme="day"] .cedar-notif {
+  @apply border-zinc-200/95 text-zinc-900;
+  background:
+    linear-gradient(165deg, rgb(255 255 255 / 0.98) 0%, rgb(250 250 250 / 0.94) 55%, rgb(244 244 245 / 0.92) 100%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.9),
+    0 0 0 1px rgb(15 23 42 / 0.05),
+    0 20px 44px -20px rgb(15 23 42 / 0.18),
+    0 8px 20px -10px rgb(15 23 42 / 0.1);
+}
+
+html[data-theme="day"] .cedar-notif:hover {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255),
+    0 0 0 1px rgb(15 23 42 / 0.06),
+    0 24px 50px -18px rgb(15 23 42 / 0.22),
+    0 10px 24px -8px rgb(15 23 42 / 0.12);
+}
+
+html[data-theme="day"] .cedar-notif-title {
+  @apply text-zinc-900;
+}
+
+html[data-theme="day"] .cedar-notif-message {
+  @apply text-zinc-600;
+}
+
+html[data-theme="day"] .cedar-notif-app {
+  @apply text-zinc-500;
+}
+
+html[data-theme="day"] .cedar-notif-tag {
+  @apply bg-zinc-100 text-zinc-600;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.06);
+}
+
+html[data-theme="day"] .cedar-notif-badge {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.85),
+    0 0 0 1px rgb(0 0 0 / 0.06);
+}
+
+html[data-theme="day"] .cedar-notif-action {
+  @apply border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50;
+}
+
+html[data-theme="day"] .cedar-notif-action--primary {
+  color: color-mix(in srgb, var(--cedar-notif-accent, rgb(82 82 91)) 78%, rgb(24 24 27));
+  background: var(--cedar-notif-accent-soft, rgb(244 244 245));
+  border-color: color-mix(in srgb, var(--cedar-notif-accent, rgb(161 161 170)) 28%, rgb(228 228 231));
+}
+
+html[data-theme="day"] .cedar-notif-close {
+  @apply text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700;
+}
+
+html[data-theme="day"] .cedar-notif-progress {
+  background: rgb(0 0 0 / 0.06);
+}
+
+html[data-theme="day"] .cedar-toast {
+  @apply border-zinc-200 bg-white text-zinc-900 shadow-lg;
+}
+
+html[data-theme="day"] .cedar-toast[class*="border-rose"],
+html[data-theme="day"] #toast-host .cedar-toast {
+  @apply border-zinc-200 bg-white text-zinc-900;
+}
+
+html[data-theme="day"] #toast-host .cedar-toast[class*="text-rose"] {
+  @apply border-rose-300 bg-rose-50 text-rose-900;
+}

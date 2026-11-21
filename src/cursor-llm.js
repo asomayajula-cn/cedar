@@ -1,6 +1,8 @@
 import { Agent } from "@cursor/sdk";
+import { resolveComposerReviewMode } from "./composer-review-mode.js";
 import { resolveCursorModel } from "./default-model.js";
 import { cursorBridgeChat } from "./cursor-bridge-client.js";
+import { cursorApiKey } from "./ai-credentials.js";
 
 /**
  * @param {{
@@ -9,7 +11,7 @@ import { cursorBridgeChat } from "./cursor-bridge-client.js";
  * }} opts
  */
 export async function cursorChat(opts) {
-  const apiKey = process.env.CURSOR_API_KEY;
+  const apiKey = cursorApiKey();
   if (!apiKey) {
     throw new Error("CURSOR_API_KEY is not set");
   }
@@ -35,7 +37,7 @@ export async function cursorChat(opts) {
  * @param {Parameters<typeof cursorChat>[0]} opts
  */
 async function cursorChatOneShot(opts) {
-  const apiKey = process.env.CURSOR_API_KEY;
+  const apiKey = cursorApiKey();
   if (!apiKey) {
     throw new Error("CURSOR_API_KEY is not set");
   }
@@ -87,4 +89,35 @@ async function cursorChatOneShot(opts) {
   }
 
   throw lastError ?? new Error("Cursor chat failed");
+}
+
+/**
+ * Composer slice/macro review — bridge plan mode when available, else Agent.prompt one-shot.
+ *
+ * @param {Parameters<typeof cursorChat>[0]} opts
+ */
+export async function composerReviewChat(opts) {
+  const apiKey = cursorApiKey();
+  if (!apiKey) throw new Error("CURSOR_API_KEY is not set");
+
+  const mode = opts.mode ?? resolveComposerReviewMode();
+  const withJson = { ...opts, json: true };
+
+  if (process.env.CEDAR_CURSOR_BRIDGE !== "false") {
+    try {
+      return await cursorBridgeChat({
+        ...withJson,
+        mode,
+        reviewAgent: mode === "agent",
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (process.env.CEDAR_CURSOR_BRIDGE_STRICT === "true") {
+        throw err;
+      }
+      console.warn(`[cedar] Composer review bridge unavailable (${message}); using Agent.prompt fallback`);
+    }
+  }
+
+  return cursorChatOneShot(withJson);
 }

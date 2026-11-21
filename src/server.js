@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { runPrReviewPipeline } from "./orchestrator.js";
 import { resolvePrTarget } from "./parse-pr-url.js";
 import { submitGithubApproval } from "./approve.js";
-import { submitInlineDiffComment } from "./inline-comment.js";
+import { listInlineDiffComments, submitInlineDiffComment } from "./inline-comment.js";
 import { explainGithubError } from "./github-token-help.js";
 import {
   DEFAULT_CURSOR_MODEL,
@@ -14,12 +14,21 @@ import {
   resolveAiModel,
   resolveCursorModel,
 } from "./default-model.js";
-import { activeAiProvider } from "./ai-chat.js";
+import { activeAiProvider, hasAiProvider } from "./ai-chat.js";
+import { cursorApiKey, openRouterApiKey } from "./ai-credentials.js";
+import { resolveComposerReviewMode } from "./composer-review-mode.js";
+import { sliceReviewRequested } from "./slice-review-toggle.js";
+import { answerPrChatQuestion, prChatProviderLabel } from "./pr-chat.js";
 import { cedarAiDiagramMode } from "./diagram-visual-mode.js";
 import { ensureCursorBridge, bridgeBaseUrl, isBridgeManaged } from "./cursor-bridge-spawn.js";
 import { warmCursorBridgeSession } from "./cursor-bridge-client.js";
 import { runWithReviewProgress } from "./review-progress.js";
 import { resolveDiffFontConfig } from "./diff-font-config.js";
+import { ENV_FILE_PATH, envFileExists, upsertProjectEnv } from "./env-file.js";
+import { runWithReviewCredentials } from "./review-credentials.js";
+import { hydrateMicroPrsFromReport, runBackgroundCursorReview } from "./cursor-review-background.js";
+import { buildFlyoutModuleDeps } from "./dependency-cruiser-flyout.js";
+import { createClient, fetchPullRequest } from "./github.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, "..");
@@ -33,15 +42,20 @@ app.get("/api/health", (_req, res) => {
   res.json({
     ok: true,
     hasToken: Boolean(process.env.GITHUB_TOKEN),
-    hasCursor: Boolean(process.env.CURSOR_API_KEY),
-    hasOpenRouter: Boolean(process.env.OPENROUTER_API_KEY),
+    hasCursor: Boolean(cursorApiKey()),
+    hasOpenRouter: Boolean(openRouterApiKey()),
     aiProvider: activeAiProvider(),
+    sliceReviewProvider: cursorApiKey() ? "cursor" : null,
+    sliceReviewOn: sliceReviewRequested(),
+    sliceReviewAvailable: Boolean(cursorApiKey()),
+    prChat: hasAiProvider(),
     cursorBridge:
       process.env.CEDAR_CURSOR_BRIDGE === "false"
         ? "off"
         : process.env.CEDAR_CURSOR_BRIDGE_URL ?? bridgeBaseUrl(),
     cursorBridgeManaged: isBridgeManaged(),
     cursorMode: process.env.CEDAR_CURSOR_MODE ?? "plan",
+    composerReviewMode: resolveComposerReviewMode(),
     partitionMode: process.env.CEDAR_PARTITION_MODE ?? "auto",
     aiDiagram: cedarAiDiagramMode(),
     breakoutCache: process.env.CEDAR_BREAKOUT_CACHE !== "false",
@@ -52,7 +66,43 @@ app.get("/api/health", (_req, res) => {
     githubTokenHint:
       "Reviews/approvals need Pull requests: Read and write (fine-grained) or repo scope (classic).",
     diffFont: resolveDiffFontConfig(),
+    envFile: path.basename(ENV_FILE_PATH),
+    envFileExists: envFileExists(),
   });
+});
+
+app.post("/api/config/env", (req, res) => {
+  const githubToken = req.body?.githubToken ?? req.body?.GITHUB_TOKEN;
+  const cursorKeyFromBody = req.body?.cursorApiKey ?? req.body?.CURSOR_API_KEY;
+  /** @type {Record<string, string>} */
+  const updates = {};
+  if (typeof githubToken === "string" && githubToken.trim()) {
+    updates.GITHUB_TOKEN = githubToken.trim();
+  }
+  if (typeof cursorKeyFromBody === "string" && cursorKeyFromBody.trim()) {
+    updates.CURSOR_API_KEY = cursorKeyFromBody.trim();
+  }
+  if (!Object.keys(updates).length) {
+    res.status(400).json({
+      error: "Provide githubToken and/or cursorApiKey to save into .env",
+    });
+    return;
+  }
+  try {
+    const result = upsertProjectEnv(updates);
+    res.json({
+      ok: true,
+      applied: result.applied,
+      hasToken: Boolean(process.env.GITHUB_TOKEN),
+      hasCursor: Boolean(cursorApiKey()),
+      sliceReviewOn: sliceReviewRequested(),
+      aiProvider: activeAiProvider(),
+      message: "Saved to .env and applied to this API process (no restart required).",
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: message });
+  }
 });
 
 /**
@@ -69,17 +119,25 @@ function reviewPayload(report) {
     microPrs: report.microPrs,
     microResults: report.microResults,
     composite: report.composite,
+    macroReview: report.macroReview,
+    cursorReviewSummary: report.cursorReviewSummary,
+    cursorReviewPending: report.cursorReviewPending,
     outputMarkdown: report.outputMarkdown,
   };
 }
 
 /**
  * @param {import("express").Request} req
- * @returns {{ target: { owner: string, repo: string, pr: number }, token: string, post: boolean, postMicro: boolean } | { error: string, status: number }}
+ * @returns {{ target: { owner: string, repo: string, pr: number }, token: string, post: boolean, postMicro: boolean, cursorApiKey?: string } | { error: string, status: number }}
  */
 function parseReviewRequest(req) {
-  const { post, postMicro } = req.body ?? {};
-  const token = req.body?.token ?? process.env.GITHUB_TOKEN;
+  const body = req.body ?? {};
+  const { post, postMicro, cursorApiKey: cursorFromBody } = body;
+  const token = body.token ?? process.env.GITHUB_TOKEN;
+  const cursorKey =
+    (typeof cursorFromBody === "string" && cursorFromBody.trim()) ||
+    cursorApiKey() ||
+    undefined;
   try {
     const target = resolvePrTarget(req.body);
     if (!token) {
@@ -93,6 +151,7 @@ function parseReviewRequest(req) {
       token,
       post: Boolean(post),
       postMicro: Boolean(postMicro),
+      cursorApiKey: cursorKey,
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -108,15 +167,17 @@ app.post("/api/review", async (req, res) => {
   }
 
   try {
-    const report = await runPrReviewPipeline({
-      owner: parsed.target.owner,
-      repo: parsed.target.repo,
-      pr: parsed.target.pr,
-      token: parsed.token,
-      configPath: path.join(root, "components.yaml"),
-      post: parsed.post,
-      postMicro: parsed.postMicro,
-    });
+    const report = await runWithReviewCredentials({ cursorApiKey: parsed.cursorApiKey }, () =>
+      runPrReviewPipeline({
+        owner: parsed.target.owner,
+        repo: parsed.target.repo,
+        pr: parsed.target.pr,
+        token: parsed.token,
+        configPath: path.join(root, "components.yaml"),
+        post: parsed.post,
+        postMicro: parsed.postMicro,
+      })
+    );
     res.json(reviewPayload(report));
   } catch (err) {
     const explained = explainGithubError(err, { action: "read this pull request" });
@@ -148,15 +209,17 @@ app.post("/api/review/stream", async (req, res) => {
   try {
     send({ type: "activity", text: "Starting review…", phase: "start" });
     const report = await runWithReviewProgress(send, () =>
-      runPrReviewPipeline({
-        owner: parsed.target.owner,
-        repo: parsed.target.repo,
-        pr: parsed.target.pr,
-        token: parsed.token,
-        configPath: path.join(root, "components.yaml"),
-        post: parsed.post,
-        postMicro: parsed.postMicro,
-      })
+      runWithReviewCredentials({ cursorApiKey: parsed.cursorApiKey }, () =>
+        runPrReviewPipeline({
+          owner: parsed.target.owner,
+          repo: parsed.target.repo,
+          pr: parsed.target.pr,
+          token: parsed.token,
+          configPath: path.join(root, "components.yaml"),
+          post: parsed.post,
+          postMicro: parsed.postMicro,
+        })
+      )
     );
     send({ type: "done", report: reviewPayload(report) });
   } catch (err) {
@@ -164,6 +227,132 @@ app.post("/api/review/stream", async (req, res) => {
     send({ type: "error", error: explained.error ?? String(err) });
   } finally {
     res.end();
+  }
+});
+
+app.post("/api/cursor-review/stream", async (req, res) => {
+  const body = req.body ?? {};
+  const cursorKey =
+    (typeof body.cursorApiKey === "string" && body.cursorApiKey.trim()) || cursorApiKey() || undefined;
+  const report = body.report;
+  if (!report?.microPrs?.length || !report?.microResults?.length || !report?.pull) {
+    res.status(400).json({ error: "Missing report snapshot (microPrs, microResults, pull)" });
+    return;
+  }
+
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream; charset=utf-8",
+    "Cache-Control": "no-cache, no-transform",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no",
+  });
+  if (typeof res.flushHeaders === "function") res.flushHeaders();
+  res.write(": cedar cursor review stream\n\n");
+
+  const send = (event) => {
+    res.write(`data: ${JSON.stringify(event)}\n\n`);
+    if (typeof res.flush === "function") res.flush();
+  };
+
+  try {
+    send({ type: "activity", text: "Cursor review (background) — macro first…", phase: "macro" });
+    await runWithReviewProgress(send, () =>
+      runWithReviewCredentials({ cursorApiKey: cursorKey }, () =>
+        runBackgroundCursorReview({
+          microPrs: hydrateMicroPrsFromReport(report.microPrs),
+          microResults: report.microResults,
+          architectureSummary: report.breakouts?.architectureSummary,
+          breakouts: report.breakouts,
+          pull: {
+            title: report.pull.title,
+            number: report.pull.number,
+            headSha: report.pull.headSha,
+          },
+          emit: send,
+        })
+      )
+    );
+    send({ type: "done" });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    send({ type: "error", error: message });
+  } finally {
+    res.end();
+  }
+});
+
+app.post("/api/pr-chat", async (req, res) => {
+  const { messages, context } = req.body ?? {};
+  if (!cursorApiKey()) {
+    res.status(503).json({
+      error: "Set CURSOR_API_KEY (Composer) on the server and CEDAR_AI_PROVIDER=cursor",
+      provider: null,
+    });
+    return;
+  }
+  if (!context || typeof context !== "object") {
+    res.status(400).json({ error: "context required (review snapshot from Cedar UI)" });
+    return;
+  }
+  if (!Array.isArray(messages)) {
+    res.status(400).json({ error: "messages array required" });
+    return;
+  }
+
+  try {
+    const reply = await answerPrChatQuestion(messages, context);
+    res.json({
+      reply: String(reply ?? "").trim(),
+      provider: prChatProviderLabel(),
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: message, provider: prChatProviderLabel() });
+  }
+});
+
+app.post("/api/comments/list", async (req, res) => {
+  const token = req.body?.token ?? process.env.GITHUB_TOKEN;
+  const { owner, repo, pr, prUrl } = req.body ?? {};
+
+  if (!token) {
+    res.status(400).json({ error: "GitHub token required" });
+    return;
+  }
+
+  try {
+    const result = await listInlineDiffComments({ prUrl, owner, repo, pr, token });
+    res.json(result);
+  } catch (err) {
+    const explained = explainGithubError(err, { action: "list pull request review comments" });
+    const errStatus = /** @type {{ status?: number }} */ (err)?.status;
+    const status = errStatus === 403 ? 403 : 500;
+    res.status(status).json(explained);
+  }
+});
+
+app.post("/api/macro-review/post", async (req, res) => {
+  const { prUrl, token, owner, repo, pr, body, event } = req.body ?? {};
+  if (!body?.trim()) {
+    res.status(400).json({ error: "body required" });
+    return;
+  }
+  const reviewEvent = event === "APPROVE" || event === "REQUEST_CHANGES" ? event : "COMMENT";
+  try {
+    const out = await submitGithubApproval({
+      prUrl,
+      owner,
+      repo,
+      pr,
+      token: token ?? process.env.GITHUB_TOKEN,
+      scope: "pr",
+      event: reviewEvent,
+      body: String(body).trim(),
+    });
+    res.json(out);
+  } catch (err) {
+    const explained = explainGithubError(err, { action: "post macro review comment" });
+    res.status(explained.status ?? 500).json({ error: explained.error ?? String(err), hint: explained.hint });
   }
 });
 
@@ -250,6 +439,61 @@ app.post("/api/approve", async (req, res) => {
     const errStatus = /** @type {{ status?: number }} */ (err)?.status;
     const status = errStatus === 403 ? 403 : errStatus === 422 ? 422 : 500;
     res.status(status).json(explained);
+  }
+});
+
+app.post("/api/pr/head", async (req, res) => {
+  const { prUrl, reviewedSha, token: bodyToken } = req.body ?? {};
+  const token = (typeof bodyToken === "string" && bodyToken.trim()) || process.env.GITHUB_TOKEN;
+  if (!token) {
+    res.status(400).json({ error: "Set GITHUB_TOKEN on the server or pass token in the request" });
+    return;
+  }
+  if (!prUrl) {
+    res.status(400).json({ error: "prUrl is required" });
+    return;
+  }
+  try {
+    const target = resolvePrTarget({ prUrl });
+    const octokit = createClient(token);
+    const pull = await fetchPullRequest(octokit, {
+      owner: target.owner,
+      repo: target.repo,
+      pull_number: target.pr,
+    });
+    const headSha = pull.head.sha;
+    const reviewed = typeof reviewedSha === "string" ? reviewedSha.trim() : "";
+    res.json({
+      headSha,
+      headRef: pull.head.ref,
+      headShort: headSha.slice(0, 7),
+      reviewedSha: reviewed || null,
+      reviewedShort: reviewed ? reviewed.slice(0, 7) : null,
+      stale: Boolean(reviewed && headSha !== reviewed),
+    });
+  } catch (err) {
+    const explained = explainGithubError(err, { action: "read this pull request" });
+    res.status(/** @type {{ status?: number }} */ (err)?.status ?? 500).json(explained);
+  }
+});
+
+/** Flyout-only: lazy module graph when AST map exists but file was not on disk at review time. */
+app.get("/api/code-map/module-deps", async (req, res) => {
+  const filePath = typeof req.query.path === "string" ? req.query.path.trim() : "";
+  if (!filePath) {
+    res.status(400).json({ error: "path query parameter is required" });
+    return;
+  }
+  if (filePath.includes("..") || path.isAbsolute(filePath)) {
+    res.status(400).json({ error: "path must be repository-relative" });
+    return;
+  }
+  try {
+    const layer = await buildFlyoutModuleDeps(root, filePath);
+    res.json(layer ?? { meta: { skipped: true, reason: "empty" } });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: message });
   }
 });
 

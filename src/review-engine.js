@@ -1,11 +1,28 @@
 import { splitPatchIntoHunks } from "./partition.js";
 import { ARCHITECTURE_MODEL_LABEL, SOLID_REVIEW_CHECKLIST } from "./architecture-model.js";
+import { enrichFinding } from "./finding-meta.js";
+import {
+  firstAddedLineMatching,
+  reviewAddedLinesInPatch,
+  withCodeAnchor,
+} from "./patch-review.js";
 
 const SECRET_PATTERNS = [
   /AKIA[0-9A-Z]{16}/,
   /-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----/,
   /ghp_[a-zA-Z0-9]{20,}/,
   /xox[baprs]-[a-zA-Z0-9-]+/,
+];
+
+const SECURITY_PATCH_PATTERNS = [
+  { ruleId: "unsafe-eval", re: /\beval\s*\(/, message: "Patch introduces eval() — avoid dynamic code execution." },
+  { ruleId: "unsafe-dom", re: /dangerouslySetInnerHTML|\.innerHTML\s*=/, message: "Patch may assign raw HTML — XSS risk; sanitize or use safe APIs." },
+  { ruleId: "unsafe-shell", re: /child_process|execSync\s*\(|spawn\s*\(/, message: "Patch touches process execution — verify inputs and sandboxing." },
+  {
+    ruleId: "suspicious-auth",
+    re: /(password|api[_-]?key|secret)\s*=\s*['"][^'"]+['"]/i,
+    message: "Patch may embed credentials in source — use env/secrets manager.",
+  },
 ];
 
 const SKIP_PATH_FRAGMENTS = [
@@ -28,6 +45,10 @@ const SKIP_PATH_FRAGMENTS = [
  * @property {string} message
  * @property {string} [filename]
  * @property {number} [line]
+ * @property {import('./finding-meta.js').FindingTag} [tag]
+ * @property {import('./finding-meta.js').FindingPriority} [priority]
+ * @property {string} [source]
+ * @property {number} [githubCommentId]
  */
 
 /**
@@ -39,6 +60,8 @@ const SKIP_PATH_FRAGMENTS = [
  * @property {string} summaryMarkdown
  * @property {number} filesReviewed
  * @property {number} hunksReviewed
+ * @property {Finding[]} [reviewComments] Composer line-anchored comments (UI only; heuristics stay in findings)
+ * @property {{ source: string, count: number, status?: 'ok'|'empty'|'error'|'stopped'|'skipped'|'pending', error?: string }} [cursorReview]
  */
 
 /**
@@ -63,11 +86,16 @@ export function reviewMicroPr(micro, ctx = {}) {
   const findings = [];
   let hunksReviewed = 0;
 
+  /** @param {Finding} raw */
+  const note = (raw) => {
+    findings.push(enrichFinding(raw));
+  };
+
   for (const file of micro.files) {
     const name = file.filename;
 
     if (SKIP_PATH_FRAGMENTS.some((s) => name.includes(s))) {
-      findings.push({
+      note({
         ruleId: "skip-generated",
         severity: "info",
         message: `Skipped heavy/generated path: \`${name}\``,
@@ -77,7 +105,7 @@ export function reviewMicroPr(micro, ctx = {}) {
     }
 
     if (file.additions + file.deletions > 500) {
-      findings.push({
+      note({
         ruleId: "large-file-delta",
         severity: "warning",
         message: `Large change (+${file.additions}/-${file.deletions}); consider splitting this slice.`,
@@ -86,7 +114,7 @@ export function reviewMicroPr(micro, ctx = {}) {
     }
 
     if (ctx.multiBoundaryFiles?.includes(name)) {
-      findings.push({
+      note({
         ruleId: "multi-component-file",
         severity: "warning",
         message: "File matches multiple components; review cross-boundary impact in composite review.",
@@ -96,19 +124,38 @@ export function reviewMicroPr(micro, ctx = {}) {
 
     const patch = file.patch ?? "";
     for (const re of SECRET_PATTERNS) {
-      if (re.test(patch)) {
-        findings.push({
-          ruleId: "possible-secret",
-          severity: "blocker",
-          message: "Patch may contain secrets or private key material.",
-          filename: name,
-        });
-        break;
-      }
+      const hit = firstAddedLineMatching(patch, re);
+      if (!hit) continue;
+      note({
+        ruleId: "possible-secret",
+        severity: "blocker",
+        message: withCodeAnchor("Remove secrets from source; rotate credentials and load via env/secret store.", hit),
+        filename: name,
+        line: hit.line,
+        tag: "security",
+        priority: "P0",
+      });
+      break;
     }
 
+    for (const { ruleId, re, message } of SECURITY_PATCH_PATTERNS) {
+      const hit = firstAddedLineMatching(patch, re);
+      if (!hit) continue;
+      note({
+        ruleId,
+        severity: "warning",
+        message: withCodeAnchor(message, hit),
+        filename: name,
+        line: hit.line,
+        tag: "security",
+        priority: ruleId === "suspicious-auth" ? "P1" : "P1",
+      });
+    }
+
+    reviewAddedLinesInPatch(name, patch, note);
+
     if (/\.env(\.|$)/.test(name) && file.status !== "removed") {
-      findings.push({
+      note({
         ruleId: "env-file",
         severity: "blocker",
         message: "Changes to env files are high risk.",
@@ -116,18 +163,18 @@ export function reviewMicroPr(micro, ctx = {}) {
       });
     }
 
-    if (/migrations?\//.test(name) && micro.componentId !== "persistence") {
-      findings.push({
+    if (/migrations?\//.test(name) && micro.componentId !== "migrations") {
+      note({
         ruleId: "migration-outside-persistence",
         severity: "warning",
-        message: "Schema/migration change outside persistence component.",
+        message: "Schema/migration SQL outside the migrations slice.",
         filename: name,
       });
     }
 
     if (micro.componentId === "domain" && /\.java$/i.test(name)) {
       if (/^\+.*\bimport\s+org\.springframework\./m.test(patch) || /^\+.*@(Service|Component|Repository)\b/m.test(patch)) {
-        findings.push({
+        note({
           ruleId: "solid/dip-domain-framework",
           severity: "warning",
           message: "DIP/SRP: domain adds framework annotations or Spring imports — prefer pure domain + infrastructure wiring.",
@@ -139,7 +186,7 @@ export function reviewMicroPr(micro, ctx = {}) {
     if (micro.componentId === "api" && /Controller\.java$/i.test(name)) {
       const added = patch.split("\n").filter((l) => l.startsWith("+") && !l.startsWith("+++")).length;
       if (added > 35) {
-        findings.push({
+        note({
           ruleId: "solid/srp-fat-controller",
           severity: "info",
           message: "SRP: large controller diff — delegate business rules to the application layer.",
@@ -151,23 +198,29 @@ export function reviewMicroPr(micro, ctx = {}) {
     const hunks = splitPatchIntoHunks(patch);
     hunksReviewed += hunks.length;
 
-    for (const hunk of hunks) {
-      if (/TODO|FIXME|HACK/.test(hunk)) {
-        findings.push({
-          ruleId: "todo-in-hunk",
-          severity: "info",
-          message: "Hunk introduces TODO/FIXME/HACK marker.",
-          filename: name,
-        });
-      }
-      if (/console\.(log|debug)\(/.test(hunk)) {
-        findings.push({
-          ruleId: "debug-log",
-          severity: "info",
-          message: "Console logging in changed hunk.",
-          filename: name,
-        });
-      }
+    const todoHit = firstAddedLineMatching(patch, /\b(TODO|FIXME|HACK)\b/);
+    if (todoHit) {
+      note({
+        ruleId: "todo-in-hunk",
+        severity: "info",
+        message: withCodeAnchor("Follow-up marker left in production path — track ticket or resolve before merge.", todoHit),
+        filename: name,
+        line: todoHit.line,
+        tag: "hygiene",
+        priority: "P3",
+      });
+    }
+    const logHit = firstAddedLineMatching(patch, /console\.(log|debug|info)\(/);
+    if (logHit) {
+      note({
+        ruleId: "debug-log",
+        severity: "info",
+        message: withCodeAnchor("Debug logging in changed code — remove or gate behind logger level.", logHit),
+        filename: name,
+        line: logHit.line,
+        tag: "hygiene",
+        priority: "P3",
+      });
     }
   }
 

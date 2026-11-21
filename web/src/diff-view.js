@@ -5,12 +5,12 @@ import {
   renderDiffFontControl,
   wireDiffFontControls,
 } from "./diff-font.js";
-import { wireDiffComments } from "./diff-comments.js";
+import { defaultInlineCommentsVisible, wireDiffComments } from "./diff-comments.js";
+import { getResolvedTheme } from "./theme.js";
 
 const DIFF_BASE = {
   drawFileList: false,
   matching: "lines",
-  colorScheme: "dark",
   renderNothingWhenEmpty: false,
 };
 
@@ -27,10 +27,28 @@ export function defaultDiffFormat() {
  * @param {DiffOutputFormat} format
  */
 function diffOptions(format) {
+  const day = getResolvedTheme() === "day";
   return {
     ...DIFF_BASE,
     outputFormat: format,
+    colorScheme: day ? "light" : "dark",
   };
+}
+
+function diffSchemeClass() {
+  return getResolvedTheme() === "day" ? "d2h-light-color-scheme" : "d2h-dark-color-scheme";
+}
+
+/**
+ * @param {ParentNode} [root]
+ */
+export function refreshDiffThemeClasses(root = document) {
+  const scheme = diffSchemeClass();
+  const drop = scheme === "d2h-light-color-scheme" ? "d2h-dark-color-scheme" : "d2h-light-color-scheme";
+  root.querySelectorAll(".cedar-diff2html").forEach((el) => {
+    el.classList.remove(drop);
+    el.classList.add(scheme);
+  });
 }
 
 /**
@@ -70,7 +88,7 @@ export function renderGithubFileDiff(path, patch, format = defaultDiffFormat()) 
   }
   try {
     const body = diff2html(full, diffOptions(format));
-    return `<div class="cedar-diff2html d2h-dark-color-scheme" data-diff-format="${format}">${body}</div>`;
+    return `<div class="cedar-diff2html ${diffSchemeClass()}" data-diff-format="${format}">${body}</div>`;
   } catch {
     return `<pre class="cedar-gh-diff-fallback">${escapeHtml(patch ?? "")}</pre>`;
   }
@@ -91,6 +109,27 @@ function statusLabel(status) {
     modified: "Modified",
   };
   return labels[s] ?? "Modified";
+}
+
+/** @type {Record<string, string>} */
+const FILE_CHANGE_BADGE_KIND = {
+  added: "added",
+  removed: "deleted",
+  deleted: "deleted",
+  renamed: "renamed",
+  copied: "copied",
+  changed: "changed",
+  modified: "modified",
+};
+
+/**
+ * @param {string} status
+ */
+function renderFileChangeBadge(status) {
+  const raw = String(status ?? "modified").toLowerCase();
+  const kind = FILE_CHANGE_BADGE_KIND[raw] ?? "modified";
+  const label = statusLabel(raw);
+  return `<span class="cedar-badge cedar-file-change-badge cedar-file-change-badge--${kind}" title="File status on GitHub">${escapeHtml(label)}</span>`;
 }
 
 /**
@@ -121,12 +160,14 @@ export function renderSliceFileReviews(files, pullUrl = "") {
             <button type="button" class="cedar-gh-diff-mode${format === "side-by-side" ? " is-active" : ""}" data-diff-mode="side-by-side" title="Split">Split</button>
             <button type="button" class="cedar-gh-diff-mode${format === "line-by-line" ? " is-active" : ""}" data-diff-mode="line-by-line" title="Unified">Unified</button>
           </div>
-          ${
-            ghFile
-              ? `<a href="${escapeHtml(ghFile)}" target="_blank" rel="noreferrer" class="cedar-gh-open-github">Open on GitHub</a>`
-              : ""
-          }
-          <span class="cedar-gh-file-meta">${escapeHtml(statusLabel(status))}</span>
+          <div class="cedar-gh-file-actions-end">
+            ${renderFileChangeBadge(status)}
+            ${
+              ghFile
+                ? `<a href="${escapeHtml(ghFile)}" target="_blank" rel="noreferrer" class="cedar-gh-open-github">Open on GitHub</a>`
+                : ""
+            }
+          </div>
         </div>
         <div class="cedar-gh-file-body" data-file-body id="file-review-${i}">
           ${diffHtml || `<p class="cedar-gh-diff-empty">No patch returned for this file.</p>`}
@@ -137,15 +178,21 @@ export function renderSliceFileReviews(files, pullUrl = "") {
 
   const fontPreset = getActiveDiffFontPreset();
   const { size, line } = getDiffFontSettings();
+  const commentsVisible = defaultInlineCommentsVisible();
 
   return `
-    <div class="cedar-gh-files-changed space-y-0" style="--cedar-diff-font-size: ${size}px; --cedar-diff-line-height: ${line}px">
+    <div class="cedar-gh-files-changed space-y-0" data-comments-hidden="${commentsVisible ? "false" : "true"}" style="--cedar-diff-font-size: ${size}px; --cedar-diff-line-height: ${line}px">
       <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div>
           <p class="cedar-label mb-0">Files changed</p>
-          <p class="mt-1 text-[8px] text-zinc-600">Click a line or + in the gutter · posts to GitHub</p>
+          <p class="mt-1 text-[8px] text-zinc-600">Gutter count on commented lines · click the line or <span class="cedar-comment-marker-chip cedar-comment-marker-chip--legend" aria-hidden="true"></span> to open</p>
         </div>
-        ${renderDiffFontControl(fontPreset)}
+        <div class="flex flex-wrap items-center gap-2">
+          <button type="button" class="cedar-btn-secondary cedar-btn-compact cedar-diff-comments-visibility" data-comments-toggle aria-pressed="${commentsVisible ? "true" : "false"}">
+            ${commentsVisible ? "Hide comments" : "Show comments"}
+          </button>
+          ${renderDiffFontControl(fontPreset)}
+        </div>
       </div>
       ${cards}
     </div>`;
@@ -156,6 +203,32 @@ export function renderSliceFileReviews(files, pullUrl = "") {
  */
 function encodeGitHubAnchor(path) {
   return path.replace(/\//g, "-").replace(/\./g, "-");
+}
+
+const D2H_STATUS_BADGE = [
+  { match: "d2h-added-tag", kind: "added", label: "Added" },
+  { match: "d2h-changed-tag", kind: "changed", label: "Changed" },
+  { match: "d2h-deleted-tag", kind: "deleted", label: "Deleted" },
+  { match: "d2h-moved-tag", kind: "renamed", label: "Renamed" },
+];
+
+/**
+ * @param {ParentNode} root
+ */
+function styleDiffFileStatusTags(root) {
+  root.querySelectorAll(".cedar-diff2html .d2h-tag").forEach((tag) => {
+    if (!(tag instanceof HTMLElement)) return;
+    if (tag.dataset.cedarFileBadge) return;
+    tag.dataset.cedarFileBadge = "1";
+    tag.classList.add("cedar-badge", "cedar-file-change-badge", "cedar-diff2html-file-badge");
+    for (const spec of D2H_STATUS_BADGE) {
+      if (tag.classList.contains(spec.match)) {
+        tag.classList.add(`cedar-file-change-badge--${spec.kind}`);
+        tag.textContent = spec.label;
+        break;
+      }
+    }
+  });
 }
 
 /**
@@ -171,6 +244,7 @@ export function wireFileReviewToggles(root) {
     article.querySelectorAll(".d2h-file-header").forEach((header) => {
       header.classList.add("d2h-sticky-header");
     });
+    styleDiffFileStatusTags(article);
 
     article.querySelectorAll("[data-diff-mode]").forEach((btn) => {
       if (btn.dataset.wiredDiff) return;
@@ -193,6 +267,7 @@ export function wireFileReviewToggles(root) {
           body.querySelectorAll(".d2h-file-header").forEach((header) => {
             header.classList.add("d2h-sticky-header");
           });
+          styleDiffFileStatusTags(body);
           wireDiffComments(body);
         } catch {
           /* keep previous render */
