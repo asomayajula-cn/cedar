@@ -1,0 +1,192 @@
+/* Day — review comment prose & chrome only (findings, diff, suggested changes). */
+
+html[data-theme="day"] .cedar-review-layout,
+html[data-theme="day"] .cedar-review-stage {
+  --cedar-comment-cursor-accent: 9 105 218;
+  --cedar-comment-cursor-accent-muted: 37 99 235;
+  --cedar-comment-github-accent: 37 99 235;
+  --cedar-comment-arch-accent: 124 58 237;
+  --cedar-comment-surface: 250 250 250;
+  --cedar-comment-surface-elevated: 255 255 255;
+}
+
+/* —— Prose (cedar-comment-theme) —— */
+html[data-theme="day"] .cedar-comment-theme {
+  color: #27272a;
+}
+
+html[data-theme="day"] .cedar-comment-theme :is(p, li, blockquote, dd, dt, span, div) {
+  color: #27272a;
+}
+
+html[data-theme="day"] .cedar-comment-theme :is(h1, h2, h3, h4, h5, h6) {
+  color: #18181b;
+}
+
+html[data-theme="day"] .cedar-comment-theme :is(strong, b) {
+  color: #18181b;
+  font-weight: 600;
+}
+
+html[data-theme="day"] .cedar-comment-theme a {
+  color: #1d4ed8;
+}
+
+html[data-theme="day"] .cedar-comment-theme a:hover {
+  color: #1e3a8a;
+}
+
+html[data-theme="day"] .cedar-comment-theme :is(code) {
+  color: #18181b;
+  background: #e4e4e7;
+}
+
+html[data-theme="day"] .cedar-comment-theme pre {
+  color: #18181b;
+  background: #f4f4f5;
+  border: 1px solid #e4e4e7;
+}
+
+html[data-theme="day"] .cedar-findings-list .cedar-review-comment-body.cedar-comment-html,
+html[data-theme="day"] .cedar-arch-findings .cedar-review-comment-body.cedar-comment-html {
+  color: #27272a;
+}
+
+/* —— Findings cards & summary —— */
+html[data-theme="day"] .cedar-findings-list .cedar-review-comment-card {
+  border-color: #e4e4e7;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+}
+
+html[data-theme="day"] .cedar-arch-findings-card {
+  border-color: #e4e4e7;
+  background: #f4f4f5;
+  box-shadow: inset 3px 0 0 rgb(var(--cedar-comment-arch-accent) / 0.35);
+}
+
+html[data-theme="day"] .cedar-findings-list .cedar-review-comment-card .cedar-badge-ok,
+html[data-theme="day"] .cedar-arch-findings-card .cedar-badge-ok {
+  border-color: #d4d4d8;
+  background: #e4e4e7;
+  color: #27272a;
+}
+
+html[data-theme="day"] .cedar-review-comment-details > summary {
+  color: #3f3f46;
+  background: #fafafa;
+  border-color: transparent;
+}
+
+html[data-theme="day"] .cedar-review-comment-details[open] > summary {
+  border-color: #e4e4e7;
+  background: #ffffff;
+}
+
+html[data-theme="day"] .cedar-review-comment-summary-label {
+  color: #52525b;
+}
+
+html[data-theme="day"] .cedar-comment-marker-chip {
+  border-left-color: rgb(var(--cedar-comment-cursor-accent));
+}
+
+html[data-theme="day"] .cedar-comment-marker-chip--arch {
+  border-left-color: rgb(var(--cedar-comment-arch-accent));
+}
+
+/* —— Suggested change blocks —— */
+html[data-theme="day"] .cedar-suggested-change {
+  border: 1px solid #e4e4e7;
+  background: #f4f4f5;
+  box-shadow: inset 2px 0 0 rgb(37 99 235 / 0.4);
+}
+
+html[data-theme="day"] .cedar-suggested-change-label {
+  color: #52525b;
+}
+
+html[data-theme="day"] .cedar-arch-findings .cedar-suggested-change {
+  border-color: #e4e4e7;
+  background: #f4f4f5;
+  box-shadow: inset 2px 0 0 rgb(var(--cedar-comment-arch-accent) / 0.35);
+}
+
+/* —— Inline diff (diff2html) —— */
+html[data-theme="day"] .cedar-diff-comment-thread-cell,
+html[data-theme="day"] .cedar-diff-comment-thread-wrap,
+html[data-theme="day"] .cedar-diff-comment-thread {
+  color: #27272a;
+}
+
+html[data-theme="day"] .cedar-diff-comment-thread {
+  border: 1px solid #e4e4e7;
+  background: #fafafa;
+  box-shadow:
+    inset 3px 0 0 rgb(37 99 235 / 0.45),
+    0 8px 20px -16px rgb(15 23 42 / 0.12);
+}
+
+html[data-theme="day"] .cedar-diff-comment-thread-toggle {
+  color: #3f3f46;
+  border: 1px solid #e4e4e7;
+  background: #f4f4f5;
+}
+
+html[data-theme="day"] .cedar-diff-comment-thread-toggle:hover {
+  color: #18181b;
+  background: #fafafa;
+  border-color: rgb(37 99 235 / 0.35);
+}
+
+html[data-theme="day"] .cedar-diff-comment-thread-toggle-count {
+  color: #ffffff;
+  background: rgb(37 99 235 / 0.88);
+}
+
+html[data-theme="day"] .cedar-diff-comment-card {
+  border: 1px solid #e4e4e7;
+  background: #ffffff;
+  box-shadow: inset 3px 0 0 rgb(37 99 235 / 0.45);
+}
+
+html[data-theme="day"] .cedar-diff-comment-card--cursor,
+html[data-theme="day"] .cedar-diff-comment-card--cursor-macro {
+  background: #f4f4f5;
+  box-shadow: inset 3px 0 0 rgb(37 99 235 / 0.55);
+}
+
+html[data-theme="day"] .cedar-diff-comment-card + .cedar-diff-comment-card {
+  border-top-color: #d4d4d8;
+}
+
+html[data-theme="day"] .cedar-diff-comment-card-user {
+  color: #3f3f46;
+}
+
+html[data-theme="day"] .cedar-diff-comment-card--cursor .cedar-diff-comment-card-user {
+  color: #2563eb;
+}
+
+html[data-theme="day"] .cedar-diff-comment-card-time {
+  color: #57606a;
+}
+
+html[data-theme="day"] .cedar-diff-comment-thread-link {
+  color: #0969da;
+}
+
+html[data-theme="day"] .cedar-diff-comment-card-body,
+html[data-theme="day"] .cedar-diff-comment-card-body.cedar-comment-theme {
+  color: #27272a;
+}
+
+html[data-theme="day"] .cedar-diff-comment-card--cursor .cedar-badge-ok {
+  border-color: #d4d4d8;
+  background: #e4e4e7;
+  color: #27272a;
+}
+
+html[data-theme="day"] .cedar-review-comment-card.is-ignored .cedar-review-comment-body.cedar-comment-theme {
+  color: #52525b;
+}

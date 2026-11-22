@@ -8,7 +8,7 @@ import {
 } from "./cedar-icons.js";
 import { normalizeReviewFile, renderGhFilesSidebar, wireGhFilesSidebar } from "./diff-view.js";
 import { findingKey, findingsForSlice, isFindingIgnored, wireFindingActions } from "./finding-actions.js";
-import { buildFindingsListHtml } from "./review-findings-ui.js";
+import { buildPrFindingsDrawerHtml } from "./review-findings-ui.js";
 
 const LEFT_DRAWER_KEY = "cedar.reviewLeftDrawerPanel";
 
@@ -167,32 +167,21 @@ export function refreshFindingsDrawerPanel(root) {
   const meta = layout.querySelector("#cedar-findings-drawer-meta");
   if (!(host instanceof HTMLElement)) return;
 
-  const slicePanel = root.querySelector(".cedar-slice-panel.is-active-slice");
-  const sliceId = slicePanel?.getAttribute("data-slice-panel");
   const session = window.__cedarSession;
-  const data = session?.data;
-  const sliceResult =
-    sliceId && data?.microResults
-      ? data.microResults.find((m) => m.componentId === sliceId)
-      : data?.microResults?.find((m) => m.status !== "skipped");
+  const { html, activeCount } = buildPrFindingsDrawerHtml(session);
 
   if (meta instanceof HTMLElement) {
-    const name = sliceResult?.componentName ?? slicePanel?.querySelector(".cedar-slice-queue-title")?.textContent?.trim();
-    meta.textContent = name ? `${name} · Cursor & checklist` : "Active slice · Cursor & checklist items";
+    meta.textContent =
+      activeCount > 0
+        ? `All slices · ${activeCount} finding${activeCount === 1 ? "" : "s"}`
+        : "All slices · Cursor & checklist";
   }
 
-  if (!sliceResult) {
-    const reviewing = Boolean(data?.cursorReviewPending);
-    host.innerHTML = `<p class="cedar-findings-drawer-empty text-[11px] leading-snug text-zinc-500 px-1">${
-      reviewing
-        ? "Findings appear after Cursor reviews each slice."
-        : "Pick a slice in <strong>Slices</strong> to list code findings here."
-    }</p>`;
+  if (!html) {
+    host.innerHTML = `<p class="cedar-findings-drawer-empty text-[11px] leading-snug text-zinc-500 px-1">No findings to show.</p>`;
     syncFindingsRailAlert(layout, session);
     return;
   }
-
-  const { html } = buildFindingsListHtml(sliceResult, session);
 
   host.innerHTML = `<div class="cedar-findings-panel cedar-slice-findings-panel cedar-findings-drawer-body">
     <div class="cedar-findings-panel-body">${html}</div>

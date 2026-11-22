@@ -47,9 +47,10 @@ function renderCommentCard(f, r, fi, posted, opts) {
     opts?.findingNumber && opts.findingNumber > 0 ? renderFindingNumberBadge(opts.findingNumber) : "";
   const lineChip =
     line != null ? `<span class="cedar-badge cedar-badge-muted cedar-badge-compact font-mono">L${line}</span>` : "";
-  const jumpBtn = f.filename
-    ? `<button type="button" class="cedar-btn-secondary cedar-btn-compact cedar-review-comment-jump" data-finding-jump data-filename="${escapeHtml(f.filename)}" data-finding-line="${typeof f.line === "number" ? f.line : ""}">Open in diff</button>`
-    : "";
+  const jumpBtn =
+    f.filename && (line != null || findingInlineOnDiff(f))
+      ? `<button type="button" class="cedar-btn-secondary cedar-btn-compact cedar-review-comment-jump" data-finding-jump data-component-id="${escapeHtml(r.componentId)}" data-finding-key="${escapeHtml(key)}" data-filename="${escapeHtml(f.filename)}" data-finding-line="${line != null ? line : ""}">${findingInlineOnDiff(f) ? "Go to inline" : "Open in diff"}</button>`
+      : "";
   const meta = getFindingMeta(f.ruleId, f.severity);
   const tag = f.tag ?? meta.tag;
   const priority = f.priority ?? meta.priority;
@@ -70,7 +71,7 @@ function renderCommentCard(f, r, fi, posted, opts) {
         ${onGithub && f.source !== "github" ? '<span class="cedar-badge cedar-badge-ok cedar-badge-compact">Posted</span>' : ""}
         <span class="cedar-review-comment-summary-label">Show comment</span>
       </summary>
-      <div class="cedar-review-comment-body cedar-comment-html">${renderReviewCommentHtml(f.message)}</div>
+      <div class="cedar-review-comment-body cedar-comment-html cedar-comment-theme">${renderReviewCommentHtml(f.message)}</div>
       <div class="cedar-finding-actions">
         ${
           ignored
@@ -164,56 +165,28 @@ export function buildFindingsListHtml(sliceResult, session) {
   const sliceFindings = findingsForSlice(r.componentId, r);
   const posted = session?.findingCommentsPosted ?? new Set();
   const activeFindings = sliceFindings.filter((f, fi) => !isFindingIgnored(findingKey(r.componentId, f, fi)));
-  const codeFindings = activeFindings.filter((f) => !isArchitectureFinding(f));
-
   if (sliceFindings.length === 0) {
     return {
       html: `<p class="cedar-review-muted-prose">${sliceCursorEmptyMessage(r, session)}</p>`,
       activeCount: 0,
-      inlineOnly: false,
     };
   }
 
-  const codeInline = codeFindings.filter(findingInlineOnDiff);
-  const inlineOnly =
-    activeFindings.length > 0 &&
-    activeFindings.every((f) => !isArchitectureFinding(f) && findingInlineOnDiff(f));
-
-  if (inlineOnly) {
-    const outline = numberIndex.list
-      .filter((row) => {
-        const [componentId] = row.key.split("::");
-        return componentId === r.componentId;
-      })
-      .map(
-        (row) =>
-          `<li class="cedar-finding-outline-item cedar-finding-outline-item--with-actions">
-            <span class="cedar-finding-outline-item-main"><span class="font-mono text-zinc-500">#${row.n}</span> <span class="font-mono text-[10px]">${escapeHtml(row.path)}${row.line != null ? `:${row.line}` : ""}</span> — ${escapeHtml(row.preview)}</span>
-            <button type="button" class="cedar-btn-secondary cedar-btn-compact" data-finding-ignore data-finding-key="${escapeHtml(row.key)}" title="Dismiss draft">Dismiss</button>
-          </li>`
-      )
-      .join("");
-  const html = `<p class="cedar-review-muted-prose">${codeInline.length} Cursor finding(s) on the diff — numbered <span class="font-mono">#1…#${numberIndex.total}</span> in the gutter when threads are collapsed.</p>${
-      outline ? `<ol class="cedar-finding-outline mt-2 list-decimal space-y-1 pl-4 text-[10px] text-zinc-400">${outline}</ol>` : ""
-    }`;
-    return { html, activeCount: activeFindings.length, inlineOnly: true };
-  }
+  const codeInline = activeFindings.filter((f) => findingInlineOnDiff(f));
 
   const listFindings = sliceFindings
     .map((f, fi) => ({ f, fi }))
-    .filter(({ f, fi }) => !isFindingIgnored(findingKey(r.componentId, f, fi)))
-    .filter(({ f }) => isArchitectureFinding(f) || !findingInlineOnDiff(f));
+    .filter(({ f, fi }) => !isFindingIgnored(findingKey(r.componentId, f, fi)));
 
   const onDiffNote =
     codeInline.length > 0
-      ? `<p class="cedar-review-muted-prose">${codeInline.length} code finding(s) on the diff (<span class="text-zinc-400">Cursor · Draft</span>).</p>`
+      ? `<p class="cedar-review-muted-prose">${codeInline.length} inline on the diff — use <span class="font-medium text-zinc-400">Go to inline</span> to jump. Gutter shows <span class="font-mono">#1…#${numberIndex.total}</span> when threads are collapsed.</p>`
       : "";
 
   if (listFindings.length === 0) {
     return {
       html: onDiffNote,
       activeCount: activeFindings.length,
-      inlineOnly: false,
     };
   }
 
@@ -249,5 +222,50 @@ export function buildFindingsListHtml(sliceResult, session) {
 
   const html = `${onDiffNote}<ul class="cedar-findings-list cedar-findings-by-file space-y-4">${fileSections}</ul>`;
 
-  return { html, activeCount: activeFindings.length, inlineOnly: false };
+  return { html, activeCount: activeFindings.length };
+}
+
+/**
+ * All PR findings for the left-rail Findings drawer (grouped by slice).
+ * @param {typeof window.__cedarSession | undefined} session
+ */
+export function buildPrFindingsDrawerHtml(session) {
+  const data = session?.data;
+  const results = (data?.microResults ?? []).filter((r) => r.status !== "skipped" && (r.filesReviewed ?? 0) > 0);
+  if (!results.length) {
+    const reviewing = Boolean(data?.cursorReviewPending);
+    return {
+      html: `<p class="cedar-findings-drawer-empty text-[11px] leading-snug text-zinc-500 px-1">${
+        reviewing
+          ? "Findings appear after Cursor reviews each slice."
+          : "Run <strong>Start review</strong> to populate code findings."
+      }</p>`,
+      activeCount: 0,
+    };
+  }
+
+  let total = 0;
+  const sections = [];
+  for (const r of results) {
+    const { html, activeCount } = buildFindingsListHtml(r, session);
+    if (activeCount <= 0) continue;
+    total += activeCount;
+    const title = escapeHtml(r.componentName ?? r.componentId);
+    sections.push(`<section class="cedar-findings-drawer-slice-group" data-findings-slice="${escapeHtml(r.componentId)}">
+      <h3 class="cedar-findings-drawer-slice-title cedar-file-review-group-label">${title} <span class="cedar-findings-drawer-slice-count tabular-nums">(${activeCount})</span></h3>
+      ${html}
+    </section>`);
+  }
+
+  if (!sections.length) {
+    return {
+      html: `<p class="cedar-findings-drawer-empty text-[11px] leading-snug text-zinc-500 px-1">No active findings — dismissed items are hidden until restored.</p>`,
+      activeCount: 0,
+    };
+  }
+
+  return {
+    html: `<div class="cedar-findings-drawer-pr space-y-5">${sections.join("")}</div>`,
+    activeCount: total,
+  };
 }

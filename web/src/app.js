@@ -1,6 +1,12 @@
 import { cedarMarkSvg } from "./cedar-logo.js";
 import { slicesIconSvg } from "./cedar-icons.js";
-import { mountArchitectureGraphs, remountCytoscapeForTheme, wireArchitectureZoomControls } from "./architecture-canvas.js";
+import {
+  mountArchitectureGraphs,
+  mountArchitectureLayoutGraphs,
+  remountCytoscapeForTheme,
+  wireArchitectureZoomControls,
+} from "./architecture-canvas.js";
+import { buildLayoutDiagramGraphs } from "../../src/architecture-layout-views.js";
 import { buildDiagramGraph, isRenderableDiagramGraph } from "../../src/diagram-graph.js";
 import {
   layerAccentForTheme,
@@ -34,11 +40,13 @@ import { loadDiffReviewComments, repaintAllDiffComments, setCommentToast } from 
 import { applySliceNavTypography, getDiffFontSettings, initDiffFontFromServer } from "./diff-font.js";
 import { getResolvedTheme, onAppThemeChange, wireAppThemeToggle } from "./theme.js";
 import {
-  mountCompleteLayoutViews,
+  renderArchitectureDiagramCard,
+  renderArchitectureDiagramStack,
+  renderArchitectureCyCard,
+} from "./architecture-diagram-shell.js";
+import {
   activateDiagramUx,
   wireDiagramResizeListeners,
-  refitPanZoomDiagrams,
-  remountCompleteLayoutPanZoom,
   remountMermaidDiagrams,
   scheduleDiagramRefit,
 } from "./diagram-ux.js";
@@ -366,17 +374,10 @@ export function mountApp(root) {
     applyDiagramFontCssVar();
     refreshThemeAwareChrome(results);
     remountCytoscapeForTheme();
-    refreshCompleteLayoutMermaidSources(results);
+    refreshCompleteLayoutCyGraphs(results);
     void remountFileCodeMapForTheme();
     refreshFileFlowRailTheme();
-    void remountMermaidDiagrams(results).then(() => {
-      remountCompleteLayoutPanZoom(results);
-      void remountFileCodeMapForTheme().then(() => {
-        refreshFileFlowRailTheme();
-        scheduleDiagramRefit(results);
-      });
-    });
-    scheduleDiagramRefit(results);
+    void remountMermaidDiagrams(results);
   };
 
   onAppThemeChange(() => {
@@ -837,6 +838,10 @@ function refreshReviewUi() {
 }
 
 window.__cedarPatchFindings = patchFindingsAndMetrics;
+window.__cedarActivateSlice = (componentId) => {
+  const results = document.getElementById("results");
+  if (results && componentId) activateSliceTab(results, componentId);
+};
 
 function patchFindingsAndMetrics() {
   const results = document.getElementById("results");
@@ -987,17 +992,6 @@ function sliceApprovalHeaderCopy(approvedCount, total, canApprovePr, gateReady) 
   };
 }
 
-function cyToolbar(targetId, badge = "") {
-  return `<div class="diagram-toolbar flex flex-wrap items-center gap-1.5" data-diagram-toolbar>
-    <span class="cedar-label mb-0">View</span>
-    <button type="button" class="diagram-tool-btn" data-cy-action="in" data-cy-target="${targetId}" title="Zoom in">+</button>
-    <button type="button" class="diagram-tool-btn" data-cy-action="out" data-cy-target="${targetId}" title="Zoom out">−</button>
-    <button type="button" class="diagram-tool-btn" data-cy-action="fit" data-cy-target="${targetId}" title="Fit">Fit</button>
-    <button type="button" class="diagram-tool-btn" data-diagram-action="maximize" title="Maximize panel" aria-pressed="false">⤢</button>
-    ${badge}
-  </div>`;
-}
-
 /**
  * @param {Array<{ componentId: string, componentName: string, status: string, sliceNumber: number, classNames?: string[] }>} slices
  */
@@ -1018,35 +1012,6 @@ function renderDiagramSliceBadges(slices) {
     })
     .join("");
   return `<div class="cedar-diagram-slice-badges flex flex-wrap items-center gap-1.5" role="list" aria-label="Micro slices in this PR">${dots}</div>`;
-}
-
-/**
- * @param {{ view: string, label: string, id: string, aria: string, first?: boolean }} spec
- * @param {string} sliceBadgesHtml
- */
-function completeLayoutMermaidArticle(spec, sliceBadgesHtml) {
-  return `<article class="cedar-layout-view cedar-architecture-read-panel w-full min-w-0" data-layout-view="${escapeHtml(spec.view)}" data-diagram-wrap>
-              <div class="architecture-read-mermaid-head">
-                <p class="cedar-label mb-0">${escapeHtml(spec.label)}</p>
-                ${architectureDiagramToolbar(spec.id, sliceBadgesHtml)}
-              </div>
-              <div class="cedar-cy-host diagram-overview-read diagram-complete-layout diagram-stage-canvas cedar-mermaid-scroll">
-                <div id="${escapeHtml(spec.id)}" class="cedar-mermaid-source m-0" role="img" aria-label="${escapeHtml(spec.aria)}"></div>
-              </div>
-            </article>`;
-}
-
-function architectureDiagramToolbar(targetId, sliceBadgesHtml = "") {
-  const id = escapeHtml(targetId);
-  return `<div class="diagram-toolbar flex flex-wrap items-center gap-1.5" data-diagram-toolbar>
-    ${sliceBadgesHtml}
-    <span class="cedar-label mb-0">View</span>
-    <button type="button" class="diagram-tool-btn" data-cy-action="in" data-cy-target="${id}" title="Zoom in">+</button>
-    <button type="button" class="diagram-tool-btn" data-cy-action="out" data-cy-target="${id}" title="Zoom out">−</button>
-    <button type="button" class="diagram-tool-btn" data-cy-action="fit" data-cy-target="${id}" title="Fit">Fit</button>
-    <button type="button" class="diagram-tool-btn" data-diagram-action="collapse" title="Collapse diagram" aria-expanded="true">▾</button>
-    <button type="button" class="diagram-tool-btn" data-diagram-action="maximize" title="Maximize panel" aria-pressed="false">⤢</button>
-  </div>`;
 }
 
 /**
@@ -1628,121 +1593,45 @@ function wireSlicesNavRailResize(root) {
  * @param {ParentNode} root
  * @param {{ components?: string, flow?: string, events?: string }} views
  */
-const COMPLETE_LAYOUT_MERMAID_SLOTS = [
-  { key: "components", sel: "#cedar-mermaid-components" },
-  { key: "flow", sel: "#cedar-mermaid-flow" },
-  { key: "events", sel: "#cedar-mermaid-events" },
-];
-
 /** @type {WeakMap<HTMLElement, () => void>} */
 const completeLayoutDrawByHost = new WeakMap();
 
 /**
- * @param {ParentNode} host
- * @param {{ components?: string, flow?: string, events?: string }} views
+ * PR-level Architecture tab — Cytoscape layout graphs (UML / Flow / Events).
  */
-function seedCompleteLayoutMermaidSources(host, views) {
-  const root =
-    host instanceof HTMLElement ? host : host?.querySelector?.("#architecture-read-mermaid");
-  if (!(root instanceof HTMLElement) || !views) return;
-  for (const { key, sel } of COMPLETE_LAYOUT_MERMAID_SLOTS) {
-    const pre = root.querySelector(sel);
-    const source = views[key];
-    if (pre instanceof HTMLElement && source?.trim()) {
-      pre.dataset.mermaidSource = source;
-    }
-  }
-}
-
-/**
- * PR-level Architecture tab only (overview + complete layout). File code maps use the flyout.
- * @param {ParentNode} root
- */
-function resolveSessionLayoutViews() {
+function resolveSessionLayoutGraphs() {
   const session = window.__cedarSession;
   if (!session) return null;
-  const cached = session.layoutViews;
-  if (cached && (cached.components?.trim() || cached.flow?.trim() || cached.events?.trim())) {
-    return cached;
-  }
+  if (session.layoutGraphs) return session.layoutGraphs;
   const b = session.layoutViewsBuild;
-  if (b?.diagramMicroPrs?.length) {
-    const views = buildCompleteLayoutViews(
-      b.diagramMicroPrs,
-      b.breakouts,
-      b.pull,
-      b.target,
-      b.sliceNumberById,
-      getResolvedTheme()
-    );
-    session.layoutViews = views;
-    return views;
-  }
-  const fromBreakouts = session.data?.breakouts?.diagramLayoutViews ?? null;
-  if (fromBreakouts) session.layoutViews = fromBreakouts;
-  return fromBreakouts;
+  if (!b?.diagramMicroPrs?.length) return null;
+  const graphs = buildLayoutDiagramGraphs(
+    b.diagramMicroPrs,
+    b.breakouts,
+    b.pull,
+    b.target,
+    b.sliceNumberById
+  );
+  session.layoutGraphs = graphs;
+  return graphs;
+}
+
+function architectureLayoutStatusMap() {
+  const payload = window.__cedarOverviewGraph;
+  return payload?.getStatusMap?.() ?? new Map();
 }
 
 /**
  * @param {ParentNode} scope
- * @param {{ components?: string, flow?: string, events?: string }} views
+ * @param {object} layoutGraphs
  * @param {{ force?: boolean }} [opts]
  */
-function completeLayoutSlotNeedsRender(mermaidHost, views) {
-  if (!(mermaidHost instanceof HTMLElement) || !views) return false;
-  return COMPLETE_LAYOUT_MERMAID_SLOTS.some(({ key, sel }) => {
-    const source = views[key];
-    if (!source?.trim()) return false;
-    const pre = mermaidHost.querySelector(sel);
-    if (!(pre instanceof HTMLElement)) return true;
-    const svg = pre.querySelector("svg");
-    if (!(svg instanceof SVGSVGElement)) return true;
-    const vb = svg.viewBox?.baseVal;
-    if (vb && vb.width > 4 && vb.height > 4) return false;
-    const w = svg.width?.baseVal?.value ?? 0;
-    const h = svg.height?.baseVal?.value ?? 0;
-    return w < 8 || h < 8;
-  });
-}
-
-/**
- * @param {ParentNode} scope
- * @param {{ components?: string, flow?: string, events?: string }} views
- * @param {{ force?: boolean }} [opts]
- */
-function mountPrCompleteLayoutDiagrams(scope, views, opts = {}) {
-  const mermaidHost = scope.querySelector("#architecture-read-mermaid");
-  if (!(mermaidHost instanceof HTMLElement) || !views) return Promise.resolve(0);
-  seedCompleteLayoutMermaidSources(mermaidHost, views);
-  const force = opts.force === true;
-  if (!force && !completeLayoutSlotNeedsRender(mermaidHost, views)) {
-    wireArchitectureZoomControls(scope);
-    remountCompleteLayoutPanZoom(scope);
-    refitPanZoomDiagrams(scope);
-    return Promise.resolve(3);
-  }
-  return mountCompleteLayoutViews(mermaidHost, views).then((drew) => {
-    if (!drew) return drew;
-    if (allMountedCompleteLayout(mermaidHost, views)) {
-      mermaidHost.dataset.mermaidLayoutsMounted = "1";
-    }
-    activateDiagramUx(mermaidHost);
-    wireArchitectureZoomControls(scope);
-    remountCompleteLayoutPanZoom(scope);
-    refitPanZoomDiagrams(scope);
-    return drew;
-  });
-}
-
-/**
- * @param {HTMLElement} host
- * @param {{ components?: string, flow?: string, events?: string }} views
- */
-function allMountedCompleteLayout(host, views) {
-  return COMPLETE_LAYOUT_MERMAID_SLOTS.every(({ key, sel }) => {
-    const slot = host.querySelector(sel);
-    return slot?.querySelector("svg") || !views[key]?.trim();
-  });
+function mountPrLayoutCyGraphs(scope, layoutGraphs, opts = {}) {
+  if (!layoutGraphs) return Promise.resolve(0);
+  const mounted = mountArchitectureLayoutGraphs(scope, layoutGraphs, architectureLayoutStatusMap(), opts);
+  activateDiagramUx(scope);
+  wireArchitectureZoomControls(scope);
+  return Promise.resolve(mounted);
 }
 
 /**
@@ -1757,15 +1646,15 @@ function ensurePrArchitectureView(root) {
       ? root
       : (root.querySelector("#results") ?? root);
 
-  const views = resolveSessionLayoutViews();
-  const mermaidHost = scope.querySelector("#architecture-read-mermaid");
-  if (mermaidHost instanceof HTMLElement && views) {
-    let draw = completeLayoutDrawByHost.get(mermaidHost);
+  const layoutGraphs = resolveSessionLayoutGraphs();
+  const stackHost = scope.querySelector("#architecture-read-mermaid");
+  if (stackHost instanceof HTMLElement && layoutGraphs) {
+    let draw = completeLayoutDrawByHost.get(stackHost);
     if (!draw) {
-      wireCompleteLayoutViews(scope, views);
-      draw = completeLayoutDrawByHost.get(mermaidHost);
+      wireArchitectureLayoutCy(scope, layoutGraphs);
+      draw = completeLayoutDrawByHost.get(stackHost);
     }
-    void mountPrCompleteLayoutDiagrams(scope, views, { force: true });
+    void mountPrLayoutCyGraphs(scope, layoutGraphs, { force: true });
   }
 
   const payload = window.__cedarOverviewGraph;
@@ -1780,34 +1669,27 @@ function ensurePrArchitectureView(root) {
   }
 
   wireArchitectureZoomControls(scope);
-  requestAnimationFrame(() => {
-    remountCompleteLayoutPanZoom(scope);
-    refitPanZoomDiagrams(scope);
-  });
 }
 
 /**
- * Rebuild Complete layout Mermaid sources for the active UI theme (day/night accents).
+ * Rebuild layout Cytoscape graphs after theme / slice status changes.
  * @param {ParentNode} root
  */
-function refreshCompleteLayoutMermaidSources(root) {
+function refreshCompleteLayoutCyGraphs(root) {
   const session = window.__cedarSession;
   const b = session?.layoutViewsBuild;
   if (!b?.diagramMicroPrs?.length) return null;
-  const views = buildCompleteLayoutViews(
+  const graphs = buildLayoutDiagramGraphs(
     b.diagramMicroPrs,
     b.breakouts,
     b.pull,
     b.target,
-    b.sliceNumberById,
-    getResolvedTheme()
+    b.sliceNumberById
   );
   const host = root.querySelector("#architecture-read-mermaid");
-  if (!(host instanceof HTMLElement)) return views;
-  seedCompleteLayoutMermaidSources(host, views);
-  if (session) session.layoutViews = views;
+  if (session) session.layoutGraphs = graphs;
   completeLayoutDrawByHost.get(host)?.();
-  return views;
+  return graphs;
 }
 
 /**
@@ -1841,7 +1723,12 @@ function wireArchitectureOverviewGraph(root, payload) {
         if (!panelHidden) showToast("Architecture diagram could not render.", "error");
       },
     });
-    if (!panelHidden) requestAnimationFrame(() => refitPanZoomDiagrams(root));
+    if (!panelHidden) {
+      requestAnimationFrame(() => {
+        const graphs = resolveSessionLayoutGraphs();
+        if (graphs) mountArchitectureLayoutGraphs(root, graphs, payload.getStatusMap(), { force: true });
+      });
+    }
   };
 
   root.querySelectorAll("[data-review-tab]").forEach((btn) => {
@@ -1857,19 +1744,18 @@ function wireArchitectureOverviewGraph(root, payload) {
   requestAnimationFrame(() => requestAnimationFrame(draw));
 }
 
-function wireCompleteLayoutViews(root, views) {
-  if (!(root instanceof HTMLElement) || !views) return;
+function wireArchitectureLayoutCy(root, layoutGraphs) {
+  if (!(root instanceof HTMLElement) || !layoutGraphs) return;
   const host = root.querySelector("#architecture-read-mermaid");
   if (!(host instanceof HTMLElement)) return;
-
-  seedCompleteLayoutMermaidSources(host, views);
 
   const draw = () => {
     const panel = root.querySelector("#cedar-review-panel-architecture");
     const panelHidden = panel instanceof HTMLElement && panel.hidden;
-    void mountPrCompleteLayoutDiagrams(root, views, { force: !panelHidden }).then((drew) => {
+    const graphs = resolveSessionLayoutGraphs() ?? layoutGraphs;
+    void mountPrLayoutCyGraphs(root, graphs, { force: !panelHidden }).then((drew) => {
       if (!drew && !panelHidden) {
-        showToast("Complete layout diagrams could not render.", "error");
+        showToast("Architecture layout diagrams could not render.", "error");
       }
     });
   };
@@ -1878,8 +1764,8 @@ function wireCompleteLayoutViews(root, views) {
   wireArchitectureZoomControls(root);
 
   root.querySelectorAll("[data-review-tab]").forEach((btn) => {
-    if (!(btn instanceof HTMLElement) || btn.dataset.wiredMermaidTab) return;
-    btn.dataset.wiredMermaidTab = "1";
+    if (!(btn instanceof HTMLElement) || btn.dataset.wiredLayoutCyTab) return;
+    btn.dataset.wiredLayoutCyTab = "1";
     btn.addEventListener("click", () => {
       if (btn.getAttribute("data-review-tab") === "architecture") {
         requestAnimationFrame(() => requestAnimationFrame(draw));
@@ -1991,8 +1877,16 @@ function renderResults(container, data, opts = {}) {
     archLayersForBadges.map((l) => [l.id, (l.classNames?.length ? l.classNames : [l.name || l.micro?.componentName]).filter(Boolean)])
   );
 
+  let layoutGraphs = null;
   let layoutViews = breakouts?.diagramLayoutViews ?? null;
   if (diagramMicroPrs.length) {
+    layoutGraphs = buildLayoutDiagramGraphs(
+      diagramMicroPrs,
+      breakouts,
+      { number: pull.number, title: pull.title },
+      { owner: target?.owner, repo: target?.repo },
+      sliceNumberById
+    );
     layoutViews = buildCompleteLayoutViews(
       diagramMicroPrs,
       breakouts,
@@ -2002,6 +1896,8 @@ function renderResults(container, data, opts = {}) {
       getResolvedTheme()
     );
     if (window.__cedarSession) {
+      window.__cedarSession.layoutGraphs = layoutGraphs;
+      window.__cedarSession.layoutViews = layoutViews;
       window.__cedarSession.layoutViewsBuild = {
         diagramMicroPrs,
         breakouts,
@@ -2012,8 +1908,11 @@ function renderResults(container, data, opts = {}) {
     }
   }
   const hasLayoutViews = Boolean(
-    layoutViews &&
-      (layoutViews.components?.trim() || layoutViews.flow?.trim() || layoutViews.events?.trim())
+    layoutGraphs &&
+      (layoutGraphs.components?.overview?.nodes?.length ||
+        layoutGraphs.flow?.overview?.nodes?.length ||
+        layoutGraphs.events?.overview?.nodes?.length ||
+        layoutGraphs.dataModel?.overview?.nodes?.length)
   );
   const showArchitectureSection = archSliceCount > 0 || hasLayoutViews;
   const architectureReadSummary = (
@@ -2282,44 +2181,45 @@ function renderResults(container, data, opts = {}) {
             }
             ${
               archSliceCount > 0
-                ? `<div class="cedar-architecture-diagram-card cedar-layout-view w-full min-w-0" id="architecture-read-overview" data-diagram-wrap>
-            <div class="architecture-read-mermaid-head">
-              <p class="cedar-label cedar-architecture-section-label mb-0">Overview · slices</p>
-              <div class="architecture-read-mermaid-head-tools">
-              ${cyToolbar(
-                "cedar-cy-slices",
-                `<span class="cedar-badge cedar-badge-muted">${archSliceCount} slices · ${
-                  breakouts?.diagramVisualSource === "cursor" ? "Cursor" : "Minimal"
-                }</span>`
-              )}
-              </div>
-            </div>
-            <div id="cedar-cy-slices" class="cedar-cy-host diagram-overview-read diagram-stage-canvas" role="img" aria-label="Slice overview"></div>
-          </div>`
+                ? renderArchitectureDiagramCard({
+                    cardId: "architecture-read-overview",
+                    label: "Overview · slices",
+                    toolbarTargetId: "cedar-cy-slices",
+                    badgeHtml: `<span class="cedar-badge cedar-badge-muted">${archSliceCount} slices · ${
+                      breakouts?.diagramVisualSource === "cursor" ? "Cursor" : "Minimal"
+                    }</span>`,
+                    stageAria: "Slice overview",
+                    cytoscapeContainerId: "cedar-cy-slices",
+                  })
                 : ""
             }
             ${
               hasLayoutViews
-                ? `<div class="cedar-architecture-diagram-card w-full min-w-0" id="architecture-read-layout" aria-labelledby="complete-layout-heading">
-            <header class="cedar-architecture-section-head" id="complete-layout-heading-wrap">
-              <p id="complete-layout-heading" class="cedar-label cedar-architecture-section-label mb-0">Complete layout</p>
-            </header>
-            <div class="cedar-complete-layout-views w-full min-w-0" id="architecture-read-mermaid">
-            ${[
-              {
-                view: "uml",
-                label: "UML · components",
-                id: "cedar-mermaid-components",
-                aria: "UML components class diagram",
-                first: true,
-              },
-              { view: "flow", label: "Flow", id: "cedar-mermaid-flow", aria: "Request flow diagram" },
-              { view: "events", label: "Events", id: "cedar-mermaid-events", aria: "Domain events sequence diagram" },
-            ]
-              .map((spec) => completeLayoutMermaidArticle(spec, diagramSliceBadges))
-              .join("")}
-            </div>
-          </div>`
+                ? renderArchitectureDiagramStack(
+                    [
+                      {
+                        view: "uml",
+                        label: "UML · types",
+                        cyId: "cedar-cy-components",
+                        aria: "UML components class diagram",
+                      },
+                      { view: "flow", label: "Flow · files", cyId: "cedar-cy-flow", aria: "File import flow" },
+                      {
+                        view: "events",
+                        label: "Events · calls",
+                        cyId: "cedar-cy-events",
+                        aria: "Call and message flow from diff",
+                      },
+                      {
+                        view: "data",
+                        label: "Data model",
+                        cyId: "cedar-cy-datamodel",
+                        aria: "Schema and migration changes",
+                      },
+                    ]
+                      .map((spec) => renderArchitectureCyCard(spec, ""))
+                      .join("")
+                  )
                 : ""
             }
           </section>`
@@ -2367,9 +2267,12 @@ function renderResults(container, data, opts = {}) {
     window.scrollTo({ top: 0, behavior: "smooth" });
   });
 
-  if (hasLayoutViews && layoutViews) {
-    if (window.__cedarSession) window.__cedarSession.layoutViews = layoutViews;
-    wireCompleteLayoutViews(container, layoutViews);
+  if (hasLayoutViews && layoutGraphs) {
+    if (window.__cedarSession) {
+      window.__cedarSession.layoutGraphs = layoutGraphs;
+      window.__cedarSession.layoutViews = layoutViews;
+    }
+    wireArchitectureLayoutCy(container, layoutGraphs);
     wireDiagramResizeListeners(container);
   }
 

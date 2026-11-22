@@ -5,7 +5,7 @@ export { collectCursorDraftCommentsForDiff };
 import { renderReviewCommentHtml } from "./comment-html.js";
 import { wireFindingActions } from "./finding-actions.js";
 
-/** @typedef {{ id: number, path: string, line: number, side: string, body: string, html_url?: string, user?: string | null, created_at?: string, source?: "github" | "cursor" | "cursor-macro", findingKey?: string }} ReviewComment */
+/** @typedef {{ id: number, path: string, line: number, side: string, body: string, html_url?: string, user?: string | null, created_at?: string, source?: "github" | "cursor" | "cursor-macro", findingKey?: string, findingNumber?: number }} ReviewComment */
 
 /** @typedef {{ prUrl: string, token?: string, reviewComments?: ReviewComment[], data: { target?: { owner?: string, repo?: string, pr?: number }, pull?: { headSha?: string } } }} CedarSession */
 
@@ -64,41 +64,111 @@ function lineNumFromEl(el) {
 }
 
 /**
+ * diff2html row kind from gutter + code cells only (ignore inline `<del>` in change rows).
+ * @param {HTMLElement} row
+ * @returns {"del" | "ins" | "cntx" | "change" | "side" | "unknown"}
+ */
+function diffRowCodeKind(row) {
+  const rowTd = row.querySelector(":scope > td.d2h-del, :scope > td.d2h-ins, :scope > td.d2h-cntx, :scope > td.d2h-change");
+  if (rowTd instanceof HTMLElement) {
+    if (rowTd.classList.contains("d2h-del")) return "del";
+    if (rowTd.classList.contains("d2h-ins")) return "ins";
+    if (rowTd.classList.contains("d2h-cntx")) return "cntx";
+    if (rowTd.classList.contains("d2h-change")) return "change";
+  }
+  if (row.querySelector(":scope > td.d2h-code-side-linenumber")) return "side";
+  return "unknown";
+}
+
+/**
  * @param {HTMLElement} row
  */
-function resolveLineFromRow(row) {
+export function resolveLineFromRow(row) {
+  const kind = diffRowCodeKind(row);
   const oldDiv = row.querySelector(".line-num1");
   const newDiv = row.querySelector(".line-num2");
   if (oldDiv || newDiv) {
     const oldNum = lineNumFromEl(oldDiv);
     const newNum = lineNumFromEl(newDiv);
-    const isDel = Boolean(row.querySelector("td.d2h-del, .d2h-del"));
-    if (isDel && oldNum != null) return { line: oldNum, side: "LEFT" };
+    if (kind === "del" && oldNum != null) return { line: oldNum, side: "LEFT" };
     if (newNum != null) return { line: newNum, side: "RIGHT" };
     if (oldNum != null) return { line: oldNum, side: "LEFT" };
     return null;
   }
 
-  const sideCell = row.querySelector("td.d2h-code-side-linenumber");
+  const sideCell = row.querySelector(":scope > td.d2h-code-side-linenumber");
   if (sideCell) {
     const n = lineNumFromEl(sideCell);
     if (n == null) return null;
-    const onLeft = Boolean(row.closest(".d2h-file-side-diff-left"));
-    const isDel = Boolean(row.querySelector(".d2h-del"));
-    return { line: n, side: onLeft || isDel ? "LEFT" : "RIGHT" };
+    const paneSide = diffRowSidePane(row);
+    const rowDel = row.querySelector(":scope > td.d2h-del");
+    const isDel = paneSide === "LEFT" || rowDel instanceof HTMLElement;
+    return { line: n, side: isDel ? "LEFT" : "RIGHT" };
   }
 
-  const nums = [...row.querySelectorAll(".d2h-code-linenumber")].flatMap((td) => {
-    const a = lineNumFromEl(td.querySelector(".line-num1"));
-    const b = lineNumFromEl(td.querySelector(".line-num2"));
-    if (a != null || b != null) return [a, b].filter((x) => x != null);
-    const direct = lineNumFromEl(td);
-    return direct != null ? [direct] : [];
-  });
+  const nums = [...row.querySelectorAll(":scope > td.d2h-code-linenumber, :scope > td.d2h-code-side-linenumber")].flatMap(
+    (td) => {
+      const a = lineNumFromEl(td.querySelector(".line-num1"));
+      const b = lineNumFromEl(td.querySelector(".line-num2"));
+      if (a != null || b != null) return [a, b].filter((x) => x != null);
+      const direct = lineNumFromEl(td);
+      return direct != null ? [direct] : [];
+    }
+  );
   if (!nums.length) return null;
-  const isDel = Boolean(row.querySelector("td.d2h-del"));
-  if (isDel) return { line: nums[0], side: "LEFT" };
+  if (kind === "del") return { line: nums[0], side: "LEFT" };
   return { line: nums[nums.length - 1], side: "RIGHT" };
+}
+
+/**
+ * @param {HTMLElement} row
+ * @param {number} line
+ * @param {string} side
+ */
+export function rowMatchesCommentAnchor(row, line, side) {
+  const want = side === "LEFT" ? "LEFT" : "RIGHT";
+  const resolved = resolveLineFromRow(row);
+  if (resolved?.line === line && resolved.side === want) return true;
+  if (want === "RIGHT") {
+    const newNum = lineNumFromEl(row.querySelector(".line-num2"));
+    if (newNum === line) return true;
+    if (diffRowSidePane(row) === "RIGHT") {
+      const n = lineNumFromEl(row.querySelector(":scope > td.d2h-code-side-linenumber"));
+      if (n === line) return true;
+    }
+  } else {
+    const oldNum = lineNumFromEl(row.querySelector(".line-num1"));
+    if (oldNum === line) return true;
+    if (diffRowSidePane(row) === "LEFT") {
+      const n = lineNumFromEl(row.querySelector(":scope > td.d2h-code-side-linenumber"));
+      if (n === line) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Gutter cell that displays the anchored line (matches diff2html line numbers).
+ * @param {HTMLElement} row
+ * @param {"LEFT" | "RIGHT"} [side]
+ */
+export function gutterForCommentAnchor(row, side = "RIGHT") {
+  const resolved = resolveLineFromRow(row);
+  const effectiveSide = resolved?.side === "LEFT" ? "LEFT" : side === "LEFT" ? "LEFT" : "RIGHT";
+
+  const unified = row.querySelector(":scope > td.d2h-code-linenumber");
+  if (unified instanceof HTMLElement) return unified;
+
+  const sideGutter = row.querySelector(":scope > td.d2h-code-side-linenumber");
+  if (sideGutter instanceof HTMLElement) return sideGutter;
+
+  const gutters = row.querySelectorAll(":scope > td.d2h-code-linenumber, :scope > td.d2h-code-side-linenumber");
+  if (effectiveSide === "RIGHT" && gutters.length > 1) {
+    const last = gutters[gutters.length - 1];
+    return last instanceof HTMLElement ? last : null;
+  }
+  const first = gutters[0];
+  return first instanceof HTMLElement ? first : null;
 }
 
 /** @type {{ path: string, line: number, side: string, row: HTMLElement } | null} */
@@ -334,27 +404,29 @@ function renderCommentThreadSlide(items, opts = {}) {
         isCursorDraft && c.findingKey
           ? `<button type="button" class="cedar-btn-secondary cedar-btn-compact cedar-diff-comment-dismiss" data-finding-ignore data-finding-key="${escapeHtml(c.findingKey)}" title="Dismiss draft">Dismiss</button>`
           : "";
-      return `<article class="${cardClass}"${c.findingKey ? ` data-finding-key="${escapeHtml(c.findingKey)}"` : ""}>
+      const findingNumAttr =
+        c.findingNumber && c.findingNumber > 0 ? ` data-finding-number="${c.findingNumber}"` : "";
+      return `<article class="${cardClass}"${c.findingKey ? ` data-finding-key="${escapeHtml(c.findingKey)}"` : ""}${findingNumAttr}>
         <header class="cedar-diff-comment-card-head">
           ${who}
           ${when ? `<span class="cedar-diff-comment-card-time">${when}</span>` : ""}
           ${link}
           ${dismissBtn}
         </header>
-        <div class="cedar-diff-comment-card-body cedar-comment-html">${renderReviewCommentHtml(c.body)}</div>
+        <div class="cedar-diff-comment-card-body cedar-comment-html cedar-comment-theme">${renderReviewCommentHtml(c.body)}</div>
       </article>`;
     })
     .join("");
   const count = items.length;
   const noun = count === 1 ? "comment" : "comments";
   const verb = startCollapsed ? "Show" : "Hide";
-  return `<div class="cedar-diff-comment-thread-wrap">
+  return `<div class="cedar-diff-comment-thread-wrap cedar-comment-theme">
     <button type="button" class="cedar-diff-comment-thread-toggle" aria-expanded="${startCollapsed ? "false" : "true"}" aria-label="${verb} ${count} review ${noun} on this line">
       <span class="cedar-comment-marker-chip" aria-hidden="true" title="Review comment"></span>
       <span class="cedar-diff-comment-thread-toggle-count">${count}</span>
       <span class="cedar-diff-comment-thread-toggle-label">${verb} ${noun}</span>
     </button>
-    <div class="cedar-diff-comment-thread" role="region" aria-label="Review comments on this line">${cards}</div>
+    <div class="cedar-diff-comment-thread cedar-comment-theme" role="region" aria-label="Review comments on this line">${cards}</div>
   </div>`;
 }
 
@@ -380,7 +452,9 @@ function setCommentsHostVisible(host, visible) {
   host.querySelectorAll(".cedar-diff-comment-thread-row").forEach((threadRow) => {
     if (!(threadRow instanceof HTMLElement)) return;
     threadRow.classList.toggle("cedar-diff-comments-off", !visible);
-    if (!visible) {
+    if (visible) {
+      setThreadRowExpanded(threadRow, true);
+    } else {
       threadRow.classList.remove("cedar-diff-line-expanded");
       setThreadRowExpanded(threadRow, false);
     }
@@ -401,26 +475,13 @@ function applyCommentsHostVisibility(host) {
 }
 
 /**
- * @param {HTMLElement} row
- */
-function primaryGutterForRow(row) {
-  const oldCell = row.querySelector(".line-num1");
-  if (oldCell) {
-    const g = oldCell.closest(".d2h-code-linenumber, .d2h-code-side-linenumber");
-    if (g instanceof HTMLElement) return g;
-  }
-  const gutters = row.querySelectorAll(".d2h-code-linenumber, .d2h-code-side-linenumber");
-  if (gutters.length === 0) return null;
-  const first = gutters[0];
-  return first instanceof HTMLElement ? first : null;
-}
-
-/**
  * @param {HTMLElement} codeRow
  * @param {number} count
+ * @param {{ cursorThread?: boolean, findingNumber?: number }} [opts]
  */
-function setGutterCommentCount(codeRow, count) {
-  const gutter = primaryGutterForRow(codeRow);
+function setGutterCommentCount(codeRow, count, opts = {}) {
+  const resolved = resolveLineFromRow(codeRow);
+  const gutter = gutterForCommentAnchor(codeRow, resolved?.side === "LEFT" ? "LEFT" : "RIGHT");
   if (!(gutter instanceof HTMLElement)) return;
   if (count <= 0) {
     gutter.querySelector(".cedar-diff-comment-gutter-count")?.remove();
@@ -434,13 +495,22 @@ function setGutterCommentCount(codeRow, count) {
     badge.className = "cedar-diff-comment-gutter-count";
     gutter.appendChild(badge);
   }
-  badge.textContent = String(count);
+  const findingNumber = opts.findingNumber;
+  const showCursorGutter = opts.cursorThread === true;
+  if (showCursorGutter) {
+    const num = findingNumber && findingNumber > 0 ? findingNumber : count > 1 ? count : null;
+    badge.classList.add("cedar-diff-comment-gutter-count--cursor");
+    badge.innerHTML = `<span class="cedar-comment-marker-chip cedar-comment-marker-chip--gutter" aria-hidden="true" title="Review comment"></span>${
+      num != null ? `<span class="cedar-diff-comment-gutter-num font-mono">${num}</span>` : ""
+    }`;
+  } else {
+    badge.classList.remove("cedar-diff-comment-gutter-count--cursor");
+    badge.textContent = String(count);
+  }
   badge.setAttribute("role", "button");
   badge.tabIndex = 0;
-  badge.setAttribute(
-    "aria-label",
-    `${count} review comment${count === 1 ? "" : "s"} — click to show`
-  );
+  const labelNum = findingNumber && findingNumber > 0 ? `finding #${findingNumber}` : `${count} review comment${count === 1 ? "" : "s"}`;
+  badge.setAttribute("aria-label", `${labelNum} — click to show`);
   if (!badge.dataset.wiredGutterCount) {
     badge.dataset.wiredGutterCount = "1";
     const openThread = (ev) => {
@@ -470,7 +540,16 @@ function syncGutterBadgeForRow(codeRow, threadRow, host) {
         ? codeRow.nextElementSibling
         : null;
   const count = Number(codeRow.dataset.cedarCommentCount) || (tr ? tr.querySelectorAll(".cedar-diff-comment-card").length : 0);
-  if (count > 0) setGutterCommentCount(codeRow, count);
+  if (count > 0) {
+    const cursorThread = tr?.dataset.cursorThread === "1";
+    const card = tr?.querySelector("[data-finding-key]");
+    const findingNumberAttr = card?.getAttribute("data-finding-number");
+    const findingNumber = findingNumberAttr ? Number.parseInt(findingNumberAttr, 10) : undefined;
+    setGutterCommentCount(codeRow, count, {
+      cursorThread,
+      findingNumber: Number.isFinite(findingNumber) ? findingNumber : undefined,
+    });
+  }
   const threadVisible =
     tr instanceof HTMLElement &&
     !tr.classList.contains("is-collapsed") &&
@@ -570,6 +649,40 @@ function wireCommentVisibilityOnce() {
 /**
  * @param {HTMLElement} row
  */
+/**
+ * @param {HTMLElement} body
+ */
+function diffIsSideBySide(body) {
+  const wrap = body.closest(".cedar-diff2html");
+  return wrap?.getAttribute("data-diff-format") === "side-by-side";
+}
+
+/**
+ * @param {HTMLElement} row
+ */
+function diffRowInSidePane(row) {
+  return Boolean(row.closest(".d2h-file-side-diff"));
+}
+
+/**
+ * diff2html side-by-side: first `.d2h-file-side-diff` under `.d2h-files-diff` is the old (LEFT) file.
+ * @param {HTMLElement} row
+ * @returns {"LEFT" | "RIGHT" | null}
+ */
+export function diffRowSidePane(row) {
+  const pane = row.closest(".d2h-file-side-diff");
+  if (!(pane instanceof HTMLElement)) return null;
+  const filesDiff = pane.parentElement;
+  if (!(filesDiff instanceof HTMLElement) || !filesDiff.classList.contains("d2h-files-diff")) {
+    return null;
+  }
+  const panes = filesDiff.querySelectorAll(":scope > .d2h-file-side-diff");
+  if (panes.length < 2) return null;
+  if (panes[0] === pane) return "LEFT";
+  if (panes[1] === pane) return "RIGHT";
+  return null;
+}
+
 function diffTableColCount(row) {
   const table = row.closest("table");
   if (!(table instanceof HTMLTableElement)) {
@@ -598,30 +711,73 @@ function paintCommentsForBody(body, comments, path) {
   const byAnchor = commentsByAnchor(comments.filter((c) => c.path === path));
   if (!byAnchor.size) return;
 
+  /** @type {Set<string>} */
+  const paintedAnchors = new Set();
+
+  const sideBySide = diffIsSideBySide(body);
+  const filesHost = body.closest(".cedar-gh-files-changed");
+  const inlineCommentsOn =
+    !(filesHost instanceof HTMLElement) || commentsHostVisible(filesHost);
+
   body.querySelectorAll(".d2h-diff-tbody tr.cedar-diff-comment-row").forEach((row) => {
     if (!(row instanceof HTMLElement)) return;
-    const resolved = resolveLineFromRow(row);
-    if (!resolved) return;
-    const key = commentAnchorKey(path, resolved.line, resolved.side);
-    const items = byAnchor.get(key);
+    /** @type {ReviewComment[] | undefined} */
+    let items;
+    let anchorLine = 0;
+    let anchorSide = "RIGHT";
+    for (const [key, list] of byAnchor.entries()) {
+      const [, lineStr, side] = key.split("\0");
+      const line = Number(lineStr);
+      if (!Number.isFinite(line)) continue;
+      if (rowMatchesCommentAnchor(row, line, side)) {
+        items = list;
+        anchorLine = line;
+        anchorSide = side;
+        break;
+      }
+    }
     if (!items?.length) return;
+
+    if (sideBySide) {
+      const paneSide = diffRowSidePane(row);
+      if (anchorSide === "RIGHT" && paneSide === "LEFT") return;
+      if (anchorSide === "LEFT" && paneSide === "RIGHT") return;
+    }
+
+    const anchorKey = commentAnchorKey(path, anchorLine, anchorSide);
+    if (paintedAnchors.has(anchorKey)) return;
+    paintedAnchors.add(anchorKey);
 
     row.classList.add("cedar-diff-line-commented");
     const colCount = diffTableColCount(row);
+    const sidePane = diffRowInSidePane(row);
     const threadRow = document.createElement("tr");
     threadRow.className = "cedar-diff-comment-thread-row";
+    threadRow.dataset.anchorSide = anchorSide;
     const td = document.createElement("td");
-    td.colSpan = Math.max(colCount, 4);
+    if (sideBySide && sidePane && colCount <= 2) {
+      const pad = document.createElement("td");
+      pad.className = "cedar-diff-comment-thread-pad";
+      pad.setAttribute("aria-hidden", "true");
+      threadRow.appendChild(pad);
+      td.colSpan = 1;
+    } else {
+      td.colSpan = sideBySide ? colCount : Math.max(colCount, 4);
+    }
     td.className = "cedar-diff-comment-thread-cell";
     const cursorOnly = isCursorInlineThread(items);
-    const startCollapsed = !expandedKeys.has(key);
+    const startCollapsed = !expandedKeys.has(anchorKey) && !inlineCommentsOn;
     td.innerHTML = renderCommentThreadSlide(items, { startCollapsed });
     if (cursorOnly) threadRow.dataset.cursorThread = "1";
     threadRow.dataset.cedarCommentMarker = "1";
     threadRow.appendChild(td);
     threadRow.dataset.sourceRow = "1";
     row.insertAdjacentElement("afterend", threadRow);
-    setGutterCommentCount(row, items.length);
+    const findingNumber = items.find((c) => c.findingNumber)?.findingNumber;
+    setGutterCommentCount(row, items.length, {
+      cursorThread: cursorOnly,
+      findingNumber: typeof findingNumber === "number" ? findingNumber : undefined,
+    });
     if (startCollapsed) {
       setThreadRowExpanded(threadRow, false);
     } else {
@@ -635,7 +791,6 @@ function paintCommentsForBody(body, comments, path) {
     if (root instanceof HTMLElement) repaintAllDiffComments(root);
     window.__cedarPatchFindings?.();
   });
-  const filesHost = body.closest(".cedar-gh-files-changed");
   if (filesHost instanceof HTMLElement) {
     applyCommentsHostVisibility(filesHost);
   }
@@ -655,6 +810,81 @@ export function repaintAllDiffComments(root) {
   root.querySelectorAll(".cedar-gh-files-changed").forEach((host) => {
     if (host instanceof HTMLElement) applyCommentsHostVisibility(host);
   });
+}
+
+/**
+ * Scroll to a file/line in the diff and expand inline review threads when present.
+ * @param {ParentNode} root
+ * @param {{ path: string, line?: number, findingKey?: string }} target
+ */
+export function focusDiffFinding(root, target) {
+  const path = String(target.path ?? "").trim();
+  if (!path) return false;
+  const line = Number(target.line);
+  const findingKey = target.findingKey ? String(target.findingKey) : "";
+
+  const article = root.querySelector(
+    `[data-file-review][data-file-path="${CSS.escape(path)}"]`
+  );
+  if (!(article instanceof HTMLElement)) return false;
+
+  article.scrollIntoView({ behavior: "smooth", block: "start" });
+  const body = article.querySelector("[data-file-body]");
+  if (!(body instanceof HTMLElement)) return false;
+
+  /** @type {HTMLElement | null} */
+  let codeRow = null;
+  if (Number.isFinite(line) && line > 0) {
+    const sideBySide = diffIsSideBySide(body);
+    for (const row of body.querySelectorAll(".d2h-diff-tbody tr.cedar-diff-comment-row, .d2h-diff-tbody tr")) {
+      if (!(row instanceof HTMLElement)) continue;
+      if (!rowMatchesCommentAnchor(row, line, "RIGHT")) continue;
+      if (sideBySide && diffRowSidePane(row) === "LEFT") continue;
+      codeRow = row;
+      break;
+    }
+  }
+
+  /** @param {HTMLElement} threadRow */
+  const expandThreadAt = (threadRow) => {
+    setThreadRowExpanded(threadRow, true);
+    if (findingKey) {
+      const card = threadRow.querySelector(`[data-finding-key="${CSS.escape(findingKey)}"]`);
+      if (card instanceof HTMLElement) {
+        card.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        card.classList.add("cedar-diff-finding-card-focus");
+        window.setTimeout(() => card.classList.remove("cedar-diff-finding-card-focus"), 2400);
+      }
+    }
+  };
+
+  if (codeRow instanceof HTMLElement) {
+    codeRow.scrollIntoView({ behavior: "smooth", block: "center" });
+    codeRow.classList.add("cedar-diff-line-focus");
+    window.setTimeout(() => codeRow?.classList.remove("cedar-diff-line-focus"), 2400);
+    const threadRow = codeRow.nextElementSibling;
+    if (threadRow instanceof HTMLElement && threadRow.classList.contains("cedar-diff-comment-thread-row")) {
+      expandThreadAt(threadRow);
+    }
+    return true;
+  }
+
+  if (findingKey) {
+    const card = body.querySelector(`[data-finding-key="${CSS.escape(findingKey)}"]`);
+    const threadRow = card?.closest(".cedar-diff-comment-thread-row");
+    if (threadRow instanceof HTMLElement) {
+      const prev = threadRow.previousElementSibling;
+      if (prev instanceof HTMLElement) {
+        prev.scrollIntoView({ behavior: "smooth", block: "center" });
+        prev.classList.add("cedar-diff-line-focus");
+        window.setTimeout(() => prev.classList.remove("cedar-diff-line-focus"), 2400);
+      }
+      expandThreadAt(threadRow);
+      return true;
+    }
+  }
+
+  return true;
 }
 
 /** Global toast hook set from app.js */
@@ -726,7 +956,8 @@ function wireDiffBodyComments(body) {
       if (gutter instanceof HTMLElement) gutter.classList.add("cedar-diff-gutter");
     });
 
-  const leftGutter = primaryGutterForRow(row);
+  const resolvedLine = resolveLineFromRow(row);
+  const leftGutter = gutterForCommentAnchor(row, resolvedLine?.side === "LEFT" ? "LEFT" : "RIGHT");
   if (leftGutter instanceof HTMLElement && !leftGutter.querySelector(".cedar-diff-add-comment")) {
     const btn = document.createElement("button");
     btn.type = "button";

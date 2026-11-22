@@ -28,7 +28,7 @@ function nameFromBucketLabel(label) {
 /**
  * @param {string} path
  */
-function typeNameFromFilename(path) {
+export function typeNameFromFilename(path) {
   const base = (path?.split("/").pop() ?? path).replace(/\.[^.]+$/, "");
   if (!base) return "";
   if (/^[A-Z][\w$]*$/.test(base)) return base;
@@ -43,7 +43,7 @@ function typeNameFromFilename(path) {
  * @param {string} patch
  * @param {string} path
  */
-function classNamesFromPatch(patch, path) {
+export function classNamesFromPatch(patch, path) {
   if (!patch?.trim()) return [];
   const kind = fileFlowKind(path);
   const rules = rulesForFileFlowKind(kind, path);
@@ -139,7 +139,7 @@ function fieldStubFromLine(line) {
 /**
  * @param {string} line
  */
-function typeNameFromClassLine(line) {
+export function typeNameFromClassLine(line) {
   const t = line.trim();
   const m =
     t.match(/^(?:export\s+)?(?:public\s+|private\s+)?(?:abstract\s+)?class\s+(\w+)/) ??

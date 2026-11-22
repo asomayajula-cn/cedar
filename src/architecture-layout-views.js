@@ -10,6 +10,7 @@ import { formatPrHubLabel, mermaidFlowNodeLabel } from "./diagram-labels.js";
 import { buildPrArchitectureLayers } from "./pr-architecture-layers.js";
 import { mermaidParticipantAlias, mermaidSafeText } from "./mermaid-sanitize.js";
 import { buildClassMembersIndex } from "./architecture-source-symbols.js";
+import { buildPrSourceLayoutGraphs } from "./architecture-pr-source-graphs.js";
 import { layerAccentForTheme } from "./diagram-colors.js";
 
 const MAX_LAYERS = 16;
@@ -448,4 +449,258 @@ export function buildCompleteLayoutMarkdown(views) {
 
 function safeIdent(s) {
   return String(s).replace(/[^a-zA-Z0-9_]/g, "_") || "layer";
+}
+
+/**
+ * Cytoscape graph JSON for Architecture tab (UML / Flow / Events) — same topology as Mermaid views.
+ * @param {MicroPr[]} microPrs
+ * @param {{ components?: AiComponentDef[] }} [breakouts]
+ * @param {{ title?: string, number?: number }} [pull]
+ * @param {{ owner?: string, repo?: string }} [target]
+ * @param {Record<string, number> | Map<string, number>} [sliceNumberById]
+ */
+export function buildLayoutDiagramGraphs(microPrs, breakouts, pull, target, sliceNumberById) {
+  void breakouts;
+  void sliceNumberById;
+  return buildPrSourceLayoutGraphs(microPrs, pull, target);
+}
+
+/**
+ * @param {PrArchitectureLayer[]} layers
+ * @param {ReturnType<typeof buildClassRegistry>} registry
+ * @param {Map<string, { fields: string[], methods: string[] }>} membersByType
+ */
+function buildComponentsCyGraph(layers, registry, membersByType) {
+  if (!layers.length) {
+    return {
+      meta: { layout: "TB" },
+      overview: {
+        nodes: [{ id: "empty", label: "No changed layers", type: "slice" }],
+        edges: [],
+      },
+    };
+  }
+  /** @type {Array<{ id: string, label: string, type: string, layerId?: string }>} */
+  const nodes = [];
+  /** @type {Array<{ id: string, source: string, target: string, kind: string, label?: string }>} */
+  const edges = [];
+  const declared = new Set();
+  for (const c of registry.classes) {
+    if (declared.has(c.mermaidId)) continue;
+    declared.add(c.mermaidId);
+    const mem = resolveTypeMembers(membersByType, c.typeName);
+    let label = String(c.typeName ?? c.mermaidId);
+    const extras = [...(mem?.fields ?? []).slice(0, 3), ...(mem?.methods ?? []).slice(0, 3)];
+    if (extras.length) {
+      label += `\n${extras.map((x) => mermaidUmlMember(x)).join("\n")}`;
+    } else if (c.layer.summary && c.mermaidId === registry.layerToAnchor.get(c.layerId)) {
+      label += `\n${mermaidSafeText(c.layer.summary).slice(0, 80)}`;
+    }
+    nodes.push({ id: c.mermaidId, label, type: "class", layerId: c.layerId });
+  }
+  const deps = new Set();
+  for (const layer of layers) {
+    const from = registry.layerToAnchor.get(layer.id);
+    if (!from) continue;
+    for (const depId of layer.dependsOn) {
+      const to = registry.layerToAnchor.get(normalizeSliceId(depId));
+      if (to && from !== to) {
+        const key = `${from}->${to}`;
+        if (!deps.has(key)) {
+          deps.add(key);
+          edges.push({ id: `dep_${from}_${to}`, source: from, target: to, kind: "depends", label: "uses" });
+        }
+      }
+    }
+  }
+  return {
+    meta: { layout: layers.length <= 4 ? "LR" : "TB" },
+    overview: { nodes, edges },
+  };
+}
+
+/**
+ * @param {PrArchitectureLayer[]} layers
+ * @param {Set<string>} active
+ * @param {string} prLabel
+ */
+function buildFlowCyGraph(layers, active, prLabel) {
+  if (!layers.length) {
+    return {
+      meta: { layout: "LR" },
+      overview: { nodes: [{ id: "empty", label: "No layers in PR", type: "slice" }], edges: [] },
+    };
+  }
+  /** @type {Map<string, string>} */
+  const nodeIdByLayer = new Map();
+  /** @type {Array<{ id: string, label: string, type: string, layerId?: string }>} */
+  const nodes = [{ id: "pr", label: prLabel, type: "pr" }];
+  const edges = [];
+
+  for (const layer of layers) {
+    const key = normalizeSliceId(layer.id);
+    if (!active.has(key)) continue;
+    const nid = `flow_${safeIdent(key)}`;
+    nodeIdByLayer.set(key, nid);
+    nodes.push({
+      id: nid,
+      label: mermaidFlowNodeLabel(layer),
+      type: "layer",
+      layerId: layer.id,
+    });
+  }
+
+  const chainPresent = REQUEST_CHAIN.filter((id) => active.has(id));
+  const entryKey = chainPresent.includes("web")
+    ? "web"
+    : chainPresent.includes("api")
+      ? "api"
+      : chainPresent[0];
+  const entry = entryKey ? nodeIdByLayer.get(entryKey) : null;
+  if (entry) edges.push({ id: "e_pr_entry", source: "pr", target: entry, kind: "contains" });
+
+  for (let i = 0; i < chainPresent.length - 1; i++) {
+    const a = nodeIdByLayer.get(chainPresent[i]);
+    const b = nodeIdByLayer.get(chainPresent[i + 1]);
+    if (a && b) {
+      edges.push({ id: `chain_${a}_${b}`, source: a, target: b, kind: "contains" });
+    }
+  }
+
+  if (!chainPresent.includes("web") && chainPresent.includes("api")) {
+    nodes.push({ id: "client", label: "Client / caller", type: "ops" });
+    const api = nodeIdByLayer.get("api");
+    if (api) edges.push({ id: "client_api", source: "client", target: api, kind: "contains" });
+  }
+
+  for (const link of OPS_LINKS) {
+    if (!active.has(link.from) || !active.has(link.to)) continue;
+    const from = nodeIdByLayer.get(link.from);
+    const to = nodeIdByLayer.get(link.to);
+    if (from && to) {
+      edges.push({
+        id: `ops_${from}_${to}`,
+        source: from,
+        target: to,
+        kind: "depends",
+        label: link.label,
+      });
+    }
+  }
+
+  for (const layer of layers) {
+    const from = nodeIdByLayer.get(normalizeSliceId(layer.id));
+    if (!from) continue;
+    for (const dep of layer.dependsOn) {
+      const to = nodeIdByLayer.get(normalizeSliceId(dep));
+      if (to && to !== from) {
+        edges.push({ id: `dep_${from}_${to}`, source: from, target: to, kind: "depends" });
+      }
+    }
+  }
+
+  return { meta: { layout: "LR" }, overview: { nodes, edges } };
+}
+
+/**
+ * @param {PrArchitectureLayer[]} layers
+ * @param {Set<string>} active
+ * @param {ReturnType<typeof buildClassRegistry>} registry
+ */
+function buildEventsCyGraph(layers, active, registry) {
+  if (!registry.classes.length) {
+    return {
+      meta: { layout: "LR" },
+      overview: {
+        nodes: [{ id: "empty", label: "No slices in PR", type: "slice" }],
+        edges: [],
+      },
+    };
+  }
+
+  const anchor = (layerId) => registry.layerToAnchor.get(layerId);
+  const webAnchor = anchor("web");
+  /** @type {Map<string, string>} */
+  const participantLabel = new Map();
+  /** @type {Array<{ id: string, label: string, type: string, layerId?: string }>} */
+  const nodes = [];
+  const edges = [];
+
+  if (!webAnchor || !active.has("web")) {
+    nodes.push({ id: "Client", label: "Client", type: "actor" });
+    participantLabel.set("Client", "Client");
+  }
+
+  const seen = new Set();
+  for (const c of registry.classes) {
+    if (seen.has(c.mermaidId)) continue;
+    seen.add(c.mermaidId);
+    const label = mermaidParticipantAlias(c.typeName);
+    nodes.push({ id: c.mermaidId, label, type: "class", layerId: c.layerId });
+    participantLabel.set(c.mermaidId, label);
+  }
+
+  const msgDone = new Set();
+  const emit = (from, to, text, dashed = false) => {
+    if (!from || !to || from === to) return;
+    const key = `${from}:${to}:${text}:${dashed}`;
+    if (msgDone.has(key)) return;
+    msgDone.add(key);
+    edges.push({
+      id: `msg_${from}_${to}_${msgDone.size}`,
+      source: from,
+      target: to,
+      kind: dashed ? "depends" : "contains",
+      label: mermaidSafeText(text),
+    });
+  };
+
+  const chainPairs = new Set();
+  const chainPresent = REQUEST_CHAIN.filter((id) => active.has(id) && anchor(id));
+  if (chainPresent.length) {
+    let prevKey = active.has("web") && webAnchor ? "web" : "client";
+    let prevId = prevKey === "client" ? "Client" : webAnchor;
+    for (const lid of chainPresent) {
+      const toId = anchor(lid);
+      if (!toId || !prevId) continue;
+      emit(prevId, toId, requestChainMessage({ from: prevKey, to: lid }));
+      chainPairs.add(`${prevId}->${toId}`);
+      prevKey = lid;
+      prevId = toId;
+    }
+  }
+
+  if (anchor("domain") && anchor("application")) {
+    emit(anchor("domain"), anchor("application"), "domain result", true);
+  }
+  if (anchor("repository") && anchor("application")) {
+    emit(anchor("repository"), anchor("application"), "stored", true);
+  } else if (anchor("repository") && anchor("domain")) {
+    emit(anchor("repository"), anchor("domain"), "stored", true);
+  }
+  if (anchor("infrastructure") && anchor("application")) {
+    emit(anchor("infrastructure"), anchor("application"), "adapter callback", true);
+  }
+
+  for (const layer of layers) {
+    const from = anchor(layer.id);
+    if (!from) continue;
+    for (const dep of layer.dependsOn) {
+      const to = anchor(normalizeSliceId(dep));
+      if (chainPairs.has(`${from}->${to}`)) continue;
+      emit(from, to, "uses");
+    }
+  }
+
+  for (const link of OPS_LINKS) {
+    if (!active.has(link.from) || !active.has(link.to)) continue;
+    emit(anchor(link.from), anchor(link.to), link.label, true);
+  }
+
+  if (nodes.length < 2 && registry.classes[0]) {
+    const first = registry.classes[0];
+    emit(active.has("web") && webAnchor ? webAnchor : "Client", first.mermaidId, `touch ${first.typeName}`);
+  }
+
+  return { meta: { layout: "LR" }, overview: { nodes, edges } };
 }

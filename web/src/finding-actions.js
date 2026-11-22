@@ -154,15 +154,36 @@ export function wireFindingActions(root, refreshUi) {
     btn.addEventListener("click", (ev) => {
       ev.stopPropagation();
       const path = btn.getAttribute("data-filename");
-      const panel = btn.closest("[data-slice-panel]");
-      if (!path || !(panel instanceof HTMLElement)) return;
+      if (!path) return;
+      const componentId = btn.getAttribute("data-component-id") ?? "";
+      const findingKeyAttr = btn.getAttribute("data-finding-key") ?? "";
       const lineAttr = btn.getAttribute("data-finding-line");
-      const line = lineAttr ? Number.parseInt(lineAttr, 10) : 0;
-      const article = panel.querySelector(`[data-file-review][data-file-path="${CSS.escape(path)}"]`);
-      article?.scrollIntoView({ behavior: "smooth", block: "start" });
-      if (article && Number.isFinite(line) && line > 0) {
-        const row = article.querySelector(`[data-line-number="${line}"], .d2h-code-linenumber`);
-        row?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+      const lineParsed = lineAttr ? Number.parseInt(lineAttr, 10) : NaN;
+      const line = Number.isFinite(lineParsed) && lineParsed > 0 ? lineParsed : undefined;
+
+      const results = document.getElementById("results");
+      let panel = btn.closest("[data-slice-panel]");
+      const needsActivate = Boolean(
+        componentId && (!(panel instanceof HTMLElement) || panel.getAttribute("data-slice-panel") !== componentId)
+      );
+      if (needsActivate) {
+        window.__cedarActivateSlice?.(componentId);
+        panel =
+          results?.querySelector(`[data-slice-panel="${CSS.escape(componentId)}"]`) ??
+          results?.querySelector(".cedar-slice-panel.is-active-slice");
+      }
+      const searchRoot = panel instanceof HTMLElement ? panel : results;
+      if (!(searchRoot instanceof HTMLElement)) return;
+
+      const runFocus = () => {
+        void import("./diff-comments.js").then(({ focusDiffFinding }) => {
+          focusDiffFinding(searchRoot, { path, line, findingKey: findingKeyAttr });
+        });
+      };
+      if (needsActivate) {
+        requestAnimationFrame(() => requestAnimationFrame(runFocus));
+      } else {
+        runFocus();
       }
     });
   });

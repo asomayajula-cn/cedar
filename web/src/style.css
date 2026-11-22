@@ -578,10 +578,64 @@
     min-height: 22rem;
   }
 
-  .diagram-overview-read {
+  /* Architecture tab — one viewport frame for Overview · slices + UML / Flow / Events */
+  .diagram-overview-read.diagram-stage-canvas,
+  #cedar-cy-slices.diagram-overview-read,
+  #cedar-review-panel-architecture [data-architecture-diagram-stage] {
     min-height: min(40rem, 72vh);
     max-height: min(94vh, 1400px);
     height: min(56rem, 80vh);
+  }
+
+  #cedar-review-panel-architecture [data-architecture-diagram-card] {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-width: 0;
+  }
+
+  #cedar-review-panel-architecture [data-architecture-diagram-stage] {
+    position: relative;
+    display: block;
+    flex: 0 0 auto;
+    width: 100%;
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+
+  #cedar-review-panel-architecture [data-architecture-diagram-stage].diagram-stage-panzoom {
+    cursor: grab;
+    overscroll-behavior: none;
+    @apply p-2 sm:p-2.5;
+  }
+
+  #cedar-review-panel-architecture [data-architecture-diagram-stage].diagram-stage-panzoom:active {
+    cursor: grabbing;
+  }
+
+  #cedar-review-panel-architecture .cedar-architecture-diagram-embed,
+  #cedar-review-panel-architecture .diagram-stage-panzoom .cedar-mermaid-source,
+  #cedar-review-panel-architecture .diagram-stage-panzoom .mermaid-rendered {
+    width: 100% !important;
+    height: 100% !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    max-width: none !important;
+    max-height: none !important;
+    margin: 0 !important;
+  }
+
+  #cedar-review-panel-architecture .diagram-stage-panzoom .cedar-architecture-diagram-embed svg,
+  #cedar-review-panel-architecture .diagram-stage-panzoom .mermaid-rendered svg,
+  #cedar-review-panel-architecture .diagram-stage-panzoom .cedar-mermaid-source svg {
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    max-width: none !important;
+  }
+
+  #cedar-review-panel-architecture .cedar-architecture-diagram-stack {
+    @apply flex w-full min-w-0 max-w-none flex-col gap-6;
   }
 
   #architecture-read-overview .architecture-read-mermaid-head,
@@ -626,7 +680,8 @@
     @apply p-2 sm:p-2.5;
   }
 
-  #architecture-read-overview .cedar-cy-host.diagram-overview-read {
+  #architecture-read-overview .cedar-cy-host.diagram-overview-read,
+  #architecture-read-mermaid .cedar-cy-host.diagram-overview-read.diagram-stage-canvas {
     @apply p-1 sm:p-1.5;
   }
 
@@ -651,8 +706,19 @@
     opacity: 1 !important;
   }
 
+  .cedar-complete-layout-views .diagram-stage-panzoom .cedar-mermaid-source svg,
+  .cedar-complete-layout-views .diagram-stage-panzoom .mermaid-rendered svg,
+  .cedar-pr-chat-diagram-wrap .diagram-stage-panzoom .cedar-mermaid-source svg,
+  .cedar-pr-chat-diagram-wrap .diagram-stage-panzoom .mermaid-rendered svg,
+  .cedar-code-map-svg-host .cedar-mermaid-source svg {
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+  }
+
   .cedar-complete-layout-views .cedar-layout-view .diagram-overview-read.diagram-stage-canvas.diagram-stage-panzoom,
-  #architecture-read-overview .cedar-cy-host.diagram-overview-read {
+  #architecture-read-overview .cedar-cy-host.diagram-overview-read,
+  #architecture-read-mermaid .cedar-cy-host.diagram-overview-read.diagram-stage-panzoom {
     overflow: hidden;
     overscroll-behavior: none;
     cursor: grab;
@@ -720,9 +786,9 @@
   }
 
   .cedar-complete-layout-views .diagram-stage-sequence {
-    min-height: min(82vh, 960px);
-    height: min(88vh, 1100px);
-    max-height: min(96vh, 1500px);
+    min-height: min(40rem, 72vh);
+    height: min(56rem, 80vh);
+    max-height: min(94vh, 1400px);
   }
 
   .cedar-complete-layout-views .diagram-stage-sequence .mermaid-rendered svg,
@@ -1091,8 +1157,8 @@
 
   .cedar-complete-layout-views .diagram-complete-layout.diagram-stage-canvas,
   .cedar-complete-layout-views .cedar-layout-view .diagram-overview-read.diagram-stage-canvas {
-    min-height: min(44rem, 74vh);
-    height: min(58rem, 82vh);
+    min-height: min(40rem, 72vh);
+    height: min(56rem, 80vh);
     max-height: min(94vh, 1400px);
   }
 
@@ -2694,6 +2760,42 @@
     padding-top: 0.15rem;
   }
 
+  #main-stage.cedar-review-wide .cedar-findings-drawer-slice-group + .cedar-findings-drawer-slice-group {
+    margin-top: 1.1rem;
+    padding-top: 0.85rem;
+    border-top: 1px solid var(--cedar-review-border);
+  }
+
+  #main-stage.cedar-review-wide .cedar-findings-drawer-slice-title {
+    margin: 0 0 0.5rem;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--cedar-review-muted, rgb(161 161 170));
+  }
+
+  .cedar-diff-line-focus td.d2h-code-linenumber,
+  .cedar-diff-line-focus td.d2h-code-line {
+    box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--cedar-accent, rgb(59 130 246)) 65%, transparent);
+    animation: cedar-diff-line-focus-pulse 2.2s ease-out 1;
+  }
+
+  .cedar-diff-finding-card-focus.cedar-review-comment-card,
+  .cedar-diff-finding-card-focus .cedar-diff-comment-card {
+    outline: 2px solid color-mix(in srgb, var(--cedar-accent, rgb(59 130 246)) 55%, transparent);
+    outline-offset: 2px;
+  }
+
+  @keyframes cedar-diff-line-focus-pulse {
+    0% {
+      box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--cedar-accent, rgb(59 130 246)) 90%, transparent);
+    }
+    100% {
+      box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--cedar-accent, rgb(59 130 246)) 35%, transparent);
+    }
+  }
+
   #main-stage.cedar-review-wide .cedar-review-left-drawer {
     display: flex;
     flex-direction: column;
@@ -3329,7 +3431,11 @@
   }
 
   .cedar-slice-findings-panel .cedar-findings-list .cedar-review-comment-body,
-  .cedar-slice-findings-panel .cedar-findings-list .cedar-comment-html {
+  .cedar-slice-findings-panel .cedar-findings-list .cedar-comment-html,
+  .cedar-findings-list .cedar-review-comment-body.cedar-comment-html,
+  .cedar-findings-list .cedar-review-comment-lead,
+  .cedar-findings-list .cedar-suggested-change-body,
+  .cedar-findings-list .cedar-comment-html :is(p, li, blockquote, dd, dt) {
     font-size: var(--cedar-review-prose);
     line-height: var(--cedar-review-prose-leading);
   }
@@ -6215,7 +6321,6 @@
   .cedar-review-stage .cedar-review-comment-body {
     font-size: var(--cedar-review-prose);
     line-height: var(--cedar-review-prose-leading);
-    @apply text-zinc-300;
   }
 
   .cedar-review-stage .cedar-review-comment-body.cedar-comment-html {
@@ -6225,16 +6330,6 @@
   .cedar-review-stage .cedar-comment-html {
     font-size: inherit;
     line-height: inherit;
-    color: inherit;
-  }
-
-  .cedar-review-stage .cedar-comment-html p,
-  .cedar-review-stage .cedar-comment-html li {
-    @apply text-zinc-300;
-  }
-
-  .cedar-review-stage .cedar-comment-html strong {
-    @apply font-medium text-zinc-200;
   }
 
   .cedar-slice-rationale-summary {
@@ -6802,6 +6897,7 @@
     min-height: 1.1rem;
     align-items: center;
     justify-content: center;
+    gap: 0.15rem;
     border: 0;
     border-radius: 9999px;
     padding: 0 0.25rem;
@@ -6827,6 +6923,54 @@
 
   .cedar-diff-line-commented.cedar-diff-gutter-count-visible .cedar-diff-comment-gutter-count {
     display: inline-flex;
+  }
+
+  .cedar-diff-comment-gutter-count--cursor {
+    border-radius: 6px;
+    min-width: 1.35rem;
+    padding: 0.1rem 0.2rem;
+  }
+
+  .cedar-diff-comment-gutter-count--cursor .cedar-comment-marker-chip--gutter {
+    margin: 0;
+    border-width: 3px 0 3px 4.5px;
+    filter: drop-shadow(0 0 1px rgb(0 0 0 / 0.35));
+  }
+
+  .cedar-diff-comment-gutter-num {
+    font-size: 0.58rem;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+
+  .cedar-diff2html[data-diff-format="side-by-side"] .cedar-diff-line-commented.cedar-diff-gutter-count-visible .cedar-diff-gutter {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.12rem;
+    min-width: 0;
+  }
+
+  .cedar-diff2html[data-diff-format="side-by-side"]
+    .d2h-files-diff
+    > .d2h-file-side-diff:nth-child(2)
+    tr.cedar-diff-comment-thread-row
+    .cedar-diff-comment-thread-cell {
+    vertical-align: top;
+  }
+
+  .cedar-diff2html[data-diff-format="side-by-side"] tr.cedar-diff-comment-thread-row .cedar-diff-comment-thread-pad {
+    width: 4.25em;
+    min-width: 4.25em;
+    max-width: 4.25em;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  .cedar-diff2html[data-diff-format="side-by-side"] td.d2h-code-side-linenumber.cedar-diff-gutter .cedar-diff-comment-gutter-count {
+    margin-top: 0.05rem;
   }
 
   .cedar-diff-line-commented.cedar-diff-gutter-count-visible .cedar-diff-gutter {
@@ -6857,17 +7001,8 @@
     font-size: var(--cedar-review-meta, 0.625rem);
     font-weight: 600;
     line-height: 1.35;
-    color: rgb(var(--cedar-comment-cursor-accent-muted));
-    border-color: rgb(255 255 255 / 0.1);
-    background: rgb(var(--cedar-comment-surface-elevated) / 0.65);
     cursor: pointer;
     transition: background-color 0.12s, border-color 0.12s, color 0.12s;
-  }
-
-  .cedar-diff-comment-thread-toggle:hover {
-    color: rgb(228 228 231);
-    background: rgb(var(--cedar-comment-surface-elevated) / 0.92);
-    border-color: rgb(var(--cedar-comment-cursor-accent) / 0.35);
   }
 
   .cedar-diff-comment-thread-toggle-count {
@@ -6879,8 +7014,6 @@
     font-size: var(--cedar-review-caption, 0.625rem);
     font-weight: 700;
     line-height: 1.2;
-    color: rgb(250 250 250);
-    background: rgb(var(--cedar-comment-cursor-accent) / 0.88);
   }
 
   /* Collapsed: remove the extra table row so code lines stay contiguous */
@@ -6913,15 +7046,10 @@
     max-width: none;
     margin: 0;
     padding: 0.45rem 0.55rem 0.55rem;
-    border: 1px solid rgb(255 255 255 / 0.08);
     border-radius: 8px;
     font-family: var(--font-sans);
     font-size: var(--cedar-review-prose, 0.75rem);
     line-height: var(--cedar-review-prose-leading, 1.625);
-    background: rgb(var(--cedar-comment-surface) / 0.88);
-    box-shadow:
-      inset 3px 0 0 rgb(var(--cedar-comment-cursor-accent) / 0.55),
-      0 10px 28px -18px rgb(0 0 0 / 0.65);
   }
 
   .cedar-review-progress-dock {
@@ -7135,24 +7263,8 @@
   }
 
   .cedar-diff-comment-card {
-    border: 1px solid rgb(255 255 255 / 0.07);
     border-radius: 7px;
     padding: 0.55rem 0.65rem;
-    background: rgb(var(--cedar-comment-surface-elevated) / 0.55);
-    box-shadow: inset 3px 0 0 rgb(var(--cedar-comment-github-accent) / 0.45);
-  }
-
-  .cedar-diff-comment-card--cursor {
-    background: rgb(var(--cedar-comment-surface-elevated) / 0.42);
-    box-shadow: inset 3px 0 0 rgb(var(--cedar-comment-cursor-accent) / 0.7);
-  }
-
-  .cedar-diff-comment-card--cursor-macro {
-    box-shadow: inset 3px 0 0 rgb(var(--cedar-comment-cursor-accent-muted) / 0.85);
-  }
-
-  .cedar-diff-comment-card--cursor .cedar-badge-ok {
-    @apply border-zinc-500/35 bg-zinc-800/80 text-zinc-200;
   }
 
   .cedar-diff-comment-card--cursor .cedar-diff-comment-card-head {
@@ -7164,7 +7276,8 @@
   .cedar-diff-comment-card + .cedar-diff-comment-card {
     margin-top: 0.55rem;
     padding-top: 0.55rem;
-    border-top: 1px solid rgb(255 255 255 / 0.06);
+    border-top-width: 1px;
+    border-top-style: solid;
   }
 
   .cedar-diff-comment-card-head {
@@ -7180,15 +7293,6 @@
 
   .cedar-diff-comment-card-user {
     font-weight: 600;
-    color: rgb(212 212 216);
-  }
-
-  .cedar-diff-comment-card--cursor .cedar-diff-comment-card-user {
-    color: rgb(var(--cedar-comment-cursor-accent-muted));
-  }
-
-  .cedar-diff-comment-card-time {
-    color: #8b949e;
   }
 
   .cedar-diff-comment-card-head .cedar-diff-comment-dismiss {
@@ -7216,7 +7320,6 @@
     margin-left: auto;
     font-size: inherit;
     font-weight: 500;
-    color: #58a6ff;
     text-decoration: none;
   }
 
@@ -7229,23 +7332,21 @@
     font-family: var(--font-sans);
     font-size: var(--cedar-review-prose, 0.75rem);
     line-height: var(--cedar-review-prose-leading, 1.625);
-    color: rgb(212 212 216);
     word-break: break-word;
   }
 
   .cedar-diff-comment-card-body.cedar-comment-html {
     font-size: var(--cedar-review-prose, 0.75rem);
     line-height: var(--cedar-review-prose-leading, 1.625);
-    color: inherit;
   }
 
   .cedar-diff-comment-thread .cedar-review-comment-lead,
   .cedar-diff-comment-thread .cedar-review-comment-lead.cedar-comment-html,
   .cedar-diff-comment-thread .cedar-suggested-change-body,
-  .cedar-diff-comment-thread .cedar-suggested-change-body.cedar-comment-html {
+  .cedar-diff-comment-thread .cedar-suggested-change-body.cedar-comment-html,
+  .cedar-diff-comment-thread .cedar-comment-html :is(p, li, blockquote) {
     font-size: inherit;
     line-height: inherit;
-    color: inherit;
   }
 
   .cedar-review-comment-lead,
@@ -7259,10 +7360,8 @@
   .cedar-suggested-change {
     margin-top: 0.5rem;
     padding: 0.5rem 0.6rem;
-    border: 1px solid rgb(255 255 255 / 0.07);
     border-radius: 6px;
-    background: rgb(0 0 0 / 0.28);
-    box-shadow: inset 2px 0 0 rgb(var(--cedar-comment-cursor-accent) / 0.5);
+    /* colors: theme-comments-night.css / theme-comments-day.css */
   }
 
   .cedar-suggested-change-label {
@@ -7272,16 +7371,6 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.12em;
-    color: rgb(161 161 170);
-  }
-
-  .cedar-arch-findings .cedar-suggested-change {
-    box-shadow: inset 2px 0 0 rgb(var(--cedar-comment-arch-accent) / 0.45);
-    background: rgb(0 0 0 / 0.24);
-  }
-
-  .cedar-arch-findings .cedar-suggested-change-label {
-    color: rgb(161 161 170);
   }
 
   .cedar-diff-comment-card-body:not(.cedar-comment-html) {
@@ -7386,14 +7475,6 @@
     @apply w-full max-w-none rounded-xl;
   }
 
-  .cedar-findings-list .cedar-review-comment-card {
-    border: 1px solid rgb(255 255 255 / 0.08);
-    background: linear-gradient(180deg, rgb(255 255 255 / 0.035) 0%, rgb(0 0 0 / 0.22) 100%);
-    box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.04),
-      0 12px 32px -24px rgb(0 0 0 / 0.55);
-  }
-
   .cedar-slice-findings-panel .cedar-findings-list {
     @apply space-y-2.5;
   }
@@ -7438,29 +7519,10 @@
     line-height: 1.35;
     border-radius: 6px;
     padding: 0.32rem 0.42rem;
-    border: 1px solid transparent;
-    background: rgb(255 255 255 / 0.02);
     transition:
       border-color 0.15s,
       background-color 0.15s;
-  }
-
-  .cedar-review-comment-details[open] > summary {
-    border-color: rgb(255 255 255 / 0.08);
-    background: rgb(255 255 255 / 0.035);
-  }
-
-  .cedar-arch-findings-card .cedar-review-comment-details > summary {
-    border-color: rgb(255 255 255 / 0.06);
-    background: rgb(255 255 255 / 0.02);
-  }
-
-  .cedar-findings-list .cedar-review-comment-card .cedar-badge-ok {
-    @apply border-zinc-500/35 bg-zinc-800/70 text-zinc-200;
-  }
-
-  .cedar-arch-findings-card .cedar-badge-ok {
-    @apply border-zinc-500/35 bg-zinc-800/70 text-zinc-200;
+    /* colors: theme-comments-night.css / theme-comments-day.css */
   }
 
   .cedar-review-comment-details > summary::-webkit-details-marker {
@@ -7478,7 +7540,6 @@
   .cedar-review-comment-summary-label {
     font-size: var(--cedar-review-meta);
     font-weight: 500;
-    color: rgb(161 161 170);
   }
 
   .cedar-review-comment-details .cedar-review-comment-body {
@@ -7516,21 +7577,20 @@
   .cedar-macro-review .cedar-review-comment-body {
     font-size: var(--cedar-review-prose, 0.75rem);
     line-height: var(--cedar-review-prose-leading, 1.625);
-    @apply text-zinc-300;
   }
 
   .cedar-review-layout .cedar-comment-html code {
     font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, Liberation Mono, monospace;
     font-size: var(--cedar-review-meta);
     line-height: 1.35;
-    @apply rounded bg-white/5 px-0.5 text-zinc-300;
+    @apply rounded px-0.5;
   }
 
   .cedar-review-layout .cedar-comment-html pre {
     font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, Liberation Mono, monospace;
     font-size: var(--cedar-review-meta);
     line-height: 1.45;
-    @apply overflow-x-auto rounded-md border border-white/10 bg-black/40 p-2 text-zinc-300;
+    @apply overflow-x-auto rounded-md p-2;
   }
 
   .cedar-comment-html :is(p, ul, ol, pre, blockquote):first-child {
@@ -7552,19 +7612,19 @@
   }
 
   .cedar-comment-html code {
-    @apply rounded bg-white/5 px-0.5 font-mono text-zinc-300;
+    @apply rounded px-0.5 font-mono;
     font-size: var(--cedar-review-meta, 0.625rem);
     line-height: 1.35;
   }
 
   .cedar-comment-html pre {
-    @apply overflow-x-auto rounded-md border border-white/10 bg-black/40 p-2 font-mono text-zinc-300;
+    @apply overflow-x-auto rounded-md p-2 font-mono;
     font-size: var(--cedar-review-meta, 0.625rem);
     line-height: 1.45;
   }
 
   .cedar-comment-html a {
-    @apply text-sky-400/90 underline-offset-2 hover:text-sky-300;
+    @apply underline-offset-2;
   }
 
   .cedar-macro-dismissed > summary {
@@ -7625,7 +7685,9 @@
   .cedar-arch-findings .cedar-review-comment-body,
   .cedar-arch-findings .cedar-comment-html,
   .cedar-arch-findings .cedar-comment-html p,
-  .cedar-arch-findings .cedar-comment-html li {
+  .cedar-arch-findings .cedar-comment-html li,
+  .cedar-arch-findings .cedar-review-comment-lead,
+  .cedar-arch-findings .cedar-suggested-change-body {
     font-size: var(--cedar-review-prose, 0.75rem);
     line-height: var(--cedar-review-prose-leading, 1.625);
   }
@@ -7636,16 +7698,6 @@
     font-size: var(--cedar-review-meta, 0.625rem);
   }
 
-  .cedar-arch-findings .cedar-comment-html a {
-    @apply text-sky-400/90 hover:text-sky-300;
-  }
-
-  .cedar-arch-findings-card {
-    border: 1px solid rgb(255 255 255 / 0.08);
-    background: rgb(var(--cedar-comment-surface-elevated) / 0.4);
-    box-shadow: inset 3px 0 0 rgb(var(--cedar-comment-arch-accent) / 0.4);
-  }
-
   .cedar-macro-review > .flex > div > p {
     @apply text-xs leading-relaxed text-zinc-500;
   }
@@ -7653,11 +7705,10 @@
   .cedar-review-comment-body {
     font-size: var(--cedar-review-prose, 0.75rem);
     line-height: var(--cedar-review-prose-leading, 1.625);
-    @apply text-zinc-300;
   }
 
   .cedar-review-comment-body:not(.cedar-comment-html) {
-    @apply whitespace-pre-wrap text-zinc-200;
+    white-space: pre-wrap;
   }
 
   .cedar-file-review-group-label {

@@ -657,10 +657,6 @@ html[data-theme="day"] .cedar-btn-link {
   @apply text-blue-700 hover:text-blue-900;
 }
 
-html[data-theme="day"] .cedar-shell .cedar-comment-html a {
-  @apply text-blue-700 hover:text-blue-900;
-}
-
 html[data-theme="day"] .cedar-spinner {
   @apply border-zinc-300 border-t-zinc-800;
 }
@@ -1347,16 +1343,7 @@ html[data-theme="day"] .cedar-col-splitter:focus-visible {
   @apply ring-zinc-400 ring-offset-zinc-100;
 }
 
-/* Findings & comment prose */
-html[data-theme="day"] .cedar-review-stage .cedar-review-comment-body,
-html[data-theme="day"] .cedar-review-stage .cedar-comment-html p,
-html[data-theme="day"] .cedar-review-stage .cedar-comment-html li {
-  @apply text-zinc-800;
-}
-
-html[data-theme="day"] .cedar-review-stage .cedar-comment-html strong {
-  @apply text-zinc-900;
-}
+/* Findings & comment prose — see --cedar-comment-prose* on .cedar-review-layout below */
 
 html[data-theme="day"] .cedar-review-muted-prose {
   @apply text-zinc-600;
@@ -1366,20 +1353,10 @@ html[data-theme="day"] .cedar-findings-panel-summary {
   @apply text-zinc-600 hover:text-zinc-900;
 }
 
-html[data-theme="day"] .cedar-macro-review .cedar-review-comment-body {
-  @apply text-zinc-800;
-}
-
 html[data-theme="day"] .cedar-arch-findings {
   border-color: rgb(191 219 254);
   border-left-color: rgb(37 99 235 / 0.65);
   background: linear-gradient(105deg, rgb(59 130 246 / 0.1) 0%, rgb(255 255 255 / 0.92) 48%, rgb(250 250 250) 100%);
-}
-
-html[data-theme="day"] .cedar-arch-findings .cedar-review-comment-body,
-html[data-theme="day"] .cedar-arch-findings .cedar-comment-html p,
-html[data-theme="day"] .cedar-arch-findings .cedar-comment-html li {
-  @apply text-zinc-800;
 }
 
 html[data-theme="day"] .cedar-arch-findings-card {
@@ -1405,10 +1382,6 @@ html[data-theme="day"] .cedar-arch-findings .cedar-label {
 
 html[data-theme="day"] .cedar-arch-findings-card .cedar-badge-ok {
   @apply border-blue-300 bg-blue-100 text-blue-800;
-}
-
-html[data-theme="day"] .cedar-arch-findings .cedar-comment-html a {
-  @apply text-blue-700 hover:text-blue-900;
 }
 
 html[data-theme="day"] .cedar-slice-panel-title {
@@ -1477,15 +1450,6 @@ html[data-theme="day"] .cedar-finding-tag-github {
 
 html[data-theme="day"] .severity-info {
   @apply border-zinc-400 bg-zinc-100 text-zinc-700;
-}
-
-html[data-theme="day"] .cedar-review-comment-body:not(.cedar-comment-html),
-html[data-theme="day"] .cedar-review-comment-card.is-ignored .cedar-review-comment-body {
-  @apply text-zinc-600 decoration-zinc-400;
-}
-
-html[data-theme="day"] .cedar-comment-html code {
-  @apply bg-zinc-200 text-zinc-900;
 }
 
 /* Architecture / diagrams */
@@ -1816,181 +1780,11 @@ html[data-theme="day"] .cedar-gh-file-toggle {
   @apply text-zinc-700 hover:border-zinc-300 hover:bg-zinc-100;
 }
 
-/* Inline diff review comments */
-html[data-theme="day"] .cedar-review-layout,
-html[data-theme="day"] .cedar-review-stage {
-  --cedar-comment-cursor-accent: 9 105 218;
-  --cedar-comment-cursor-accent-muted: 37 99 235;
-  --cedar-comment-github-accent: 37 99 235;
-  --cedar-comment-arch-accent: 124 58 237;
-  --cedar-comment-surface: 250 250 250;
-  --cedar-comment-surface-elevated: 255 255 255;
-}
-
-html[data-theme="day"] .cedar-diff-comment-thread {
-  border-color: rgb(228 228 231);
-  background: rgb(var(--cedar-comment-surface) / 1);
-  box-shadow:
-    inset 3px 0 0 rgb(var(--cedar-comment-cursor-accent) / 0.45),
-    0 8px 20px -16px rgb(0 0 0 / 0.12);
-}
-
-html[data-theme="day"] .cedar-diff-comment-thread-toggle {
-  color: rgb(63 63 70);
-  border-color: rgb(228 228 231);
-  background: rgb(244 244 245);
-}
-
-html[data-theme="day"] .cedar-diff-comment-thread-toggle:hover {
-  color: rgb(24 24 27);
-  background: rgb(250 250 250);
-  border-color: rgb(var(--cedar-comment-cursor-accent) / 0.28);
-}
-
-html[data-theme="day"] .cedar-diff-comment-thread-toggle-count {
-  color: #fff;
-  background: rgb(var(--cedar-comment-cursor-accent) / 0.88);
-}
-
-html[data-theme="day"] .cedar-diff-comment-card {
-  border-color: rgb(228 228 231);
-  background: rgb(var(--cedar-comment-surface-elevated) / 1);
-  box-shadow: inset 3px 0 0 rgb(var(--cedar-comment-github-accent) / 0.45);
-}
-
-html[data-theme="day"] .cedar-diff-comment-card--cursor,
-html[data-theme="day"] .cedar-diff-comment-card--cursor-macro {
-  background: rgb(244 244 245);
-  box-shadow: inset 3px 0 0 rgb(var(--cedar-comment-cursor-accent) / 0.55);
-}
-
-html[data-theme="day"] .cedar-diff-comment-card--cursor .cedar-badge-ok {
-  @apply border-zinc-300 bg-zinc-200 text-zinc-800;
-}
-
-html[data-theme="day"] .cedar-diff-comment-card-body,
-html[data-theme="day"] .cedar-diff-comment-card-body.cedar-comment-html,
-html[data-theme="day"] .cedar-diff-comment-thread .cedar-comment-html,
-html[data-theme="day"] .cedar-diff-comment-thread .cedar-comment-html p,
-html[data-theme="day"] .cedar-diff-comment-thread .cedar-comment-html li,
-html[data-theme="day"] .cedar-diff-comment-thread .cedar-review-comment-lead,
-html[data-theme="day"] .cedar-diff-comment-thread .cedar-suggested-change-body {
-  @apply text-zinc-800;
-}
-
-html[data-theme="day"] .cedar-diff-comment-thread .cedar-comment-html strong {
-  @apply text-zinc-900;
-}
-
-html[data-theme="day"] .cedar-diff-comment-thread .cedar-comment-html pre {
-  @apply border-zinc-200 bg-zinc-100 text-zinc-900;
-}
-
-html[data-theme="day"] .cedar-diff-comment-thread .cedar-comment-html a {
-  @apply text-blue-700 hover:text-blue-900;
-}
-
-html[data-theme="day"] .cedar-diff-comment-card-user {
-  color: rgb(63 63 70);
-}
-
-html[data-theme="day"] .cedar-diff-comment-card--cursor .cedar-diff-comment-card-user {
-  color: rgb(var(--cedar-comment-cursor-accent-muted));
-}
-
-html[data-theme="day"] .cedar-diff-comment-card-time {
-  color: #57606a;
-}
-
-html[data-theme="day"] .cedar-diff-comment-thread-link {
-  color: rgb(9 105 218);
-}
-
-html[data-theme="day"] .cedar-diff-comment-card + .cedar-diff-comment-card {
-  border-top-color: rgb(208 215 222);
-}
-
-html[data-theme="day"] .cedar-suggested-change {
-  border-color: rgb(228 228 231);
-  background: rgb(244 244 245);
-  box-shadow: inset 2px 0 0 rgb(var(--cedar-comment-cursor-accent) / 0.4);
-}
-
-html[data-theme="day"] .cedar-suggested-change-label {
-  color: rgb(82 82 91);
-}
-
-html[data-theme="day"] .cedar-arch-findings .cedar-suggested-change {
-  border-color: rgb(228 228 231);
-  background: rgb(244 244 245);
-  box-shadow: inset 2px 0 0 rgb(var(--cedar-comment-arch-accent) / 0.35);
-}
-
-html[data-theme="day"] .cedar-arch-findings .cedar-suggested-change-label {
-  color: rgb(82 82 91);
-}
-
-html[data-theme="day"] .cedar-findings-list .cedar-review-comment-card {
-  border-color: var(--cedar-day-border);
-  background: var(--cedar-day-surface);
-  box-shadow: var(--cedar-day-shadow-sm);
-}
-
-html[data-theme="day"] .cedar-findings-list .cedar-review-comment-card .cedar-badge-ok {
-  @apply border-zinc-300 bg-zinc-200 text-zinc-800;
-}
-
-html[data-theme="day"] .cedar-arch-findings-card .cedar-badge-ok {
-  @apply border-zinc-300 bg-zinc-200 text-zinc-800;
-}
-
-html[data-theme="day"] .cedar-review-comment-details > summary {
-  background: rgb(250 250 250);
-  border-color: transparent;
-}
-
-html[data-theme="day"] .cedar-review-comment-details[open] > summary {
-  border-color: rgb(228 228 231);
-  background: rgb(255 255 255);
-}
-
+/* Review comment chrome — theme-comments-day.css */
 html[data-theme="day"] .cedar-arch-findings {
   border-color: rgb(228 228 231);
   border-left-color: rgb(var(--cedar-comment-arch-accent) / 0.45);
   background: rgb(248 250 252);
-}
-
-html[data-theme="day"] .cedar-arch-findings-card {
-  border-color: rgb(228 228 231);
-  background: rgb(244 244 245);
-  box-shadow: inset 3px 0 0 rgb(var(--cedar-comment-arch-accent) / 0.35);
-}
-
-html[data-theme="day"] .cedar-findings-list .cedar-review-comment-body,
-html[data-theme="day"] .cedar-findings-list .cedar-comment-html p,
-html[data-theme="day"] .cedar-findings-list .cedar-comment-html li,
-html[data-theme="day"] .cedar-findings-list .cedar-suggested-change-body {
-  @apply text-zinc-800;
-}
-
-html[data-theme="day"] .cedar-findings-list .cedar-comment-html a {
-  @apply text-blue-700 hover:text-blue-900;
-}
-
-html[data-theme="day"] .cedar-comment-html pre {
-  @apply border-zinc-200 bg-zinc-100 text-zinc-900;
-}
-
-html[data-theme="day"] .cedar-comment-marker-chip {
-  border-left-color: rgb(var(--cedar-comment-cursor-accent));
-}
-
-html[data-theme="day"] .cedar-comment-marker-chip--arch {
-  border-left-color: rgb(var(--cedar-comment-arch-accent));
-}
-
-html[data-theme="day"] .cedar-review-comment-summary-label {
-  color: rgb(82 82 91);
 }
 
 html[data-theme="day"] .cedar-diff-comment-popover {

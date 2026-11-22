@@ -1,10 +1,26 @@
 import svgPanZoom from "svg-pan-zoom";
 import { getResolvedTheme } from "./theme.js";
 import {
+  applyOverviewSlicesMagnifySteps,
+  capSparseDiagramRawFit,
+  clampOverviewSlicesZoom,
   defaultDiagramZoomAfterFit,
   diagramFitMetrics,
   diagramFitPaddingForTheme,
+  centerOverviewSlicesPanZoom,
+  finalizeOverviewSlicesDiagramZoom,
+  OVERVIEW_SLICES_DEFAULT_MAGNIFY_STEPS,
+  OVERVIEW_SLICES_ZOOM_MAX,
+  OVERVIEW_SLICES_ZOOM_MIN,
+  OVERVIEW_SLICES_ZOOM_STEP,
+  SVG_PAN_ZOOM_OVERVIEW_SLICES_OPTS,
 } from "./diagram-fit.js";
+import {
+  architectureDiagramStageEl,
+  ARCHITECTURE_DIAGRAM_STAGE_SELECTOR,
+} from "./architecture-diagram-shell.js";
+
+export { architectureDiagramStageEl, ARCHITECTURE_DIAGRAM_STAGE_SELECTOR as ARCHITECTURE_DIAGRAM_STAGE };
 
 /** @type {typeof import('mermaid').default | null} */
 let mermaidApi = null;
@@ -86,12 +102,12 @@ const umlFitByWrap = new WeakMap();
 /** @type {WeakMap<HTMLElement, number>} */
 const umlZoomByWrap = new WeakMap();
 
-/** Match Overview · slices (cytoscape toolbar + wheel). */
-export const DIAGRAM_ZOOM_STEP = 1.12;
-export const DIAGRAM_ZOOM_MIN = 0.15;
-/** Max scale for +/-, scroll, fit, and pan-zoom */
-export const DIAGRAM_ZOOM_MAX = 48;
-export const DIAGRAM_ZOOM_FIT_MAX = DIAGRAM_ZOOM_MAX;
+/** @deprecated use OVERVIEW_SLICES_* from diagram-fit.js */
+export const DIAGRAM_ZOOM_STEP = OVERVIEW_SLICES_ZOOM_STEP;
+export const DIAGRAM_ZOOM_MIN = OVERVIEW_SLICES_ZOOM_MIN;
+export const DIAGRAM_ZOOM_MAX = OVERVIEW_SLICES_ZOOM_MAX;
+export const DIAGRAM_ZOOM_FIT_MAX = OVERVIEW_SLICES_ZOOM_MAX;
+export const DIAGRAM_DEFAULT_MAGNIFY_STEPS = OVERVIEW_SLICES_DEFAULT_MAGNIFY_STEPS;
 /** @deprecated use diagramFitPaddingForTheme() */
 export const DIAGRAM_FIT_PADDING = 52;
 
@@ -140,9 +156,11 @@ export function applyMermaidZoomByHostId(hostId, action) {
     } else if (action === "in") {
       syncPanZoomViewport(wrap);
       pz.zoom(clampDiagramZoom(pz.getZoom() * DIAGRAM_ZOOM_STEP));
+      centerArchitecturePanZoom(pz, svg);
     } else if (action === "out") {
       syncPanZoomViewport(wrap);
       pz.zoom(clampDiagramZoom(pz.getZoom() / DIAGRAM_ZOOM_STEP));
+      centerArchitecturePanZoom(pz, svg);
     }
     return true;
   }
@@ -157,8 +175,19 @@ export function applyMermaidZoomByHostId(hostId, action) {
 /**
  * @param {number} z
  */
-function clampDiagramZoom(z) {
-  return Math.min(DIAGRAM_ZOOM_MAX, Math.max(DIAGRAM_ZOOM_MIN, z));
+export function clampDiagramZoom(z) {
+  return clampOverviewSlicesZoom(z);
+}
+
+/** @deprecated use clampDiagramZoom */
+export const clampDiagramZoomForSlices = clampDiagramZoom;
+
+/**
+ * @param {number} fitZoom
+ * @param {number} [steps]
+ */
+export function magnifyDiagramZoomFromFit(fitZoom, steps = DIAGRAM_DEFAULT_MAGNIFY_STEPS) {
+  return applyOverviewSlicesMagnifySteps(fitZoom, steps, DIAGRAM_ZOOM_STEP);
 }
 
 /**
@@ -186,6 +215,41 @@ function nudgeDiagramZoom(wrap, dir) {
 /**
  * @param {SVGSVGElement} svg
  */
+/**
+ * Mermaid sometimes ships a tight viewBox — expand to full rendered bounds before fit.
+ * @param {SVGSVGElement} svg
+ */
+function ensureDiagramSvgViewBox(svg) {
+  try {
+    const bb = svg.getBBox();
+    if (bb.width > 4 && bb.height > 4) {
+      const pad = 12;
+      svg.setAttribute(
+        "viewBox",
+        `${bb.x - pad} ${bb.y - pad} ${bb.width + pad * 2} ${bb.height + pad * 2}`
+      );
+    }
+  } catch {
+    /* SVG not ready */
+  }
+}
+
+/**
+ * Rough Mermaid component count for sparse-fit caps.
+ * @param {SVGSVGElement} svg
+ */
+export function countMermaidComponents(svg) {
+  const classGroups = svg.querySelectorAll("g.classGroup").length;
+  if (classGroups > 0) return classGroups;
+  const flowNodes = svg.querySelectorAll("g.nodes > g.node, g.flowchart-label").length;
+  if (flowNodes > 0) return flowNodes;
+  const actors = svg.querySelectorAll(".actor, g.actor").length;
+  if (actors > 0) return actors;
+  const clusters = svg.querySelectorAll("g.cluster").length;
+  const nodes = svg.querySelectorAll("g.node, .nodeLabel").length;
+  return Math.max(clusters, nodes, 1);
+}
+
 function readSvgNaturalSize(svg) {
   const vb = svg.viewBox?.baseVal;
   if (vb && vb.width > 0 && vb.height > 0) {
@@ -211,6 +275,79 @@ function readSvgNaturalSize(svg) {
 /**
  * @param {SVGSVGElement} svg
  */
+/**
+ * @param {SVGSVGElement} svg
+ */
+function normalizeFlowchartSvg(svg) {
+  svg.style.margin = "0";
+  svg.style.marginInline = "0";
+  svg.style.maxWidth = "none";
+  svg.style.height = "auto";
+  svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+  ensureDiagramSvgViewBox(svg);
+}
+
+/**
+ * Visible graph bounds in SVG user space (same idea as cytoscape elements bbox).
+ * @param {SVGSVGElement} svg
+ */
+function svgDiagramContentBounds(svg) {
+  ensureDiagramSvgViewBox(svg);
+  const vb = readSvgNaturalSize(svg);
+  let x = 0;
+  let y = 0;
+  let w = vb.w;
+  let h = vb.h;
+  try {
+    const bb = svg.getBBox();
+    if (bb.width > 8 && bb.height > 8) {
+      x = bb.x;
+      y = bb.y;
+      w = bb.width;
+      h = bb.height;
+    }
+  } catch {
+    /* SVG not ready */
+  }
+  return { x, y, w, h, vbW: vb.w, vbH: vb.h };
+}
+
+/**
+ * Map user-unit content to stage pixels at svg-pan-zoom zoom 1 (viewport = viewBox meet).
+ * @param {SVGSVGElement} svg
+ * @param {HTMLElement} stage
+ */
+function svgContentSizeInViewportPx(svg, stage) {
+  const { w: vpW, h: vpH } = measureStageInnerSize(stage);
+  const b = svgDiagramContentBounds(svg);
+  if (b.vbW < 8 || b.vbH < 8 || vpW < 8 || vpH < 8) {
+    return { w: 0, h: 0, centerX: 0, centerY: 0 };
+  }
+  const scale = Math.min(vpW / b.vbW, vpH / b.vbH);
+  return {
+    w: b.w * scale,
+    h: b.h * scale,
+    centerX: b.x + b.w / 2,
+    centerY: b.y + b.h / 2,
+  };
+}
+
+/**
+ * @param {SVGSVGElement} svg
+ */
+function diagramContentCenter(svg) {
+  const b = svgDiagramContentBounds(svg);
+  return { x: b.x + b.w / 2, y: b.y + b.h / 2 };
+}
+
+/**
+ * @param {ReturnType<typeof svgPanZoom>} pz
+ * @param {SVGSVGElement} svg
+ */
+function centerArchitecturePanZoom(pz, svg) {
+  centerOverviewSlicesPanZoom(pz, diagramContentCenter(svg));
+}
+
 function normalizeSequenceSvg(svg) {
   svg.style.maxWidth = "none";
   svg.style.height = "auto";
@@ -219,6 +356,7 @@ function normalizeSequenceSvg(svg) {
   if (w > 0 && h > 0 && !svg.getAttribute("viewBox")) {
     svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
   }
+  ensureDiagramSvgViewBox(svg);
 }
 
 /**
@@ -266,8 +404,15 @@ function normalizeClassDiagramSvg(svg, graph) {
 }
 
 function fitDiagramZoomToStage(wrap) {
-  const stage = wrap.querySelector(".diagram-complete-layout");
+  const stage =
+    architectureDiagramStageEl(wrap) ??
+    wrap.querySelector(".diagram-stage-canvas, .cedar-pr-chat-mermaid-stage");
   const svg = wrap.querySelector("svg");
+  const pz = panZoomByWrap.get(wrap);
+  if (pz && stage instanceof HTMLElement && svg instanceof SVGSVGElement) {
+    applyOverviewSlicesPanFit(wrap, svg, pz, defaultFitOptsForWrap(wrap));
+    return;
+  }
   if (!(stage instanceof HTMLElement) || !(svg instanceof SVGSVGElement)) {
     umlZoomByWrap.set(wrap, 1);
     umlFitByWrap.get(wrap)?.();
@@ -278,17 +423,11 @@ function fitDiagramZoomToStage(wrap) {
     requestAnimationFrame(() => fitDiagramZoomToStage(wrap));
     return;
   }
-  const { w: naturalW, h: naturalH } = readSvgNaturalSize(svg);
-  if (naturalW < 8 || naturalH < 8) {
-    umlZoomByWrap.set(wrap, 1);
-  } else {
-    const pad = diagramFitPaddingForTheme();
-    const zoomW = (Math.max(stage.clientWidth - pad * 2, 200)) / naturalW;
-    const zoomH = (Math.max(stage.clientHeight - pad * 2, 280)) / naturalH;
-    const raw = Math.min(zoomW, zoomH);
-  const capped = defaultDiagramZoomAfterFit(raw, getResolvedTheme());
-    umlZoomByWrap.set(wrap, clampFitZoom(capped));
-  }
+  const z =
+    computeDiagramFitZoom(svg, stage, {
+      maximized: wrap.classList.contains("is-diagram-maximized"),
+    }) ?? 1;
+  umlZoomByWrap.set(wrap, clampFitZoom(z));
   umlFitByWrap.get(wrap)?.();
 }
 
@@ -441,8 +580,13 @@ async function ensureMermaid() {
 /**
  * @param {HTMLElement} wrap
  */
-function isCompleteLayoutMermaidWrap(wrap) {
-  return wrap instanceof HTMLElement && Boolean(wrap.querySelector(".diagram-complete-layout"));
+function isArchitectureMermaidWrap(wrap) {
+  if (!(wrap instanceof HTMLElement) || wrap.id === "architecture-read-overview") return false;
+  if (!wrap.hasAttribute("data-diagram-wrap")) return false;
+  return Boolean(
+    architectureDiagramStageEl(wrap) &&
+      wrap.querySelector(".cedar-mermaid-source, .mermaid-rendered")
+  );
 }
 
 /**
@@ -462,10 +606,10 @@ function architecturePanelVisible(root = document) {
  * @param {ParentNode} [root]
  */
 export function remountCompleteLayoutPanZoom(root = document) {
-  if (!architecturePanelVisible(root)) return;
   root.querySelectorAll("[data-diagram-wrap]").forEach((wrap) => {
-    if (!isCompleteLayoutMermaidWrap(wrap)) return;
+    if (!isArchitectureMermaidWrap(wrap)) return;
     const pre =
+      wrap.querySelector(".cedar-architecture-diagram-embed.mermaid-rendered") ??
       wrap.querySelector(".cedar-mermaid-source.mermaid-rendered") ??
       wrap.querySelector("[data-mermaid-source]");
     if (!(pre instanceof HTMLElement) || !pre.querySelector("svg")) return;
@@ -487,10 +631,11 @@ export async function remountMermaidDiagrams(root = document) {
       if (ok && wrap instanceof HTMLElement) {
         const svg = pre.querySelector("svg");
         if (svg instanceof SVGSVGElement) {
-          if (isCompleteLayoutMermaidWrap(wrap)) {
-            if (architecturePanelVisible(root)) mountDiagramPanViewport(wrap, pre);
+          if (isArchitectureMermaidWrap(wrap)) {
+            mountDiagramPanViewport(wrap, pre);
           } else {
-            const stage = wrap.querySelector(".diagram-complete-layout, .diagram-stage-panzoom");
+            const stage =
+              architectureDiagramStageEl(wrap) ?? wrap.querySelector(".diagram-stage-panzoom");
             if (stage?.classList.contains("diagram-stage-panzoom") || wrap.querySelector(".diagram-stage-panzoom")) {
               mountDiagramPanViewport(wrap, pre);
             } else {
@@ -550,6 +695,7 @@ export async function renderArchitectureMermaid(source, pre) {
     const head = graph.trimStart();
     const isClassDiagram = head.startsWith("classDiagram");
     const isSequenceDiagram = head.startsWith("sequenceDiagram");
+    const isFlowchart = /^(flowchart|graph)\b/i.test(head);
     if (svgEl instanceof SVGSVGElement) {
       svgEl.style.display = "block";
       svgEl.style.height = "auto";
@@ -562,8 +708,13 @@ export async function renderArchitectureMermaid(source, pre) {
         normalizeSequenceSvg(svgEl);
       } else if (isClassDiagram) {
         normalizeClassDiagramSvg(svgEl, graph);
+      } else if (isFlowchart) {
+        normalizeFlowchartSvg(svgEl);
       } else {
         svgEl.style.marginInline = "auto";
+      }
+      if (!pre.classList.contains("cedar-file-flow-mermaid")) {
+        ensureDiagramSvgViewBox(svgEl);
       }
     }
     if (pre.classList.contains("cedar-file-flow-mermaid")) {
@@ -584,11 +735,17 @@ export async function renderArchitectureMermaid(source, pre) {
     } else {
       pre.style.minHeight = "12rem";
     }
+    if (svgEl) {
+      pre.dataset.mermaidRenderedSource = String(source ?? "").trim();
+    } else {
+      delete pre.dataset.mermaidRenderedSource;
+    }
     return Boolean(svgEl);
   } catch (err) {
     console.warn("[cedar] mermaid render failed", err);
     pre.textContent = graph;
     pre.classList.add("cedar-mermaid-fallback");
+    delete pre.dataset.mermaidRenderedSource;
     return false;
   }
 }
@@ -653,8 +810,21 @@ export async function mountCompleteLayoutViews(root, views) {
       const source = views[key];
       const pre = root.querySelector(sel);
       if (!pre || !source?.trim()) return;
-      const ok = await renderArchitectureMermaid(source, pre);
+      const rendered = (pre.dataset.mermaidRenderedSource ?? "").trim();
+      const fresh = source.trim();
       const wrap = pre.closest("[data-diagram-wrap]");
+      const existingSvg = pre.querySelector("svg");
+      if (
+        rendered === fresh &&
+        existingSvg instanceof SVGSVGElement &&
+        wrap instanceof HTMLElement
+      ) {
+        mountDiagramPanViewport(wrap, pre);
+        activateDiagramUx(wrap);
+        drawn += 1;
+        return;
+      }
+      const ok = await renderArchitectureMermaid(source, pre);
       const svg = pre.querySelector("svg");
       if (ok && wrap instanceof HTMLElement && svg instanceof SVGSVGElement) {
         mountDiagramPanViewport(wrap, pre);
@@ -713,6 +883,7 @@ function measureStageInnerSize(stage) {
 function syncSvgPanLayer(stage, svg) {
   const { w, h } = measureStageInnerSize(stage);
   if (w < 8 || h < 8) return { w, h };
+  ensureDiagramSvgViewBox(svg);
   svg.setAttribute("width", String(w));
   svg.setAttribute("height", String(h));
   svg.style.width = `${w}px`;
@@ -760,8 +931,10 @@ function sizeDiagramStageHost(stage, host) {
  * @param {{ fit?: boolean }} [opts]
  */
 function syncPanZoomViewport(wrap, opts = {}) {
-  const stage = wrap.querySelector(".diagram-complete-layout");
-  const host = wrap.querySelector(".cedar-mermaid-source, .mermaid-rendered");
+  const stage = architectureDiagramStageEl(wrap);
+  const host = wrap.querySelector(
+    ".cedar-architecture-diagram-embed, .cedar-mermaid-source, .mermaid-rendered"
+  );
   const svg = wrap.querySelector("svg");
   const pz = panZoomByWrap.get(wrap);
   if (!(stage instanceof HTMLElement) || !(host instanceof HTMLElement) || !(svg instanceof SVGSVGElement) || !pz) {
@@ -771,7 +944,7 @@ function syncPanZoomViewport(wrap, opts = {}) {
   if (w > 0 && h > 0) syncSvgPanLayer(stage, svg);
   pz.resize();
   if (opts.fit) {
-    fitDiagramInStage(wrap, svg, pz, defaultFitOptsForWrap(wrap));
+    applyOverviewSlicesPanFit(wrap, svg, pz, defaultFitOptsForWrap(wrap));
   }
 }
 
@@ -781,13 +954,14 @@ function syncPanZoomViewport(wrap, opts = {}) {
  */
 function defaultFitOptsForWrap(wrap) {
   const maximized = wrap.classList.contains("is-diagram-maximized");
+  const { padding } = diagramFitMetrics();
   return {
     fill: maximized,
     fillWidth: false,
     fillHeight: maximized,
     maxGrow: maximized ? 1.12 : 1,
-    padding: diagramFitMetrics().padding,
-    postScale: maximized ? Math.min(0.96, diagramFitMetrics().postScale + 0.06) : diagramFitMetrics().postScale,
+    padding,
+    maximized,
   };
 }
 
@@ -816,7 +990,7 @@ function bindPanZoom(wrap, svg, opts = {}) {
       /* */
     }
   }
-  const stage = wrap.querySelector(".diagram-complete-layout");
+  const stage = architectureDiagramStageEl(wrap);
   const host = svg.parentElement;
   if (stage instanceof HTMLElement && host instanceof HTMLElement) {
     const { w, h } = sizeDiagramStageHost(stage, host);
@@ -824,19 +998,10 @@ function bindPanZoom(wrap, svg, opts = {}) {
   }
   try {
     const pz = svgPanZoom(svg, {
-      zoomScaleSensitivity: 0.22,
-      minZoom: DIAGRAM_ZOOM_MIN,
-      maxZoom: DIAGRAM_ZOOM_MAX,
-      fit: true,
-      center: true,
-      controlIconsEnabled: false,
-      panEnabled: true,
-      zoomEnabled: true,
-      mouseWheelZoomEnabled: true,
-      preventMouseEventsDefault: true,
+      ...SVG_PAN_ZOOM_OVERVIEW_SLICES_OPTS,
     });
     panZoomByWrap.set(wrap, pz);
-    fitDiagramInStage(wrap, svg, pz, {
+    applyOverviewSlicesPanFit(wrap, svg, pz, {
       ...defaultFitOptsForWrap(wrap),
       fill: opts.fillViewport === true,
       fillWidth: opts.fillWidth === true,
@@ -870,7 +1035,7 @@ const resizeObserverByWrap = new WeakMap();
  */
 function wireDiagramStageResize(wrap, svg) {
   if (resizeObserverByWrap.has(wrap)) return;
-  const stage = wrap.querySelector(".diagram-complete-layout");
+  const stage = architectureDiagramStageEl(wrap);
   if (!(stage instanceof HTMLElement)) return;
   let resizeTicking = false;
   const ro = new ResizeObserver(() => {
@@ -891,23 +1056,76 @@ function wireDiagramStageResize(wrap, svg) {
  * @param {ReturnType<typeof svgPanZoom>} pz
  * @param {{ fill?: boolean, fillWidth?: boolean }} [opts]
  */
-function fitDiagramInStage(wrap, svg, pz, opts = {}) {
-  const finishFit = () => {
-    const maximized =
-      opts.fill === true || wrap.classList.contains("is-diagram-maximized");
-    const z = defaultDiagramZoomAfterFit(pz.getZoom(), getResolvedTheme(), { maximized });
-    if (z > 0) {
-      pz.zoom(z);
-      pz.center();
-    }
-  };
+/**
+ * Same fit math as Overview · slices (Cytoscape): stage padding + defaultDiagramZoomAfterFit.
+ * @param {SVGSVGElement} svg
+ * @param {HTMLElement} stage
+ * @param {{ padding?: number, maximized?: boolean, fill?: boolean, fillWidth?: boolean, fillHeight?: boolean, maxGrow?: number }} opts
+ */
+/**
+ * Same fit math as Overview · slices (Cytoscape) — use for Mermaid / SVG pan-zoom everywhere.
+ * @param {SVGSVGElement} svg
+ * @param {HTMLElement} stage
+ * @param {{ padding?: number, maximized?: boolean, fill?: boolean, fillWidth?: boolean, fillHeight?: boolean, maxGrow?: number, variant?: "diagram" | "code-map" }} [opts]
+ */
+export function computeDiagramFitZoom(svg, stage, opts = {}) {
+  const padding = opts.padding ?? diagramFitPaddingForTheme();
+  const { w: sw, h: sh } = measureStageInnerSize(stage);
+  let fitW = Math.max(sw - padding, 120);
+  let fitH = Math.max(sh - padding, 120);
+  if (opts.fill) {
+    const edge = padding / 2;
+    fitW = Math.max(sw - edge, 120);
+    fitH = Math.max(sh - edge, 120);
+  }
+  const contentPx = svgContentSizeInViewportPx(svg, stage);
+  if (contentPx.w < 8 || contentPx.h < 8) return null;
+  /** Same as cytoscape cy.fit(padding): fit content pixel box into padded stage. */
+  let raw = Math.min(fitW / contentPx.w, fitH / contentPx.h);
+  if (opts.fill && opts.maxGrow && opts.maxGrow > 1) {
+    raw = Math.min(raw * opts.maxGrow, DIAGRAM_ZOOM_FIT_MAX);
+  }
+  const variant = opts.variant === "code-map" ? "code-map" : "diagram";
+  const maximized = opts.maximized === true || opts.fill === true;
+  const componentCount = opts.componentCount ?? countMermaidComponents(svg);
+  raw = capSparseDiagramRawFit(raw, componentCount, maximized);
+  return finalizeOverviewSlicesDiagramZoom(raw, {
+    maximized,
+    variant,
+    magnifySteps: opts.defaultMagnifySteps,
+    sparse: {
+      componentCount,
+      naturalW: contentPx.w,
+      naturalH: contentPx.h,
+      stageW: sw,
+      stageH: sh,
+    },
+  });
+}
 
-  const stage = wrap.querySelector(".diagram-complete-layout");
+export { ensureDiagramSvgViewBox };
+
+function applyOverviewSlicesPanFit(wrap, svg, pz, opts = {}) {
+  fitDiagramInStage(wrap, svg, pz, opts);
+  centerArchitecturePanZoom(pz, svg);
+  requestAnimationFrame(() => centerArchitecturePanZoom(pz, svg));
+}
+
+function fitDiagramInStage(wrap, svg, pz, opts = {}) {
+  const maximized =
+    opts.maximized === true || opts.fill === true || wrap.classList.contains("is-diagram-maximized");
+  const fitOpts = { ...opts, maximized };
+
+  const stage = architectureDiagramStageEl(wrap);
   if (!(stage instanceof HTMLElement)) {
     pz.resize();
     pz.fit();
     pz.center();
-    finishFit();
+    const z = finalizeOverviewSlicesDiagramZoom(pz.getZoom(), { maximized });
+    if (z > 0) {
+      pz.zoom(clampDiagramZoom(z));
+      centerArchitecturePanZoom(pz, svg);
+    }
     return;
   }
 
@@ -917,36 +1135,31 @@ function fitDiagramInStage(wrap, svg, pz, opts = {}) {
     syncSvgPanLayer(stage, svg);
   }
   pz.resize();
-  pz.fit();
-  pz.center();
 
-  if (opts.fill) {
-    const pad = (opts.padding ?? diagramFitPaddingForTheme()) / 2;
-    const { w: stageW, h: stageH } = measureStageInnerSize(stage);
-    const fitW = Math.max(stageW - pad, 120);
-    const fitH = Math.max(stageH - pad, 120);
-    const { w: svgW, h: svgH } = readSvgNaturalSize(svg);
-    const laidW = svg.getBoundingClientRect().width || svgW;
-    const laidH = svg.getBoundingClientRect().height || svgH;
-    const boxW = laidW > 8 ? laidW : svgW;
-    const boxH = laidH > 8 ? laidH : svgH;
-    if (boxW >= 8 && boxH >= 8 && fitW >= 8 && fitH >= 8) {
-      const growW = fitW / boxW;
-      const growH = fitH / boxH;
-      const maxGrow = opts.maxGrow ?? 1;
-      const grow = opts.fillWidth
-        ? Math.min(growW, maxGrow)
-        : opts.fillHeight
-          ? Math.min(growH, maxGrow)
-          : Math.min(growW, growH, maxGrow, DIAGRAM_ZOOM_FIT_MAX);
-      if (grow > 1.005) {
-        pz.zoom(pz.getZoom() * grow);
-        pz.center();
-      }
-    }
+  const targetZ = computeDiagramFitZoom(svg, stage, fitOpts);
+  if (targetZ != null && targetZ > 0) {
+    pz.zoom(clampDiagramZoom(targetZ));
+    centerArchitecturePanZoom(pz, svg);
+    return;
   }
 
-  finishFit();
+  const componentCount = countMermaidComponents(svg);
+  const contentPx = svgContentSizeInViewportPx(svg, stage);
+  const { w: sw, h: sh } = measureStageInnerSize(stage);
+  const z = finalizeOverviewSlicesDiagramZoom(pz.getZoom(), {
+    maximized,
+    sparse: {
+      componentCount,
+      naturalW: contentPx.w,
+      naturalH: contentPx.h,
+      stageW: sw,
+      stageH: sh,
+    },
+  });
+  if (z > 0) {
+    pz.zoom(clampDiagramZoom(z));
+    centerArchitecturePanZoom(pz, svg);
+  }
 }
 
 /**
@@ -997,7 +1210,7 @@ function teardownDiagramZoomMounts(wrap) {
  * @param {number} [attempt]
  */
 export function mountDiagramPanViewport(wrap, pre, attempt = 0) {
-  const stage = wrap.querySelector(".diagram-complete-layout");
+  const stage = architectureDiagramStageEl(wrap);
   const svg = pre.querySelector("svg");
   if (!(stage instanceof HTMLElement) || !(svg instanceof SVGSVGElement)) return;
 
@@ -1010,6 +1223,10 @@ export function mountDiagramPanViewport(wrap, pre, attempt = 0) {
   if (layoutView === "events") {
     normalizeSequenceSvg(svg);
     stage.classList.add("diagram-stage-sequence");
+  } else if (layoutView === "flow") {
+    normalizeFlowchartSvg(svg);
+  } else {
+    ensureDiagramSvgViewBox(svg);
   }
 
   pre.style.display = "block";
@@ -1030,6 +1247,7 @@ export function mountDiagramPanViewport(wrap, pre, attempt = 0) {
       requestAnimationFrame(() => mountDiagramPanViewport(wrap, pre, attempt + 1));
       return;
     }
+    ensureDiagramSvgViewBox(svg);
     try {
       const pz = bindPanZoom(wrap, svg, { fillViewport: false, fillWidth: false });
       if (pz) {
@@ -1052,7 +1270,7 @@ export function mountDiagramPanViewport(wrap, pre, attempt = 0) {
  * @param {HTMLElement} pre
  */
 function mountDiagramStageFullWidth(wrap, pre) {
-  const stage = wrap.querySelector(".diagram-complete-layout");
+  const stage = architectureDiagramStageEl(wrap);
   const svg = pre.querySelector("svg");
   if (!(stage instanceof HTMLElement) || !(svg instanceof SVGSVGElement)) return;
 
@@ -1145,7 +1363,7 @@ function wireDiagramToolbars(root) {
       btn.addEventListener("click", () => {
         const layoutHost =
           wrap.closest("#architecture-read") ??
-          wrap.closest("#architecture-read-mermaid, .cedar-complete-layout-views");
+          wrap.closest("#cedar-review-panel-architecture, #architecture-read-mermaid, .cedar-architecture-diagram-stack");
         const action = btn.getAttribute("data-diagram-action");
 
         if (action === "collapse") {

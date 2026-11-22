@@ -1,5 +1,9 @@
 import svgPanZoom from "svg-pan-zoom";
-import { renderArchitectureMermaid } from "./diagram-ux.js";
+import {
+  computeDiagramFitZoom,
+  ensureDiagramSvgViewBox,
+  renderArchitectureMermaid,
+} from "./diagram-ux.js";
 import { getResolvedTheme } from "./theme.js";
 import { codeMapFitMetrics, defaultDiagramZoomAfterFit } from "./diagram-fit.js";
 import {
@@ -42,7 +46,7 @@ const pzByHost = new WeakMap();
 const CODE_MAP_MIN_STAGE_H = 520;
 
 const CODE_MAP_MERMAID_PZ_OPTS = {
-  zoomScaleSensitivity: 0.28,
+  zoomScaleSensitivity: 0.2,
   maxZoom: 12,
   minZoom: 0.08,
   fit: true,
@@ -662,16 +666,27 @@ function markCodeMapUserZoom(stage) {
 
 function fitCodeMapSvg(stage, host, svg, pz) {
   const size = layoutCodeMapViewport(stage, host);
+  ensureDiagramSvgViewBox(svg);
   syncCodeMapSvgViewport(stage, svg, size);
   const shouldRefit = stageHostSizeChanged(stage, host);
   pz.resize();
   if (!shouldRefit || userAdjustedCodeMapZoom(stage)) return;
 
+  const expanded = document.body.classList.contains("cedar-code-map-expanded");
+  const targetZ = computeDiagramFitZoom(svg, stage, {
+    variant: "code-map",
+    maximized: expanded,
+  });
+  if (targetZ != null && targetZ > 0) {
+    pz.zoom(Math.min(12, Math.max(0.08, targetZ)));
+    pz.center();
+    return;
+  }
+
   pz.fit();
   pz.center();
-
   const theme = getResolvedTheme();
-  const z = defaultDiagramZoomAfterFit(pz.getZoom(), theme, { variant: "code-map" });
+  const z = defaultDiagramZoomAfterFit(pz.getZoom(), theme, { variant: "code-map", maximized: expanded });
   if (z > 0) {
     pz.zoom(z);
     pz.center();
@@ -965,10 +980,11 @@ async function mountCodeMapSvgStage(stage, artifact) {
   if (!(svg instanceof SVGSVGElement)) return false;
   svg.classList.add("cedar-code-map-svg");
   layoutCodeMapViewport(stage, wrap);
+  ensureDiagramSvgViewBox(svg);
   syncCodeMapSvgViewport(stage, svg, measureStageInner(stage));
   try {
     const pz = svgPanZoom(svg, {
-      zoomScaleSensitivity: 0.35,
+      zoomScaleSensitivity: 0.2,
       maxZoom: 10,
       minZoom: 0.05,
       fit: true,

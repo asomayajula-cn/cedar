@@ -75,7 +75,7 @@ const DIFF_BASE = {
  * @returns {DiffOutputFormat}
  */
 export function defaultDiffFormat() {
-  return "line-by-line";
+  return "side-by-side";
 }
 
 /**
@@ -121,8 +121,11 @@ export function refreshDiffRendersForTheme(root = document) {
     const b64 = article.getAttribute("data-patch-b64");
     const body = article.querySelector("[data-file-body]");
     const activeMode = article.querySelector(".cedar-gh-diff-mode.is-active");
+    const activeModeAttr = activeMode?.getAttribute("data-diff-mode");
     const format =
-      activeMode?.getAttribute("data-diff-mode") === "side-by-side" ? "side-by-side" : defaultDiffFormat();
+      activeModeAttr === "side-by-side" || activeModeAttr === "line-by-line"
+        ? /** @type {DiffOutputFormat} */ (activeModeAttr)
+        : defaultDiffFormat();
     if (!path || !b64 || !(body instanceof HTMLElement)) return;
     try {
       const patch = patchFromB64(b64);

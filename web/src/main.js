@@ -2,6 +2,8 @@ import "diff2html/bundles/css/diff2html.min.css";
 import "./style.css";
 import "./theme-night.css";
 import "./theme-day.css";
+import "./theme-comments-night.css";
+import "./theme-comments-day.css";
 import { initAppTheme } from "./theme.js";
 import { mountApp } from "./app.js";
 

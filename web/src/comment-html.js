@@ -137,12 +137,12 @@ export function renderReviewCommentHtml(raw) {
   const lead = split[1].trim();
   const suggestion = split[2].trim();
   const leadHtml = lead
-    ? `<div class="cedar-review-comment-lead cedar-comment-html">${renderCommentBodyHtml(lead)}</div>`
+    ? `<div class="cedar-review-comment-lead cedar-comment-html cedar-comment-theme">${renderCommentBodyHtml(lead)}</div>`
     : "";
   const suggHtml = suggestion
     ? `<aside class="cedar-suggested-change" aria-label="Suggested change">
         <p class="cedar-suggested-change-label">Suggested change</p>
-        <div class="cedar-suggested-change-body cedar-comment-html">${renderCommentBodyHtml(suggestion)}</div>
+        <div class="cedar-suggested-change-body cedar-comment-html cedar-comment-theme">${renderCommentBodyHtml(suggestion)}</div>
       </aside>`
     : "";
   return `${leadHtml}${suggHtml}`;
